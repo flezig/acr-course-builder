@@ -229,11 +229,68 @@
   font-weight: 400;
   color: var(--muted);
 }
-.outcome-criteria {
-  margin: 6px 0 0;
-  padding-left: 16px;
-  color: var(--muted);
-  font-size: 13px;
+/* Результаты обучения — карточки в духе GigaCowork. Селекторы длинные, потому что
+   этот файл подключается раньше global.css, а там у списков .program-intent точки. */
+.plan-workspace .program-intent .outcome-group h4 span {
+  margin-left: 4px;
+  color: var(--theme-muted, #626872);
+  font-weight: 500;
+}
+.plan-workspace .program-intent .outcome-group ul.outcome-list {
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  list-style: none;
+}
+.plan-workspace .program-intent .outcome-group ul.outcome-list > li {
+  display: block;
+  margin: 0;
+  padding: 16px 20px;
+  border: 1px solid var(--theme-border, #e6e8ee);
+  border-radius: 16px;
+  background: var(--surface, #fff);
+}
+.plan-workspace .program-intent .outcome-group .outcome-statement {
+  margin: 0;
+  color: var(--theme-foreground, #24272c);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.plan-workspace .program-intent .outcome-group .outcome-checks {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--theme-border, #eceef3);
+}
+.plan-workspace .program-intent .outcome-group .outcome-checks > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--theme-muted, #626872);
+  font-size: 12px;
+}
+.plan-workspace .program-intent .outcome-group .outcome-checks ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-workspace .program-intent .outcome-group .outcome-checks li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  color: var(--theme-foreground, #363c45);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.plan-workspace .program-intent .outcome-group .outcome-checks svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--theme-blue-ink, #2b5bd7);
 }
 .pending-field {
   color: var(--muted);
