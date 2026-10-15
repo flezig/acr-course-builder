@@ -100,7 +100,8 @@ export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
     (typeof requirement === 'string' && !!requirement.trim()) ||
     s.requirements.references.some((r) => r.id === outcome.requirement_id);
   const reviewProblems = [
-    missing && 'Формулировка повторяет тему. Укажите наблюдаемое действие через «Редактировать».',
+    missing &&
+      'Укажите через «Редактировать», что учащийся сможет сделать после обучения: например, определить риск или обезличить данные.',
     !outcome.description.trim() &&
       'Формулировка результата отсутствует. Добавьте её через «Редактировать».',
     !outcomeCriteria(s, id).length &&
@@ -162,7 +163,7 @@ export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
       <p className="column-caption">Наблюдаемое действие учащегося</p>
       <p className="full-outcome-text">
         {missing
-          ? 'Наблюдаемое действие не задано: исходная формулировка повторяет тему.'
+          ? 'Наблюдаемое действие не задано: указано только название темы, без описания того, что учащийся сможет сделать после обучения.'
           : outcome.description}
       </p>
       <div className="outcome-actions">

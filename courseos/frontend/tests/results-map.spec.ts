@@ -109,6 +109,10 @@ test('Результат — точка входа; обучение и оцен
   await expect(page.locator('.assessment-column .chain-card button').first()).toBeFocused();
   await page.getByText('Показать исходный запрос', { exact: true }).click();
   await expect(page.locator('.request-full')).toHaveText(original.requirements.request);
+  await page.getByText('Покрытие требований · 1', { exact: true }).click();
+  await expect(
+    page.locator('.result-requirements').getByText(original.requirements.request, { exact: true }),
+  ).toHaveCount(1);
   await page.locator('.outcome-list-item').nth(2).click();
   await expect(page.locator('.selected-result-heading')).toContainText('Результат 03 из 5');
   await page.screenshot({ path: '../reports/results-outcome-workspace.png', fullPage: true });

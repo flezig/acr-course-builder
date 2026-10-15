@@ -704,7 +704,7 @@ export function ResultsMap({
                           {currentRequirements.map((r) => (
                             <div key={r.id}>
                               <strong>{r.title}</strong>
-                              <p>{r.description}</p>
+                              {r.sourceId !== 'request' && <p>{r.description}</p>}
                             </div>
                           ))}
                           <p>
