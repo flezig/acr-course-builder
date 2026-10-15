@@ -13,10 +13,8 @@
   position: relative;
   padding: 40px 32px 28px;
   border-radius: 28px;
-  background: linear-gradient(135deg, #b8f0e6 0%, #c3e2f7 50%, #d3dcff 100%);
-}
-:root[data-theme='dark'] .sign-in-card {
-  background: linear-gradient(135deg, #12302b 0%, #15283a 50%, #1d2240 100%);
+  background: var(--page-gradient);
+  box-shadow: var(--glass-shadow, none);
 }
 .sign-in-card h2 {
   margin: 0 0 6px;
