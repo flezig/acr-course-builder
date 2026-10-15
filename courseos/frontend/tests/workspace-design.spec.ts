@@ -13,7 +13,7 @@ test('Course OS: замечания, версии и адаптивность 14
       name: 'ИИ в работе учителя 36 часов · учителя · повышение квалификации',
     })
     .click();
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Замысел программы', exact: true })).toBeVisible();
   const planUrl = page.url();
   const status = page.getByRole('region', { name: 'Состояние программы' });
@@ -86,7 +86,7 @@ test('Course OS: замечания, версии и адаптивность 14
   const longTitle =
     'Искусственный интеллект в профессиональной деятельности учителя: проектирование образовательных материалов и проверка результатов обучения';
   await page.getByLabel('Название / ИТ-тема').fill(longTitle);
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('heading', { name: longTitle, exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Замысел программы', exact: true })).toBeVisible();
   for (const width of [1440, 1280, 768, 390]) {

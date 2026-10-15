@@ -22,6 +22,8 @@ import {
   FlaskConical,
   PanelLeftClose,
   PanelLeftOpen,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApi, useCourse, useCourses } from '../entities/course/api/provider';
@@ -50,6 +52,20 @@ function LayoutContent() {
     () => localStorage.getItem('courseos-sidebar-collapsed') === 'true',
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
+    document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
+  );
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', theme === 'dark' ? '#101010' : '#ffffff');
+    try {
+      localStorage.setItem('courseos-theme', theme);
+    } catch {
+      // The theme still works when browser storage is unavailable.
+    }
+  }, [theme]);
   const sidebarRef = useRef<HTMLElement>(null);
   const menuRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -198,7 +214,7 @@ function LayoutContent() {
             dismissKey={location.key}
           >
             <summary className="program-trigger" aria-label="Выбрать курс">
-              <span>
+              <span title={courses.data?.find((item) => item.course_id === courseId)?.title}>
                 {courses.data?.find((item) => item.course_id === courseId)?.title ||
                   'Выберите сохранённый курс'}
               </span>
@@ -293,6 +309,14 @@ function LayoutContent() {
             Программы <span>/</span> {courseId ? 'Карточка программы' : 'Новый курс'}
           </span>
           <div className="topbar-actions">
+            <button
+              className="theme-toggle"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
+              title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <Badge tone={api.mode === 'demo' ? 'amber' : 'green'}>
               {api.mode === 'demo' ? 'Демоданные' : 'LIVE · Данные сервера'}
             </Badge>

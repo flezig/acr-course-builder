@@ -13,7 +13,7 @@ test('Основания в интерфейсе, JSON и MD относятся 
       exact: true,
     })
     .click();
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.locator('.goal-statement')).toBeVisible();
   const id = page.url().match(/courses\/([^/]+)/)![1];
   const stored = await page.evaluate(
@@ -31,17 +31,18 @@ test('Основания в интерфейсе, JSON и MD относятся 
       .detail.replace(/(\d) ч(?=[\s.,]|$)/g, '$1 уч. ч.'),
   );
   await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Основания каждого элемента' })).toBeVisible();
-  await page.getByText('Все элементы и их основания', { exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Почему курс устроен так' })).toBeVisible();
+  await page.getByRole('button', { name: /^Практика/ }).click();
+  await page.getByLabel('Выберите решение', { exact: true }).selectOption('activity-topic-4');
   const basis = page.locator('[id="basis-activity-topic-4"]');
-  await basis.locator('summary').click();
+  await basis.getByText('Источники и подробности', { exact: false }).click();
   await expect(basis).toContainText('Примеры с подцелями');
-  await expect(basis).toContainText('partial');
-  await expect(basis).toContainText('Основание не найдено; требуется проверка');
+  await expect(basis).toContainText('Подтверждено частично');
+  await expect(basis).toContainText(
+    'Этого пока недостаточно, чтобы считать решение проверенным для вашей группы.',
+  );
   const oldDownload = page.waitForEvent('download');
-  await page
-    .getByRole('button', { name: 'Скачать основания этой версии · MD', exact: true })
-    .click();
+  await page.getByRole('button', { name: 'Скачать пояснения · MD', exact: true }).click();
   const old = await contents(await oldDownload);
   expect(old).toContain(stored.skeleton_hash);
   await page.getByRole('checkbox', { name: /Я проверил цель/ }).check();
@@ -68,18 +69,20 @@ test('Основания в интерфейсе, JSON и MD относятся 
   await expect(page.locator('.save-feedback')).toBeVisible();
   await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Утвердить каркас', exact: true })).toBeDisabled();
-  await page.getByText('Все элементы и их основания', { exact: true }).click();
-  await page.locator('[id="basis-goal"] > summary').click();
-  await expect(page.locator('[id="basis-goal"]')).toContainText('stale');
+  await page.getByRole('button', { name: /^Цель и участники/ }).click();
+  await page.getByLabel('Выберите решение', { exact: true }).selectOption('goal');
+  await expect(page.locator('[id="basis-goal"]')).toContainText('Проверить заново');
   await page.goto(`/courses/${id}/plan?version=${stored.course_version}#review`);
   const archiveDownload = page.waitForEvent('download');
-  await page
-    .getByRole('button', { name: 'Скачать основания этой версии · MD', exact: true })
-    .click();
+  await page.getByRole('button', { name: 'Скачать пояснения · MD', exact: true }).click();
   expect(await contents(await archiveDownload)).toBe(old);
   await page.screenshot({ path: '../reports/rationale-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('button', { name: 'Открыть навигацию', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: '../reports/rationale-mobile.png', fullPage: true, animations: 'disabled' });
+  await page.screenshot({
+    path: '../reports/rationale-mobile.png',
+    fullPage: true,
+    animations: 'disabled',
+  });
 });

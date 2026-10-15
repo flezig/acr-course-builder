@@ -10,7 +10,7 @@ async function createPython(page: Page, incomplete = false) {
     .getByRole('button', { name: 'Первые шаги в Python 16 часов · школьники · общеразвивающая' })
     .click();
   if (incomplete) await page.getByLabel('Входной уровень', { exact: true }).fill('');
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   if (incomplete) {
     await page
       .getByLabel('Какой входной уровень слушателей?', { exact: true })
@@ -48,7 +48,7 @@ test('Полный путь: уточнения, правка каркаса, а
     .getByLabel('Текст референса', { exact: true })
     .fill('Практика не менее восьми часов. Переменные, условия и циклы проверяются в проекте.');
   await page.getByRole('button', { name: 'Добавить источник' }).click();
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Уточните 1 параметров' })).toBeVisible();
   await page.getByLabel('Какой входной уровень слушателей?').fill('Без опыта программирования');
   await page.getByRole('button', { name: 'Сохранить ответы и построить каркас' }).click();
@@ -58,7 +58,7 @@ test('Полный путь: уточнения, правка каркаса, а
   await expect(page.locator('.approval-panel > button.primary')).toBeDisabled();
   await page.getByRole('button', { name: 'Редактировать каркас' }).click();
   await page
-    .getByLabel('Цель', { exact: true })
+    .getByRole('textbox', { name: 'Цель', exact: true })
     .fill('Создать небольшую программу с переменными, условиями и циклом; объяснить решение.');
   await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
   await expect(page.getByRole('heading', { name: 'Редактирование каркаса' })).toHaveCount(0);
@@ -145,7 +145,7 @@ test('DevOps: подтвердить56дней, увидеть64/32, решит�
       name: 'DevOps: Linux → CI/CD 256 часов · стажировка · календарный конфликт',
     })
     .click();
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await page.getByRole('link', { name: 'Календарь', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Календарь и учебная нагрузка' })).toBeVisible();
   await page.getByRole('button', { name: 'Изменить календарь' }).click();
@@ -233,7 +233,7 @@ test('Длинная новая программа500часов, прокрут�
   await page.getByText('Даты и учебная нагрузка', { exact: true }).click();
   await page.getByLabel('Календарных дней', { exact: true }).fill('250');
   await page.getByLabel('Максимум часов в учебный день').fill('4');
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Обоснование программы' })).toBeVisible();
   await expect(page.locator('.plan-table tbody tr')).toHaveCount(33);
   await page.setViewportSize({ width: 1024, height: 768 });
@@ -261,16 +261,16 @@ test('Конфликт двух вкладок сохраняет чернови
 }) => {
   const id = await createPython(page);
   await page.getByRole('button', { name: 'Редактировать каркас' }).click();
-  await page.getByLabel('Цель', { exact: true }).fill('Мой несохранённый черновик первой вкладки');
+  await page.getByRole('textbox', { name: 'Цель', exact: true }).fill('Мой несохранённый черновик первой вкладки');
   const other = await context.newPage();
   await other.goto(`/courses/${id}/plan`);
   await other.getByRole('button', { name: 'Редактировать каркас' }).click();
-  await other.getByLabel('Цель', { exact: true }).fill('Изменение второй вкладки');
+  await other.getByRole('textbox', { name: 'Цель', exact: true }).fill('Изменение второй вкладки');
   await other.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
   await expect(other.getByRole('heading', { name: 'Редактирование каркаса' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Версия устарела' })).toBeVisible();
-  await expect(page.getByLabel('Цель', { exact: true })).toHaveValue(
+  await expect(page.getByRole('textbox', { name: 'Цель', exact: true })).toHaveValue(
     'Мой несохранённый черновик первой вкладки',
   );
   page.once('dialog', (dialog) => dialog.dismiss());
@@ -295,17 +295,17 @@ test('HTTP-сбой: нет скрытого demo; request_id переживае
   await page
     .getByRole('button', { name: 'Первые шаги в Python 16 часов · школьники · общеразвивающая' })
     .click();
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Сервер недоступен' })).toBeVisible();
   await page.reload();
   await expect(page.getByText('LIVE · Данные сервера')).toBeVisible();
   await expect(page.getByLabel('Название / ИТ-тема')).toHaveValue('Первые шаги в Python');
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Сервер недоступен' })).toBeVisible();
   expect(ids).toHaveLength(2);
   expect(ids[0]).toBe(ids[1]);
   await page.getByLabel('Объём, часы', { exact: false }).fill('17');
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Сервер недоступен' })).toBeVisible();
   expect(ids).toHaveLength(3);
   expect(ids[2]).not.toBe(ids[1]);

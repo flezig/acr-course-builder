@@ -1,0 +1,112 @@
+/* Keep primary navigation in view; only the course picker needs its own list. */
+.app-shell .sidebar {
+  height: 100dvh;
+  padding: 20px 16px 12px;
+}
+.sidebar .brand {
+  margin-bottom: 14px;
+}
+.sidebar .workspace-switcher {
+  margin-bottom: 10px;
+}
+.sidebar .workspace {
+  padding: 6px 8px;
+}
+.sidebar .new-course {
+  margin-bottom: 14px;
+}
+.sidebar .program-section {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+.sidebar .program-trigger {
+  min-height: 44px;
+  padding: 8px 10px;
+}
+.sidebar .program-trigger > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.sidebar .nav-item {
+  min-height: 40px;
+  padding: 8px 10px;
+  margin: 0;
+}
+.sidebar .sidebar-bottom {
+  padding-top: 12px;
+}
+.sidebar .sidebar-note {
+  padding: 8px;
+}
+.sidebar .sidebar-note p {
+  font-size: 10px;
+  line-height: 1.4;
+}
+.sidebar .reset-button {
+  min-height: 28px;
+  padding: 4px 0;
+  margin: 4px 0;
+}
+.sidebar .user-profile {
+  padding-top: 8px;
+}
+@media (max-height: 740px) {
+  .app-shell .sidebar {
+    padding-top: 12px;
+    padding-bottom: 10px;
+  }
+  .sidebar .brand,
+  .sidebar .workspace-switcher,
+  .sidebar .new-course {
+    margin-bottom: 8px;
+  }
+  .sidebar-collapse {
+    top: 12px;
+  }
+  .sidebar .sidebar-note p,
+  .sidebar .user-profile small {
+    display: none;
+  }
+  .sidebar .nav-item {
+    min-height: 36px;
+    padding: 6px 10px;
+  }
+}
+@media (max-height: 600px) {
+  .sidebar .workspace small {
+    display: none;
+  }
+  .sidebar .workspace {
+    padding: 4px 8px;
+  }
+  .sidebar .sidebar-label {
+    margin-bottom: 4px;
+  }
+  .sidebar .program-section {
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+  }
+  .sidebar .sidebar-bottom {
+    padding-top: 6px;
+  }
+}
+@media (max-height: 520px) {
+  .sidebar .workspace-switcher,
+  .sidebar .user-profile {
+    display: none;
+  }
+  .sidebar .brand-logo {
+    max-width: 110px;
+  }
+}
+@media (min-width: 801px) {
+  .sidebar-collapsed .sidebar {
+    padding-top: 62px;
+  }
+  .sidebar-collapsed .sidebar .nav-item,
+  .sidebar-collapsed .sidebar .new-course {
+    padding: 10px;
+  }
+}

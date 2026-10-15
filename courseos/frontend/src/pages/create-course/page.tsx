@@ -1,20 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, BookOpen, Sparkles, Plus, Check } from 'lucide-react';
+import { ArrowRight, BookOpen, Sparkles, Check } from 'lucide-react';
 import { useApi, useCommand, useCourses } from '../../entities/course/api/provider';
 import { inputSchema, type Requirements } from '../../entities/course/model/schema';
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
 import { ReferenceEditor } from '../../features/upload-reference/reference-editor';
 import { Badge, ErrorMessage, Field, Notice, Panel, statuses } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
+import './create-course.css';
 export function CreateCoursePage() {
   const { api } = useApi();
   const command = useCommand();
   const courses = useCourses();
   const navigate = useNavigate();
   const [presetId, setPresetId] = useState('');
+  const formRef = useRef<HTMLFormElement>(null);
   const form = useForm<Requirements>({
     resolver: zodResolver(inputSchema),
     defaultValues: (() => {
@@ -49,6 +51,10 @@ export function CreateCoursePage() {
   const choose = (id: string) => {
     setPresetId(id);
     form.reset(structuredClone(presets.find((p) => p.id === id)!.requirements));
+    formRef.current?.querySelector('.create-request')?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'start',
+    });
   };
   const fillFromText = () => {
     const request = form.getValues('request');
@@ -60,156 +66,167 @@ export function CreateCoursePage() {
       form.setValue('template_id', 'acr_professional', { shouldDirty: true });
   };
   return (
-    <>
+    <div className="create-workspace">
       <header className="page-heading create-heading">
         <div className="eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО МЕТОДИСТА</div>
-        <h1>От запроса — к проверяемой программе</h1>
-        <p>
-          Проверьте результаты, последовательность, часы и оценивание
-          <br className="desktop" /> до создания материалов.
-        </p>
+        <h1>От запроса к проверяемой программе</h1>
+        <p>Проверьте результаты, последовательность, часы и оценивание до создания материалов.</p>
       </header>
-      <div className="value-strip">
-        <BookOpen size={22} />
-        <div>
-          <strong>
-            CourseOS — проверяемый каркас и согласованный комплект образовательной программы
-          </strong>
-          <span>Решения и утверждение остаются за методистом</span>
-        </div>
-      </div>
-      <section className="examples">
-        <div className="section-label">
-          <span>НАЧНИТЕ С ВАШЕГО ЗАПРОСА ИЛИ ПРИМЕРА</span>
-          <Badge>Демонстрационные данные</Badge>
-        </div>
-        <div className="example-grid">
-          {presets.map((p) => (
-            <button
-              type="button"
-              className={`example ${presetId === p.id ? 'selected' : ''}`}
-              key={p.id}
-              onClick={() => choose(p.id)}
-            >
-              <span className="example-icon">
-                {presetId === p.id ? <Check size={18} /> : <BookOpen size={18} />}
-              </span>
-              <strong>{p.label}</strong>
-              <small>{p.description}</small>
-            </button>
-          ))}
-        </div>
-      </section>
-      <form onSubmit={submit} className="create-layout">
-        <div>
-          <Panel
-            title="Опишите будущую программу"
-            subtitle="Известные параметры сохранятся. Пробелы уточним до каркаса."
-          >
-            <Field label="Запрос методиста">
-              <textarea
-                {...form.register('request')}
-                rows={4}
-                placeholder="Для кого курс, чему нужно научить, сколько часов и какие ограничения важно учесть?"
-              />
-            </Field>
-            <button type="button" className="link-button" onClick={fillFromText}>
-              <Sparkles size={15} /> Перенести явно указанные часы и тип из текста
-            </button>
-            <div className="form-grid">
-              <Field label="Название / ИТ-тема">
-                <input {...form.register('title')} placeholder="Например, основы веб-разработки" />
-              </Field>
-              <Field label="Тип программы">
-                <select {...form.register('template_id')}>
-                  <option value="unknown">Уточнить перед каркасом</option>
-                  <option value="acr_general">Общеразвивающая</option>
-                  <option value="acr_professional">Повышение квалификации</option>
-                </select>
-              </Field>
-              <Field label="Аудитория">
-                <input {...form.register('audience')} placeholder="Кто будет учиться?" required />
-              </Field>
-              <Field label="Входной уровень">
-                <input
-                  {...form.register('entry_level')}
-                  placeholder="Можно оставить для уточнения"
-                />
-              </Field>
-              <Field label="Объём, часы" hint="От 16 до 500; поддерживаются дробные часы">
-                <input {...form.register('total_hours')} inputMode="decimal" placeholder="72" />
-              </Field>
-              <Field label="Форма обучения">
-                <input {...form.register('delivery')} placeholder="Очно, смешанно, стажировка…" />
-              </Field>
-            </div>
-            <Field label="Цель">
-              <textarea
-                {...form.register('goal')}
-                rows={2}
-                placeholder="Какое действие сможет выполнить слушатель?"
-              />
-            </Field>
-            <div className="form-grid">
-              <Field label="Итоговая аттестация">
-                <input {...form.register('assessment')} placeholder="Проект, экзамен, портфолио…" />
-              </Field>
-              <Field label="Срок / календарь">
-                <input
-                  {...form.register('calendar.description')}
-                  placeholder="Если нет точных дат — уточним"
-                />
-              </Field>
-            </div>
-            <Field label="Дополнительные ограничения">
-              <textarea
-                {...form.register('constraints')}
-                rows={2}
-                placeholder="Минимум практики, инструменты, данные, ограничения нагрузки"
-              />
-            </Field>
-            <details>
-              <summary>Даты и учебная нагрузка</summary>
-              <div className="form-grid">
-                <Field label="Начало">
-                  <input type="date" {...form.register('calendar.start')} />
-                </Field>
-                <Field label="Календарных дней">
-                  <input
-                    type="number"
-                    min="0"
-                    {...form.register('calendar.calendar_days', { valueAsNumber: true })}
-                  />
-                </Field>
-                <Field label="Максимум часов в учебный день">
-                  <input {...form.register('calendar.daily_limit')} inputMode="decimal" />
-                </Field>
-              </div>
-              <label className="checkbox">
-                <input type="checkbox" {...form.register('calendar.weekdays_only')} /> Учиться
-                только по будням
-              </label>
-              <label className="checkbox">
-                <input type="checkbox" {...form.register('calendar.same_units')} /> Объём и дневная
-                нагрузка указаны в одинаковых единицах
-              </label>
-              <label className="checkbox">
-                <input type="checkbox" {...form.register('calendar.confirmed')} /> Даты и учебные
-                дни подтверждены методистом
-              </label>
-            </details>
-          </Panel>
-          <Panel
-            title="Референсы и основания"
-            subtitle="Сохраните требования, прошлую программу или полезный фрагмент."
-          >
-            <ReferenceEditor
-              references={form.watch('references')}
-              onChange={(value) => form.setValue('references', value, { shouldDirty: true })}
+      <form ref={formRef} onSubmit={submit} className="create-layout">
+        <Panel
+          className="create-request"
+          title="Опишите будущую программу"
+          subtitle="Начните с темы и аудитории. Остальное уточним."
+        >
+          <Field label="Запрос методиста">
+            <textarea
+              {...form.register('request')}
+              rows={4}
+              placeholder="Для кого курс, чему нужно научить, сколько часов и какие ограничения важно учесть?"
             />
-          </Panel>
-        </div>
-        <aside className="create-aside">
+          </Field>
+          <div className="form-grid">
+            <Field label="Название / ИТ-тема">
+              <input {...form.register('title')} placeholder="Например, основы веб-разработки" />
+            </Field>
+            <Field label="Аудитория">
+              <input {...form.register('audience')} placeholder="Кто будет учиться?" required />
+            </Field>
+          </div>
+          {Object.values(form.formState.errors).length > 0 && (
+            <Notice tone="error">
+              {form.formState.errors.title?.message ||
+                form.formState.errors.total_hours?.message ||
+                'Проверьте введённые поля.'}
+            </Notice>
+          )}
+          <ErrorMessage error={command.error} />
+          <div className="create-submit">
+            <button className="primary" disabled={command.isPending} type="submit">
+              {command.isPending ? 'Запрос сохраняется…' : 'Отправить запрос'}
+              <ArrowRight size={18} />
+            </button>
+            <small>Далее — уточнения недостающих данных или создание каркаса.</small>
+          </div>
+        </Panel>
+        <section className="examples" aria-labelledby="examples-title">
+          <h2 id="examples-title">Начните с примера</h2>
+          <p id="examples-hint">Выбор заполнит поля. Их можно изменить до отправки.</p>
+          <small className="examples-source">Демонстрационные сценарии</small>
+          <div className="example-grid">
+            {presets.map((p) => (
+              <button
+                type="button"
+                className={`example ${presetId === p.id ? 'selected' : ''}`}
+                key={p.id}
+                aria-pressed={presetId === p.id}
+                aria-describedby="examples-hint"
+                onClick={() => choose(p.id)}
+              >
+                <span className="example-icon" aria-hidden="true">
+                  {presetId === p.id ? <Check size={18} /> : <BookOpen size={18} />}
+                </span>
+                <span className="example-copy">
+                  <strong>{p.label}</strong>
+                  <small>{p.description}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+        <Panel
+          className="create-parameters"
+          title="Параметры программы"
+          subtitle="Заполните то, что уже известно. Пробелы уточним до каркаса."
+        >
+          <button type="button" className="link-button" onClick={fillFromText}>
+            <Sparkles size={15} /> Перенести явно указанные часы и тип из текста
+          </button>
+          <div className="form-grid">
+            <Field label="Тип программы">
+              <select {...form.register('template_id')}>
+                <option value="unknown">Уточнить перед каркасом</option>
+                <option value="acr_general">Общеразвивающая</option>
+                <option value="acr_professional">Повышение квалификации</option>
+              </select>
+            </Field>
+            <Field label="Входной уровень">
+              <input {...form.register('entry_level')} placeholder="Можно оставить для уточнения" />
+            </Field>
+            <Field label="Объём, часы" hint="От 16 до 500; поддерживаются дробные часы">
+              <input {...form.register('total_hours')} inputMode="decimal" placeholder="72" />
+            </Field>
+            <Field label="Форма обучения">
+              <input {...form.register('delivery')} placeholder="Очно, смешанно, стажировка…" />
+            </Field>
+          </div>
+          <Field label="Цель">
+            <textarea
+              {...form.register('goal')}
+              rows={2}
+              placeholder="Какое действие сможет выполнить слушатель?"
+            />
+          </Field>
+          <div className="form-grid">
+            <Field label="Итоговая аттестация">
+              <input {...form.register('assessment')} placeholder="Проект, экзамен, портфолио…" />
+            </Field>
+            <Field label="Срок / календарь">
+              <input
+                {...form.register('calendar.description')}
+                placeholder="Если нет точных дат — уточним"
+              />
+            </Field>
+          </div>
+          <Field label="Дополнительные ограничения">
+            <textarea
+              {...form.register('constraints')}
+              rows={2}
+              placeholder="Минимум практики, инструменты, данные, ограничения нагрузки"
+            />
+          </Field>
+          <details>
+            <summary>Даты и учебная нагрузка</summary>
+            <div className="form-grid">
+              <Field label="Начало">
+                <input type="date" {...form.register('calendar.start')} />
+              </Field>
+              <Field label="Календарных дней">
+                <input
+                  type="number"
+                  min="0"
+                  {...form.register('calendar.calendar_days', { valueAsNumber: true })}
+                />
+              </Field>
+              <Field label="Максимум часов в учебный день">
+                <input {...form.register('calendar.daily_limit')} inputMode="decimal" />
+              </Field>
+            </div>
+            <label className="checkbox">
+              <input type="checkbox" {...form.register('calendar.weekdays_only')} /> Учиться только
+              по будням
+            </label>
+            <label className="checkbox">
+              <input type="checkbox" {...form.register('calendar.same_units')} /> Объём и дневная
+              нагрузка указаны в одинаковых единицах
+            </label>
+            <label className="checkbox">
+              <input type="checkbox" {...form.register('calendar.confirmed')} /> Даты и учебные дни
+              подтверждены методистом
+            </label>
+          </details>
+        </Panel>
+        <Panel
+          className="create-references"
+          title="Референсы и основания"
+          subtitle="Сохраните требования, прошлую программу или полезный фрагмент."
+        >
+          <ReferenceEditor
+            references={form.watch('references')}
+            onChange={(value) => form.setValue('references', value, { shouldDirty: true })}
+          />
+        </Panel>
+        <aside className="create-guidance">
           <Panel title="Сначала каркас">
             <ol className="steps">
               <li className="current">
@@ -255,26 +272,13 @@ export function CreateCoursePage() {
                 как настройки.
               </p>
             </div>
-            {Object.values(form.formState.errors).length > 0 && (
-              <Notice tone="error">
-                {form.formState.errors.title?.message ||
-                  form.formState.errors.total_hours?.message ||
-                  'Проверьте введённые поля.'}
-              </Notice>
-            )}
-            <ErrorMessage error={command.error} />
-            <button className="primary full" disabled={command.isPending} type="submit">
-              {command.isPending ? 'Запрос сохраняется…' : 'Создать каркас'}
-              <ArrowRight size={18} />
-            </button>
-            <small className="muted">
-              {api.mode === 'demo'
-                ? 'Детерминированная симуляция. Модель не вызывается.'
-                : 'Запрос будет отправлен на настроенный сервер.'}
-            </small>
           </Panel>
         </aside>
       </form>
+      <p className="create-caption">
+        CourseOS помогает собрать проверяемый каркас и комплект программы. Решения и утверждение
+        остаются за методистом.
+      </p>
       {!!courses.data?.length && (
         <Panel title="Ваши сохранённые курсы">
           <div className="course-list">
@@ -299,6 +303,6 @@ export function CreateCoursePage() {
         </Panel>
       )}
       <ErrorMessage error={courses.error} />
-    </>
+    </div>
   );
 }

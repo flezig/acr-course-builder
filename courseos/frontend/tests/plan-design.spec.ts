@@ -4,7 +4,7 @@ const python = 'Первые шаги в Python 16 часов · школьни�
 async function create(page: Page, preset = teacher) {
   await page.goto('/');
   await page.getByRole('button', { name: preset, exact: true }).click();
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Замысел программы', exact: true })).toBeVisible();
 }
 async function tab(page: Page, name: string) {

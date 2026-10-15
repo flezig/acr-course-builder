@@ -1,0 +1,77 @@
+/* Legacy colours keep their light fallback; these shared tones cover every screen. */
+:root {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --theme-paper: #101010;
+  --theme-subtle: #181818;
+  --theme-raised: #222222;
+  --theme-line: #383838;
+  --theme-dim: #919191;
+  --theme-muted: #b0b0b0;
+  --theme-foreground: #ededed;
+  --theme-border: #303030;
+  --theme-border-strong: #777777;
+  --theme-blue-surface: #192333;
+  --theme-blue-ink: #a8c7fa;
+  --theme-green-surface: #182a22;
+  --theme-green-ink: #9fd3b4;
+  --theme-amber-surface: #302619;
+  --theme-amber-ink: #e6bf84;
+  --theme-red-surface: #321f20;
+  --theme-red-ink: #efaaaa;
+  --theme-purple-surface: #2a2034;
+  --theme-purple-ink: #cfb3ef;
+}
+.theme-toggle {
+  width: 34px;
+  min-height: 34px;
+  padding: 7px;
+  flex-shrink: 0;
+  color: var(--ink);
+  background: transparent;
+  border-color: var(--border);
+}
+:root[data-theme='dark'] .brand-logo {
+  filter: invert(1);
+  mix-blend-mode: screen;
+}
+:root[data-theme='dark'] .results-workspace {
+  --map-selection: #a8c7fa;
+  --map-selection-bg: #192333;
+  --map-warning: #e6bf84;
+}
+:root[data-theme='dark'] .value-strip {
+  background: var(--theme-subtle);
+}
+:root[data-theme='dark'] :is(.rationale-groups, .rationale-next-step) {
+  background: var(--theme-subtle);
+}
+:root[data-theme='dark'] .rationale-groups button:hover {
+  background: var(--theme-raised);
+}
+:root[data-theme='dark'] .rationale-groups button[aria-pressed='true'] {
+  background: var(--theme-paper);
+  color: var(--ink);
+  border-color: var(--border);
+}
+:root[data-theme='dark']
+  :is(
+    .rationale-card h4,
+    .rationale-groups button,
+    .rationale-groups button span,
+    .rationale-source blockquote
+  ) {
+  color: var(--muted);
+}
+:root[data-theme='dark']
+  :is(.rationale-card-heading, .rationale-next-step, .rationale-source blockquote) {
+  border-color: var(--border);
+}
+:root[data-theme='dark'] .rationale-next-step h4 {
+  color: var(--ink);
+}
+:root[data-theme='dark'] .rationale-source-note {
+  color: var(--theme-amber-ink);
+}

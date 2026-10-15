@@ -11,7 +11,7 @@ async function openMap(page: Page, preset = 'python') {
           : 'ИИ в работе учителя 36 часов · учителя · повышение квалификации',
     })
     .click();
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page).toHaveURL(/courses\//);
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await page.goto(`/courses/${id}/map`);

@@ -6,7 +6,7 @@ test('Calendar decisions require fresh consent and reflow', async ({ page }) => 
       name: 'ИИ в работе учителя 36 часов · учителя · повышение квалификации',
     })
     .click();
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await page.getByRole('link', { name: 'Календарь', exact: true }).click();
   await expect(page.locator('.calendar-form')).toHaveCount(0);
   await page.getByRole('button', { name: 'Изменить календарь' }).click();
@@ -64,7 +64,7 @@ test('Empty, partial, invalid and sufficient calendar', async ({ page }) => {
       name: 'ИИ в работе учителя 36 часов · учителя · повышение квалификации',
     })
     .click();
-  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await page.getByRole('link', { name: 'Календарь', exact: true }).click();
   await expect(page.locator('.calendar-panel')).toContainText('Заполните параметры для расчёта');
   await page.getByRole('button', { name: 'Изменить календарь' }).click();

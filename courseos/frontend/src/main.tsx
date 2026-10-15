@@ -12,6 +12,8 @@ import { ComparisonPage } from './pages/comparison/page';
 import './app/styles/global.css';
 import './app/styles/workspace.css';
 import './app/styles/results-map.css';
+import './app/styles/theme.css';
+import './app/styles/navigation.css';
 const router = createBrowserRouter([
   {
     element: <Layout />,
