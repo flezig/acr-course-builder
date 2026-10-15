@@ -1,4 +1,5 @@
 import { outcomeAssessmentCount } from '../../entities/course/model/findings';
+import { isProfessionalStandardReference } from '../../entities/course/model/professional-standards';
 import type { Skeleton } from '../../entities/course/model/schema';
 import { assessmentLabels, kindLabels } from '../../entities/course/model/presets';
 export type MapNode = {
@@ -51,17 +52,22 @@ export function buildMap(s: Skeleton) {
       ref?.text ||
       (typeof field === 'string' ? field : '') ||
       'Формулировка требования отсутствует в данных';
+    // Профстандарт — справочный документ: курс опирается на часть его функций,
+    // поэтому отсутствие прямой связи с результатами не считается проблемой.
+    const gap =
+      !(ref && isProfessionalStandardReference(ref)) &&
+      !s.outcomes.some((o) => o.requirement_id === id);
     nodes.push({
       id: `requirement:${id}`,
       sourceId: id,
       column: 0,
       title: id === 'request' ? 'Исходный запрос' : ref?.name || 'Требование программы',
       originalTitle: id === 'request' ? 'Исходный запрос' : ref?.name || 'Требование программы',
-      warnings: s.outcomes.some((o) => o.requirement_id === id) ? [] : ['Не связан с результатами'],
+      warnings: gap ? ['Не связан с результатами'] : [],
       type: 'Требование',
       description,
-      status: s.outcomes.some((o) => o.requirement_id === id) ? '' : 'Не связан с результатами',
-      gap: !s.outcomes.some((o) => o.requirement_id === id),
+      status: gap ? 'Не связан с результатами' : '',
+      gap,
     });
   }
   for (const o of s.outcomes) {
