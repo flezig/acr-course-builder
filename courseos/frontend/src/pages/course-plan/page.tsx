@@ -804,15 +804,7 @@ export function PlanPage() {
                           : 'Автоматическая проверка'}
                       </small>
                       <h3>{explanation.title}</h3>
-                      <p>
-                        {explanation.category === 'conflicts' &&
-                        skeleton.conflicts.some((conflict) => conflict.status === 'open') &&
-                        skeleton.conflicts
-                          .filter((conflict) => conflict.status === 'open')
-                          .every((conflict) => conflict.id === 'calendar-unknown')
-                          ? 'Не хватает подтверждённых данных для проверки календаря. Уточните условия ниже.'
-                          : explanation.conclusion}
-                      </p>
+                      <p>{explanation.conclusion}</p>
                       <Badge
                         tone={
                           explanation.status === 'blocked'
@@ -848,39 +840,6 @@ export function PlanPage() {
                           ревизии; новое наблюдение хранится отдельно.
                         </Notice>
                       ))}
-                    {explanation.category === 'conflicts' &&
-                      skeleton.conflicts
-                        .filter((conflict) => conflict.status === 'open')
-                        .map((conflict) => (
-                          <section className="evidence-block review" key={conflict.id}>
-                            <h4>
-                              {conflict.id === 'calendar-unknown'
-                                ? 'Не хватает данных о календаре'
-                                : conflict.id === 'calendar-capacity'
-                                  ? 'Объём программы не помещается в календарь'
-                                  : 'Несовместимые условия'}
-                            </h4>
-                            <p>
-                              <strong>Требование: </strong>
-                              {displayHours(conflict.expected)}
-                            </p>
-                            <p>
-                              <strong>Текущие условия: </strong>
-                              {displayHours(conflict.actual)}
-                            </p>
-                            <p>
-                              <strong>Расчёт: </strong>
-                              {displayHours(conflict.calculation)}
-                            </p>
-                            {!!conflict.options.length && (
-                              <p>
-                                <strong>Варианты решения: </strong>
-                                {conflict.options.map((option) => option.title).join('; ')}.
-                                Выберите вариант в разделе «Календарь».
-                              </p>
-                            )}
-                          </section>
-                        ))}
                     <details
                       className={`evidence-block ${explanation.status === 'verified' ? 'calculation' : 'review'}`}
                     >
