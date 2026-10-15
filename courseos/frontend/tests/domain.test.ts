@@ -1,7 +1,11 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { DemoCourseApi } from '../src/entities/course/api/demo-course-api';
 import { presets } from '../src/entities/course/model/presets';
-import { makeMaterials, makeSkeleton, refreshExplanations } from '../src/entities/course/model/factory';
+import {
+  makeMaterials,
+  makeSkeleton,
+  refreshExplanations,
+} from '../src/entities/course/model/factory';
 import { hourTotals, auditSnapshot, calendarCalculation } from '../src/entities/course/model/rules';
 import { canonicalJson, contentHash, sumHours, formatHours } from '../src/shared/lib/decimal';
 import {
@@ -18,6 +22,7 @@ import {
   observationChecklist,
 } from '../src/entities/course/model/checklist';
 import { buildCoverage } from '../src/pages/competencies/coverage-model';
+import { agentFindings } from '../src/entities/course/model/findings';
 import { buildMap } from '../src/pages/competencies/map-model';
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -967,6 +972,12 @@ describe('Блокеры календаря и инструментов', () => 
     );
     const toolCheck = () =>
       requestChecklist(snapshot).find((item) => item.title.startsWith('Инструменты и версии'))!;
+    expect(toolCheck().status).toBe('passed');
+    // В демо версии подтверждены, поэтому находку о версиях моделируем снятием подтверждения.
+    snapshot.skeleton.tools![0] = { ...snapshot.skeleton.tools![0], status: 'unconfirmed' };
+    snapshot.audit.issues.push(
+      agentFindings(snapshot.skeleton).find((issue) => issue.id === 'tool-versions')!,
+    );
     const finding = snapshot.audit.issues.find((issue) => issue.id === 'tool-versions')!;
     expect(toolCheck().status).toBe('manual_review');
     finding.blocking = true;

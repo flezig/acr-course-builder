@@ -268,10 +268,14 @@ describe('Находки агента и вердикт', () => {
     );
   });
 
-  it('профстандарт и версии инструментов без источника помечены, коды не выдуманы', () => {
+  it('коды профстандарта не выдуманы, версии инструментов подтверждены источником', () => {
     const skeleton = makeSkeleton(requirementsFor('bank'));
     expect(skeleton.outcomes.every((o) => o.professional_standard_code === null)).toBe(true);
-    expect(skeleton.tools!.every((t) => t.status === 'unconfirmed' && t.version === '')).toBe(true);
+    expect(
+      skeleton.tools!.every(
+        (t) => t.status === 'confirmed' && t.version && t.source && t.checked_at,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -298,23 +302,26 @@ describe('Проверка программы — зеркало чек-лист
     ['demo', 'ready', 'failed', 'problem'],
     ['live', 'ready', 'unavailable', 'problem'],
     ['live', 'ready', 'ready', 'passed'],
-  ] as const)('экспорт: %s, JSON %s, DOCX %s → %s', async (mode, jsonStatus, docxStatus, status) => {
-    const result = await api.command({
-      action: 'start',
-      payload: requirementsFor('bank'),
-      request_id: crypto.randomUUID(),
-    });
-    vi.advanceTimersByTime(500);
-    const snapshot = (await api.get(result.course_id)).snapshot!;
-    snapshot.mode = mode;
-    snapshot.export_manifest.find((file) => file.format === 'json')!.status = jsonStatus;
-    snapshot.export_manifest.find((file) => file.format === 'docx')!.status = docxStatus;
-    const exportCheck = generalRequirements(snapshot).find((item) => item.id === 'exports')!;
-    expect(exportCheck.status).toBe(status);
-    if (mode === 'demo' && docxStatus === 'unavailable') {
-      expect(exportCheck.evidence).toContain('.docx — не входит в проверку демо');
-    }
-  });
+  ] as const)(
+    'экспорт: %s, JSON %s, DOCX %s → %s',
+    async (mode, jsonStatus, docxStatus, status) => {
+      const result = await api.command({
+        action: 'start',
+        payload: requirementsFor('bank'),
+        request_id: crypto.randomUUID(),
+      });
+      vi.advanceTimersByTime(500);
+      const snapshot = (await api.get(result.course_id)).snapshot!;
+      snapshot.mode = mode;
+      snapshot.export_manifest.find((file) => file.format === 'json')!.status = jsonStatus;
+      snapshot.export_manifest.find((file) => file.format === 'docx')!.status = docxStatus;
+      const exportCheck = generalRequirements(snapshot).find((item) => item.id === 'exports')!;
+      expect(exportCheck.status).toBe(status);
+      if (mode === 'demo' && docxStatus === 'unavailable') {
+        expect(exportCheck.evidence).toContain('.docx — не входит в проверку демо');
+      }
+    },
+  );
 
   it('bank: профстандарт учитывается один раз в общих требованиях', async () => {
     const result = await api.command({

@@ -43,9 +43,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
   const uncovered = skeleton.outcomes.filter(
     (o) => !skeleton.topics.some((t) => t.id !== 'topic-final' && t.outcome_ids.includes(o.id)),
   );
-  const underAssessed = skeleton.outcomes.filter(
-    (o) => outcomeAssessmentCount(skeleton, o.id) < 2,
-  );
+  const underAssessed = skeleton.outcomes.filter((o) => outcomeAssessmentCount(skeleton, o.id) < 2);
   const templateSections =
     requirements.template_id === 'acr_general' ? generalSections : professionalSections;
   const emptySections = snapshot.sections.filter((section) => !section.content.trim());
@@ -251,8 +249,10 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
           ],
           [
             'Инструменты и версии библиотек актуальны на 2026 год',
-            'manual_review',
-            `${skeleton.tools?.length || 0} инструментов перечислены; версии требуют подтверждения по источнику.`,
+            issue('tool-versions') ? 'manual_review' : 'passed',
+            issue('tool-versions')
+              ? `${skeleton.tools?.length || 0} инструментов перечислены; версии требуют подтверждения по источнику.`
+              : `${skeleton.tools?.length || 0} инструментов с версией, источником и датой проверки.`,
             toIssue('tool-versions', { screen: 'plan', hash: 'tools' }),
           ],
           [

@@ -223,21 +223,45 @@ export const bankProject = [
   'Критерии защиты: расчёты воспроизводятся на тех же данных; очистка объяснена; вывод о различии сегментов сопровождается оговоркой; записка понятна руководителю без пояснений автора; персональных данных нет.',
 ].join('\n');
 
+// Версии сверены с PyPI и endoflife.date на дату checked_at.
 export const bankTools: NonNullable<Skeleton['tools']> = [
-  { name: 'Python', purpose: 'Язык скриптов и расчётов' },
-  { name: 'pandas', purpose: 'Загрузка, очистка и группировка выгрузок' },
-  { name: 'matplotlib', purpose: 'Графики для отчёта' },
-  { name: 'seaborn', purpose: 'Статистические графики' },
-  { name: 'Jupyter Notebook', purpose: 'Среда для расчётов и сдачи проекта' },
-  { name: 'SQLite', purpose: 'Учебная база кредитов для запросов' },
-].map((tool) => ({
-  ...tool,
-  // Версии не подставляются без источника: в репозитории нет подтверждённых данных о релизах.
-  version: '',
-  source: '',
-  checked_at: '',
-  status: 'unconfirmed' as const,
-}));
+  {
+    name: 'Python',
+    purpose: 'Язык скриптов и расчётов',
+    version: '3.15.0',
+    source: 'https://endoflife.date/python',
+  },
+  {
+    name: 'pandas',
+    purpose: 'Загрузка, очистка и группировка выгрузок',
+    version: '3.0.6',
+    source: 'https://pypi.org/project/pandas/',
+  },
+  {
+    name: 'matplotlib',
+    purpose: 'Графики для отчёта',
+    version: '3.11.2',
+    source: 'https://pypi.org/project/matplotlib/',
+  },
+  {
+    name: 'seaborn',
+    purpose: 'Статистические графики',
+    version: '0.13.2',
+    source: 'https://pypi.org/project/seaborn/',
+  },
+  {
+    name: 'Jupyter Notebook',
+    purpose: 'Среда для расчётов и сдачи проекта',
+    version: '7.6.3',
+    source: 'https://pypi.org/project/notebook/',
+  },
+  {
+    name: 'SQLite',
+    purpose: 'Учебная база кредитов для запросов',
+    version: '3.54.0',
+    source: 'https://endoflife.date/sqlite',
+  },
+].map((tool) => ({ ...tool, checked_at: '2026-10-16', status: 'confirmed' as const }));
 
 export const bankPandasSlides = [
   {
