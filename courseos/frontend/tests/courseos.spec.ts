@@ -210,6 +210,7 @@ test('Рабочие экраны1440/1024, клавиатура, увеличе
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('link', { name: 'Карта результатов', exact: true }).click();
   await page.getByRole('textbox', { name: 'Поиск по карте' }).fill('цик');
+  await page.getByRole('button', { name: 'Перейти к таблице' }).click();
   await expect(page.locator('.outcome-list-item')).toHaveCount(1);
   await page.getByRole('textbox', { name: 'Поиск по карте' }).press('Tab');
   expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');

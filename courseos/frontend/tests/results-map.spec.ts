@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import type { Skeleton } from '../src/entities/course/model/schema';
 
-async function openMap(page: Page, preset = 'python') {
+async function openMap(page: Page, preset = 'python', mode = 'overview') {
   await page.goto('/');
   await page
     .getByRole('button', {
@@ -15,7 +15,11 @@ async function openMap(page: Page, preset = 'python') {
   await expect(page).toHaveURL(/courses\//);
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await page.goto(`/courses/${id}/map`);
-  await expect(page.locator('.outcome-list-item')).toHaveCount(preset === 'python' ? 3 : 5);
+  await expect(page.locator('.map-card').first()).toBeVisible();
+  if (mode === 'overview') {
+    await page.getByRole('button', { name: 'Перейти к таблице' }).click();
+    await expect(page.locator('.outcome-list-item')).toHaveCount(preset === 'python' ? 3 : 5);
+  }
   return id;
 }
 
@@ -70,6 +74,7 @@ async function fixture(page: Page, id: string, fixture: 'gaps' | 'shared' | 'lar
     { id, fixture },
   );
   await page.reload();
+  await page.getByRole('button', { name: 'Перейти к таблице' }).click();
 }
 const panel = (page: Page) => page.getByRole('complementary', { name: 'Детали карточки' });
 
@@ -144,8 +149,7 @@ test('Полная карта: компактные карточки, прямы
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await openMap(page, 'teachers');
-  await page.getByRole('button', { name: 'Показать всю карту' }).click();
+  await openMap(page, 'teachers', 'map');
   await expect(page.locator('.map-card')).toHaveCount(27);
   // Курсор не должен остаться над карточкой: наведение тоже показывает её связи.
   await page.mouse.move(0, 0);
@@ -186,7 +190,7 @@ test('Полная карта: компактные карточки, прямы
   await page.screenshot({ path: '../reports/results-full-map-clean.png', fullPage: true });
 
   await page.getByRole('button', { name: 'Вписать в экран' }).click();
-  await page.getByRole('button', { name: 'К результатам' }).click();
+  await page.getByRole('button', { name: 'Перейти к таблице' }).click();
   await expect(page.locator('.outcome-list-item[aria-current=true]')).toHaveCount(1);
   expect(errors).toEqual([]);
 });
@@ -230,6 +234,7 @@ test('Пробелы сохраняют контекст; общая оценк�
   }, id);
   expect(stored).toEqual({ version: 2, approved: false, outcomes: ['outcome-2', 'outcome-1'] });
   await page.reload();
+  await page.getByRole('button', { name: 'Перейти к таблице' }).click();
   await expect(page.locator('.outcome-list-item').first()).not.toContainText('Нет оценивания');
   await page.screenshot({ path: '../reports/results-with-gaps.png', fullPage: true });
 });
@@ -318,6 +323,7 @@ test('Пустая программа и архивная ревизия дос�
     'Актуальная 2',
   );
   await page.goto(`/courses/${id}/map?version=1`);
+  await page.getByRole('button', { name: 'Перейти к таблице' }).click();
   await expect(page.locator('.outcome-list-item')).toHaveCount(3);
   await expect(
     page.getByRole('button', { name: 'Изменить связи результата', exact: true }),
@@ -385,6 +391,7 @@ test('Правка результата: сравнение, отклонени�
   await current.getByRole('button', { name: 'Подтвердить проверку результата' }).click();
   await expect(page.locator('.outcome-list-item').first()).toContainText('Проверен');
   await page.reload();
+  await page.getByRole('button', { name: 'Перейти к таблице' }).click();
   await expect(page.locator('.outcome-list-item').first()).toContainText('Проверен');
   await current.getByRole('button', { name: 'Редактировать', exact: true }).click();
   await dialog.getByLabel('Короткое название').fill('Печать данных');
@@ -393,10 +400,12 @@ test('Правка результата: сравнение, отклонени�
   await expect(current.locator('.result-formulation > h2')).toHaveText('Печать данных');
   await expect(page.locator('.outcome-list-item').first()).toContainText('Нужна проверка');
   await page.reload();
+  await page.getByRole('button', { name: 'Перейти к таблице' }).click();
   await page.getByRole('button', { name: 'Отменить последнее изменение' }).click();
   await expect(current.locator('.result-formulation > h2')).toHaveText('Вывод данных');
   await expect(page.locator('.outcome-list-item').first()).toContainText('Проверен');
   await page.reload();
+  await page.getByRole('button', { name: 'Перейти к таблице' }).click();
   await expect(current.locator('.result-formulation > h2')).toHaveText('Вывод данных');
   const learningCount = await current.locator('.learning-column .chain-card').count();
   const assessmentCount = await current.locator('.assessment-column .chain-card').count();
@@ -404,6 +413,7 @@ test('Правка результата: сравнение, отклонени�
   await expect(current.locator('.assessment-column h3')).toContainText(`${assessmentCount} способ`);
   await page.screenshot({ path: '../reports/results-review-updated.png', fullPage: true });
   await page.goto(`/courses/${id}/map?version=1`);
+  await page.getByRole('button', { name: 'Перейти к таблице' }).click();
   await expect(page.getByRole('button', { name: 'Редактировать', exact: true })).toHaveCount(0);
 });
 

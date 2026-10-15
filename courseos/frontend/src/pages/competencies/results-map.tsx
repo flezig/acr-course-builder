@@ -76,7 +76,7 @@ export function ResultsMap({
     setFeedback('Изменение сохранено в новой ревизии.');
   }
   const { nodes, edges } = useMemo(() => buildMap(snapshot.skeleton), [snapshot.skeleton]);
-  const [mode, setMode] = useState<'overview' | 'map'>('overview');
+  const [mode, setMode] = useState<'overview' | 'map'>('map');
   const [search, setSearch] = useState(initialSearch);
   const [kind, setKind] = useState('');
   const [gapFilter, setGapFilter] = useState<GapFilter>('');
@@ -526,7 +526,7 @@ export function ResultsMap({
               }}
             >
               {mode === 'overview' ? <Network size={16} /> : <List size={16} />}
-              {mode === 'overview' ? 'Показать всю карту' : 'К результатам'}
+              {mode === 'overview' ? 'Показать всю карту' : 'Перейти к таблице'}
             </button>
           </div>
           {filtering && (
