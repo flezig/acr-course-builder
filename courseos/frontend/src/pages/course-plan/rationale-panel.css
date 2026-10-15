@@ -246,21 +246,6 @@
 .rationale-source-note {
   color: #8a5d21;
 }
-.rationale-record dl {
-  margin: 14px 0 0;
-}
-.rationale-record dl > div + div {
-  margin-top: 12px;
-}
-.rationale-record dt {
-  font-size: 12px;
-  color: var(--muted);
-}
-.rationale-record dd {
-  margin: 3px 0 0;
-  font-size: 13px;
-  white-space: pre-line;
-}
 .rationale-empty {
   text-align: center;
   padding: 28px 16px;

@@ -234,54 +234,6 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
                             группы.
                           </p>
                         )}
-                        <details className="rationale-record">
-                          <summary>Полная запись проверки</summary>
-                          <dl>
-                            {[
-                              ['Решение', record.decision],
-                              ['Зачем предложено', record.purpose],
-                              ['Другие варианты', record.alternatives],
-                              ['Надёжность основания', record.trust],
-                              ['Что проверено', record.verification],
-                              ['Что проверить дальше', record.next_check],
-                              ['Кто проверил', record.reviewer || 'Проверяющий пока не указан'],
-                              ['Дата проверки', record.checked_at || 'Пока не указана'],
-                              ['Где в источнике', record.coordinate || 'Место не указано'],
-                            ].map(([label, value]) => (
-                              <div key={label}>
-                                <dt>{label}</dt>
-                                <dd>{readable(value)}</dd>
-                              </div>
-                            ))}
-                            <div>
-                              <dt>Когда добавлено</dt>
-                              <dd>
-                                {record.phase === 'design'
-                                  ? 'При составлении плана'
-                                  : 'При последующей проверке'}
-                              </dd>
-                            </div>
-                            {source && (
-                              <div>
-                                <dt>Источник прочитан</dt>
-                                <dd>
-                                  {source.provenance?.access === 'read'
-                                    ? 'Да, в указанном объёме'
-                                    : 'Чтение не подтверждено'}
-                                  . {source.scope}
-                                </dd>
-                              </div>
-                            )}
-                            <div>
-                              <dt>Код записи для сверки</dt>
-                              <dd>
-                                <code>
-                                  {record.id} · версия {record.version}
-                                </code>
-                              </dd>
-                            </div>
-                          </dl>
-                        </details>
                       </section>
                     );
                   })}
