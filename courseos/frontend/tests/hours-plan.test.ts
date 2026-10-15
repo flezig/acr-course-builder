@@ -344,7 +344,7 @@ describe('Проверка программы — зеркало чек-лист
     const byTitle = Object.fromEntries(request.map((item) => [item.title, item]));
     expect(byTitle['В начале — вводный блок по основам Python'].status).toBe('passed');
     expect(byTitle['Профстандарт в области данных: название и код существуют'].status).toBe(
-      'not_checked',
+      'problem',
     );
     expect(byTitle['Объём ровно 72 ч, календарь на 4 недели']).toMatchObject({
       status: 'problem',

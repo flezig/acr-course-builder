@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw, ArrowLeft } from 'lucide-react';
@@ -19,6 +19,8 @@ import {
   Panel,
   statuses,
 } from '../../shared/ui/ui';
+import { decisionQueue, programVerdict } from '../../entities/course/model/rules';
+import { issueState } from '../course-plan/decision-queue';
 import './audit.css';
 const checklistStatuses: Record<ChecklistItem['status'], string> = {
   passed: 'Пройдено',
@@ -32,7 +34,18 @@ export function AuditPage() {
   const location = useLocation();
   const section = location.hash.slice(1);
   const tab =
-    section === 'audit-observation' || section === 'audit-checks' ? section : 'audit-checklist';
+    section.startsWith('issue-') || section === 'audit-findings'
+      ? 'audit-findings'
+      : section === 'audit-observation' || section === 'audit-checks'
+        ? section
+        : 'audit-checklist';
+  useEffect(() => {
+    if (!section.startsWith('issue-') || !query.data?.snapshot) return;
+    const frame = requestAnimationFrame(() =>
+      document.getElementById(section)?.scrollIntoView({ block: 'center' }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [section, query.data]);
   const form = useForm<{ message: string; element_id: string; blocking: boolean }>({
     mode: 'onChange',
     defaultValues: { message: '', element_id: 'why-reachability', blocking: false },
@@ -87,6 +100,7 @@ export function AuditPage() {
         {(
           [
             ['audit-checklist', 'Чек-лист', count('problem')],
+            ['audit-findings', 'Находки аудита', programVerdict(snapshot).open],
             ['audit-checks', 'Технические проверки', 0],
             ['audit-observation', 'Замечание методиста', snapshot.observations.length],
           ] as const
@@ -103,6 +117,27 @@ export function AuditPage() {
           </Link>
         ))}
       </nav>
+      <section
+        id="audit-findings"
+        className="audit-section"
+        aria-label="Находки аудита"
+        hidden={tab !== 'audit-findings'}
+      >
+        <p>Блокируют утверждение: {programVerdict(snapshot).open}</p>
+        {decisionQueue(snapshot.audit.issues).map((issue) => (
+          <article id={`issue-${issue.id}`} key={issue.id} tabIndex={-1}>
+            <Panel title={issue.message}>
+              <Badge tone={issueState(issue).tone}>{issueState(issue).label}</Badge>
+              <p>
+                {issue.evidence || `Ожидается: ${issue.expected}. Фактически: ${issue.actual}.`}
+              </p>
+              <p>{issue.suggested_fix}</p>
+              {issue.decision && <p>Причина решения: {issue.decision.reason}</p>}
+            </Panel>
+          </article>
+        ))}
+        {!snapshot.audit.issues.length && <Notice>Находок аудита нет.</Notice>}
+      </section>
       <section
         id="audit-checklist"
         className="audit-section"

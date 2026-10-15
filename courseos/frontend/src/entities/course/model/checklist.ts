@@ -59,7 +59,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
   const docx = snapshot.export_manifest.find((file) => file.format === 'docx');
   const json = snapshot.export_manifest.find((file) => file.format === 'json');
   const demoDocxUnavailable = snapshot.mode === 'demo' && docx?.status === 'unavailable';
-  return [
+  return withFindingStatus(snapshot, [
     {
       id: 'hours-topics-module',
       title: 'Сумма тем равна модулю',
@@ -158,7 +158,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
     {
       id: 'standard-exists',
       title: 'Профстандарт и его код существуют',
-      status: !professional ? 'passed' : standardConfirmed ? 'passed' : 'not_checked',
+      status: !professional ? 'passed' : standardStatus(snapshot),
       evidence: !professional
         ? 'Для общеразвивающей программы привязка к профстандарту не требуется.'
         : standardConfirmed
@@ -193,7 +193,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
         'Язык материалов проверяет методист при вычитке; названия инструментов остаются латиницей.',
       target: { screen: 'materials', hash: '' },
     },
-  ];
+  ]);
 }
 
 type Check = [
@@ -575,17 +575,44 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
                     'Для произвольного запроса темы — заготовка; содержание уточняет эксперт.',
                   ],
                 ];
-  return checks.map(([title, status, evidence, target], index) => ({
-    id: `request-${index + 1}`,
-    title,
-    status,
-    evidence,
-    target: target || plan,
-  }));
+  return withFindingStatus(
+    snapshot,
+    checks.map(([title, status, evidence, target], index) => ({
+      id: `request-${index + 1}`,
+      title,
+      status,
+      evidence,
+      target: target || plan,
+    })),
+  );
 }
 
 function standardStatus(snapshot: Snapshot): ChecklistStatus {
   return snapshot.skeleton.outcomes.some((o) => o.professional_standard_code)
     ? 'passed'
     : 'not_checked';
+}
+
+// Находки и решения аудита имеют приоритет перед локальной оценкой пункта.
+function withFindingStatus(snapshot: Snapshot, items: ChecklistItem[]): ChecklistItem[] {
+  return items.map((item) => {
+    const findings = snapshot.audit.issues.filter((issue) =>
+      item.id === 'hours-daily'
+        ? issue.element_id === 'calendar'
+        : item.id === 'standard-exists'
+          ? issue.id === 'professional-standard'
+          : item.target.hash === `issue-${issue.id}`,
+    );
+    const blocking = findings.filter((issue) => issue.blocking && !issue.decision);
+    const decisions = findings.filter((issue) => issue.decision);
+    return {
+      ...item,
+      status: blocking.length ? 'problem' : decisions.length ? 'passed' : item.status,
+      evidence: blocking.length
+        ? blocking.map((issue) => issue.evidence || issue.message).join(' ')
+        : decisions.length
+          ? decisions.map((issue) => `Оставлено как есть: ${issue.decision!.reason}`).join(' ')
+          : item.evidence,
+    };
+  });
 }

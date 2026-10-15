@@ -815,3 +815,29 @@ describe('Часы и конкретные замечания программы
     ]);
   });
 });
+
+describe('Статусы отчёта проверки', () => {
+  it('показывает блокер профстандарта и сохранённую причину решения', async () => {
+    const result = await api.command({
+      action: 'start',
+      payload: preset('bank'),
+      request_id: crypto.randomUUID(),
+    });
+    vi.advanceTimersByTime(500);
+    const snapshot = (await api.get(result.course_id)).snapshot!;
+    const finding = snapshot.audit.issues.find((issue) => issue.id === 'professional-standard')!;
+    expect(finding.blocking).toBe(true);
+    expect(
+      generalRequirements(snapshot).find((item) => item.id === 'standard-exists')?.status,
+    ).toBe('problem');
+    finding.blocking = false;
+    finding.decision = {
+      reason: 'Проверено вручную по оригиналу',
+      actor: 'Методист',
+      at: new Date().toISOString(),
+    };
+    const item = generalRequirements(snapshot).find((item) => item.id === 'standard-exists')!;
+    expect(item.status).toBe('passed');
+    expect(item.evidence).toContain(finding.decision.reason);
+  });
+});
