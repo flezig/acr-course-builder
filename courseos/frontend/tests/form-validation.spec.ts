@@ -134,7 +134,10 @@ test('Material editing and hour changes validate before saving or preview', asyn
     })
     .check();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
-  await page.getByRole('link', { name: 'Проверить материалы', exact: true }).click();
+  await page
+    .locator('.verdict')
+    .getByRole('link', { name: 'Перейти к материалам', exact: true })
+    .click();
   await page
     .getByRole('button', { name: 'Практикум: Знакомство с Python Семинар', exact: true })
     .click();

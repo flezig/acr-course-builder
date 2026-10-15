@@ -540,7 +540,6 @@ export function PlanPage() {
               }}
               issuePlace={issuePlace}
               issueHref={issueHref}
-              materialsHref={href('materials')}
               onDecided={setSaved}
               approval={
                 <>
@@ -605,48 +604,36 @@ export function PlanPage() {
                     ) : !snapshot.approval_applicable && !approveConfirmed ? (
                       <p className="approval-hint">Отметьте подтверждение проверки</p>
                     ) : null}
-                    {snapshot.approval_applicable && snapshot.materials.length > 0 && (
-                      <Link className="button secondary" to={href('materials')}>
-                        Проверить материалы <ArrowRight size={16} />
-                      </Link>
-                    )}
                     {editing && <small>Сначала сохраните или закройте редактор.</small>}
                     <ErrorMessage error={command.error} />
                     <Link className="button secondary approval-report" to={href('audit')}>
                       <FileText size={16} aria-hidden="true" />
                       Отчёт проверки программы
                     </Link>
-                    <details className="approval-details">
-                      <summary>
-                        Сведения о ревизии и утверждении
-                        <ChevronDown size={16} aria-hidden="true" />
-                      </summary>
-                      <code>
-                        course_id: {snapshot.course_id}
-                        <br />
-                        course_version: {snapshot.course_version}
-                        <br />
-                        skeleton_version: {snapshot.skeleton_version}
-                        <br />
-                        SHA-256: {snapshot.skeleton_hash}
-                      </code>
-                      {snapshot.approvals.map((a) => (
-                        <p key={a.approved_at}>
-                          {a.actor_id} · ревизия {a.skeleton_version} ·{' '}
-                          {new Date(a.approved_at).toLocaleString('ru-RU')}
-                        </p>
-                      ))}
-                    </details>
+                    {snapshot.approvals.length > 0 && (
+                      <ul className="approval-history" aria-label="История утверждений">
+                        {snapshot.approvals.map((a) => (
+                          <li key={a.approved_at}>
+                            Ревизия {a.skeleton_version} утверждена ·{' '}
+                            {new Date(a.approved_at).toLocaleString('ru-RU')} · {a.actor_id}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </Panel>
-                  <details className="operation-log">
-                    <summary>Журнал операций</summary>
-                    <JobPanel
-                      job={view.job}
-                      version={view.latest_version}
-                      readonly={!view.is_latest}
-                      compact
-                    />
-                  </details>
+                  {/* Журнал нужен, только пока операция идёт или упала: тогда он объясняет
+                      ожидание и даёт повторить. Завершённая операция методисту ничего не говорит. */}
+                  {['queued', 'running', 'failed'].includes(view.job.status) && (
+                    <details className="operation-log">
+                      <summary>Журнал операций</summary>
+                      <JobPanel
+                        job={view.job}
+                        version={view.latest_version}
+                        readonly={!view.is_latest}
+                        compact
+                      />
+                    </details>
+                  )}
                 </>
               }
             />

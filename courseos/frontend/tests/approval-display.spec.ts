@@ -44,10 +44,12 @@ for (const width of [1440, 390, 320]) {
         await approve.click();
         await expect(panel).toContainText('Программа утверждена.');
         await expect(panel.getByRole('checkbox')).toHaveCount(0);
+        await expect(panel.getByRole('list', { name: 'История утверждений' })).toContainText(
+          'Ревизия 1 утверждена',
+        );
       }
-      await panel.locator('summary').click();
-      await expect(panel.locator('details')).toHaveAttribute('open', '');
-      await expect(panel.locator('summary')).toHaveCSS('font-weight', '400');
+      // Технические идентификаторы ревизии методисту не показываются.
+      await expect(panel).not.toContainText('SHA-256');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );

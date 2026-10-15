@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
 import type { Snapshot } from '../../entities/course/model/schema';
 import { programVerdict, questionCount } from '../../entities/course/model/rules';
 import { Panel } from '../../shared/ui/ui';
@@ -24,7 +23,6 @@ export function ReviewWorkspace({
   openEditor,
   issuePlace,
   issueHref,
-  materialsHref,
   onDecided,
 }: {
   snapshot: Snapshot;
@@ -38,7 +36,6 @@ export function ReviewWorkspace({
   openEditor: () => void;
   issuePlace: (id: string) => string;
   issueHref: (id: string, issueId: string) => string;
-  materialsHref: string;
   onDecided: (message: string) => void;
 }) {
   const verdict = programVerdict(snapshot);
@@ -80,22 +77,15 @@ export function ReviewWorkspace({
       panel?.focus({ preventScroll: true });
     });
   };
+  // Главное действие (к вопросу, утверждению или материалам) живёт в баннере над вкладками.
+  // Здесь только то, что мешает работать с проверкой прямо сейчас.
   const reason = !isLatest
     ? 'Архивная версия: утверждение доступно в актуальной версии.'
     : active
       ? 'Дождитесь завершения текущей операции.'
       : editing
         ? 'Сначала сохраните или закройте редактор.'
-        : verdict.open
-          ? `До утверждения: ${questionCount(verdict.open)}`
-          : !snapshot.approval_applicable && !confirmed
-            ? 'Перед утверждением обязательно подтвердите проверку методистом.'
-            : '';
-  const action = snapshot.approval_applicable
-    ? 'Перейти к материалам'
-    : verdict.open
-      ? 'К первому вопросу'
-      : 'Перейти к утверждению';
+        : '';
   const labels = [`Решения · ${verdict.open}`, 'Обоснования', 'Утверждение'];
   return (
     <div className="review-workspace">
@@ -112,57 +102,40 @@ export function ReviewWorkspace({
         </dl>
       </section>
       <div className="review-controls">
-        <div className="review-action-bar">
-          <div>
-            {reason && <small>{reason}</small>}
-            {isLatest && editing && (
-              <button className="link-button" onClick={openEditor}>
-                К редактору
-              </button>
-            )}
-            {isLatest && active && (
-              <button
-                className="link-button"
-                onClick={() => {
-                  openSection('approval');
-                  requestAnimationFrame(() => {
-                    const log = document.querySelector<HTMLDetailsElement>('.operation-log');
-                    if (log) {
-                      log.open = true;
-                      log.querySelector('summary')?.focus();
-                    }
-                  });
-                }}
-              >
-                К текущей операции
-              </button>
+        {reason && (
+          <div className="review-action-bar">
+            <div>
+              <small>{reason}</small>
+              {isLatest && editing && (
+                <button className="link-button" onClick={openEditor}>
+                  К редактору
+                </button>
+              )}
+              {isLatest && active && (
+                <button
+                  className="link-button"
+                  onClick={() => {
+                    openSection('approval');
+                    requestAnimationFrame(() => {
+                      const log = document.querySelector<HTMLDetailsElement>('.operation-log');
+                      if (log) {
+                        log.open = true;
+                        log.querySelector('summary')?.focus();
+                      }
+                    });
+                  }}
+                >
+                  К текущей операции
+                </button>
+              )}
+            </div>
+            {!isLatest && (
+              <Link className="button secondary" to={`/courses/${snapshot.course_id}/plan#review`}>
+                К актуальной версии
+              </Link>
             )}
           </div>
-          {!isLatest ? (
-            <Link className="button secondary" to={`/courses/${snapshot.course_id}/plan#review`}>
-              К актуальной версии
-            </Link>
-          ) : snapshot.approval_applicable ? (
-            <Link className="button primary" to={materialsHref}>
-              {action}
-              <ArrowRight size={15} />
-            </Link>
-          ) : (
-            <button
-              className="primary"
-              onClick={() => {
-                openSection(verdict.open ? 'issues' : 'approval');
-                if (verdict.open && verdict.first)
-                  requestAnimationFrame(() =>
-                    document.getElementById(`issue-${verdict.first!.id}`)?.focus(),
-                  );
-              }}
-            >
-              {action}
-              <ArrowRight size={15} />
-            </button>
-          )}
-        </div>
+        )}
         <nav
           className="review-local-nav"
           aria-label="Проверка программы"

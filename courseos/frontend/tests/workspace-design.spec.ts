@@ -18,7 +18,7 @@ test('Course OS: замечания, версии и адаптивность 14
   await expect(page.locator('.verdict')).toBeVisible();
   const planUrl = page.url();
   const status = page.locator('.verdict');
-  await expect(status).toContainText('Блокирует:');
+  await expect(status.locator('h2')).toHaveText('Блокируют утверждение: 2');
   await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await expect(
@@ -51,7 +51,8 @@ test('Course OS: замечания, версии и адаптивность 14
     });
     measurements.push(geometry);
     expect(geometry.document).toBeLessThanOrEqual(width);
-    await expect(page.getByLabel('Версия курса')).toBeVisible();
+    // У нового курса одна версия, поэтому выбирать версию не из чего.
+    await expect(page.getByLabel('Версия курса')).toHaveCount(0);
     await expect(status.getByRole('link', { name: 'К первому вопросу' })).toBeVisible();
     if (width <= 800) {
       await page.getByRole('button', { name: 'Открыть навигацию' }).click();
@@ -67,9 +68,8 @@ test('Course OS: замечания, версии и адаптивность 14
   await page.goto(planUrl);
   await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page.getByText('Журнал операций', { exact: true }).click();
-  await page.getByRole('button', { name: /Журнал/ }).click();
-  await expect(page.locator('.job-detail')).toBeVisible();
+  // Операция создания уже завершена, поэтому журнал операций в утверждении не показывается.
+  await expect(page.getByText('Журнал операций', { exact: true })).toHaveCount(0);
   await page.getByRole('link', { name: 'О программе', exact: true }).click();
   await page.locator('.explanation summary').first().click();
   await expect(page.locator('.explanation').first()).toHaveAttribute('open', '');

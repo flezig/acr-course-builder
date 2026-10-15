@@ -108,6 +108,8 @@ function LayoutContent() {
     };
   }, [menuOpen]);
   const snapshot = course.data?.snapshot;
+  const archivedVersions =
+    course.data?.versions.filter((version) => version !== course.data?.latest_version) ?? [];
   const versionSuffix = search.get('version') ? `?version=${search.get('version')}` : '';
   useEffect(() => {
     const positionKey = `courseos-scroll-${location.pathname}${location.search}`;
@@ -343,37 +345,41 @@ function LayoutContent() {
               <ChevronDown size={13} />
             </label>
           </div>
-          {courseId && (
-            <div className="versionbar">
-              <div>
-                <label>
-                  Версия{' '}
-                  <select
-                    aria-label="Версия курса"
-                    value={search.get('version') || 'latest'}
-                    onChange={(e) => {
-                      const next = new URLSearchParams(search);
-                      e.target.value === 'latest'
-                        ? next.delete('version')
-                        : next.set('version', e.target.value);
-                      navigate(`${location.pathname}?${next}`);
-                    }}
-                  >
-                    <option value="latest">Актуальная {course.data?.latest_version || ''}</option>
-                    {course.data?.versions.map((version) => (
-                      <option key={version} value={version}>
-                        Архив v{version}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {snapshot && <Badge>Каркас r{snapshot.skeleton_version}</Badge>}
-                {snapshot?.provenance === 'previous_live' && (
-                  <Badge>Ранее полученный реальный результат</Badge>
-                )}
+          {/* Переключатель нужен, только когда есть прошлые версии: с одной версией
+              он предлагал выбрать её же как «актуальную» и как «архив». */}
+          {courseId &&
+            (archivedVersions.length > 0 || snapshot?.provenance === 'previous_live') && (
+              <div className="versionbar">
+                <div>
+                  {archivedVersions.length > 0 && (
+                    <label>
+                      Версия{' '}
+                      <select
+                        aria-label="Версия курса"
+                        value={search.get('version') || 'latest'}
+                        onChange={(e) => {
+                          const next = new URLSearchParams(search);
+                          e.target.value === 'latest'
+                            ? next.delete('version')
+                            : next.set('version', e.target.value);
+                          navigate(`${location.pathname}?${next}`);
+                        }}
+                      >
+                        <option value="latest">Актуальная {course.data?.latest_version}</option>
+                        {archivedVersions.map((version) => (
+                          <option key={version} value={version}>
+                            Архив v{version}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  {snapshot?.provenance === 'previous_live' && (
+                    <Badge>Ранее полученный реальный результат</Badge>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </header>
         <main id="main" tabIndex={-1}>
           <Outlet key={api.mode} />

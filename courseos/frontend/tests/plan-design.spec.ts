@@ -225,14 +225,19 @@ test('Programme states preserve approval, archive restrictions and materials acc
   await page.getByRole('button', { name: 'Закрыть редактор', exact: true }).click();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
   await expect(page.locator('.verdict')).toContainText('Программа утверждена');
-  await expect(page.getByRole('link', { name: 'Проверить материалы', exact: true })).toBeVisible();
+  await expect(
+    page.locator('.verdict').getByRole('link', { name: 'Перейти к материалам', exact: true }),
+  ).toBeVisible();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Утвердить программу', exact: true }),
   ).toBeDisabled();
   await capture('approved');
   const planUrl = page.url();
-  await page.getByRole('link', { name: 'Проверить материалы', exact: true }).click();
+  await page
+    .locator('.verdict')
+    .getByRole('link', { name: 'Перейти к материалам', exact: true })
+    .click();
   await expect(page).toHaveURL(/\/materials/);
   await page.goto(planUrl);
   await tab(page, 'О программе');

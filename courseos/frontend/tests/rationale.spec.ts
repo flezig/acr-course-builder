@@ -53,13 +53,17 @@ test('Основания в интерфейсе, JSON и MD относятся 
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page.getByRole('checkbox', { name: /Цель, результаты, часы/ }).check();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Проверить материалы', exact: true })).toBeVisible({
+  await expect(
+    page.locator('.verdict').getByRole('link', { name: 'Перейти к материалам', exact: true }),
+  ).toBeVisible({
     timeout: 15000,
   });
   await page.goto(`/courses/${id}/materials?tab=exports`);
-  await expect(page.getByRole('button', { name: 'Скачать MD', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Скачать описание курса (.md)', exact: true }),
+  ).toBeVisible();
   const mdDownload = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Скачать MD', exact: true }).click();
+  await page.getByRole('button', { name: 'Скачать описание курса (.md)', exact: true }).click();
   const md = await contents(await mdDownload);
   const jsonDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Скачать JSON', exact: true }).click();

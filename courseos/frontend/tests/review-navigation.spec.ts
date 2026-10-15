@@ -38,8 +38,8 @@ test('Decision queue: verdict counts, keyboard tabs, open place and keep with re
   await expect(page.locator('.rationale-panel')).toBeHidden();
   expect(
     (await page
-      .locator('.review-action-bar')
-      .getByRole('button', { name: 'К первому вопросу', exact: true })
+      .locator('.verdict')
+      .getByRole('link', { name: 'К первому вопросу', exact: true })
       .boundingBox())!.y,
   ).toBeLessThan(900);
   await page.getByRole('tab', { name: /^Решения/ }).focus();
@@ -110,7 +110,7 @@ test('No remarks, explicit approval, rationale filters and archived restrictions
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
   await expect(page.locator('.verdict')).toContainText('Программа утверждена');
   await expect(
-    page.locator('#review').getByRole('link', { name: 'Перейти к материалам', exact: true }),
+    page.locator('.verdict').getByRole('link', { name: 'Перейти к материалам', exact: true }),
   ).toBeVisible();
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await expect(page.getByLabel('Найти пояснение')).toHaveValue('План');
@@ -118,7 +118,7 @@ test('No remarks, explicit approval, rationale filters and archived restrictions
   await page.getByRole('button', { name: 'Скачать пояснения · MD', exact: true }).click();
   expect((await download).suggestedFilename()).toMatch(/rationale.md$/);
   await page
-    .locator('#review')
+    .locator('.verdict')
     .getByRole('link', { name: 'Перейти к материалам', exact: true })
     .click();
   await expect(page).toHaveURL(/\/materials/);

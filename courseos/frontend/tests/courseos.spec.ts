@@ -42,10 +42,15 @@ async function approveAndWait(page: Page) {
     })
     .check();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Проверить материалы', exact: true })).toBeVisible({
+  await expect(
+    page.locator('.verdict').getByRole('link', { name: 'Перейти к материалам', exact: true }),
+  ).toBeVisible({
     timeout: 15000,
   });
-  await page.getByRole('link', { name: 'Проверить материалы', exact: true }).click();
+  await page
+    .locator('.verdict')
+    .getByRole('link', { name: 'Перейти к материалам', exact: true })
+    .click();
   await expect(page.getByText('Технически: черновик полный')).toBeVisible();
 }
 test('Полный путь: уточнения, правка каркаса, аудит, ручная правка, preview/apply, JSON новой версии', async ({

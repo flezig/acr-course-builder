@@ -1275,27 +1275,12 @@ a.approval-hint {
   width: fit-content;
   margin-top: 24px;
 }
-.approval-panel > details {
-  margin-top: 20px;
-  font-size: 12px;
-}
-.approval-details > summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.approval-history {
+  margin: 20px 0 0;
+  padding: 0;
   list-style: none;
-  font-weight: 400;
-}
-.approval-details > summary::-webkit-details-marker {
-  display: none;
-}
-.approval-details > summary svg {
-  flex-shrink: 0;
-  transition: transform 150ms ease;
-}
-.approval-details[open] > summary svg {
-  transform: rotate(180deg);
+  font-size: 12px;
+  color: var(--muted);
 }
 .operation-log {
   font-size: 12px;
