@@ -64,7 +64,6 @@ export function MaterialsPage() {
         <Badge tone={snapshot.audit.technical_ready ? 'green' : 'amber'}>
           Технически: {snapshot.audit.technical_ready ? 'черновик полный' : 'не завершён'}
         </Badge>
-        <Badge>Эксперт: не проверено</Badge>
         <Badge>Выпуск программы: не разрешён</Badge>
       </div>
       <div className="tabs" role="tablist" aria-label="Разделы материалов">
