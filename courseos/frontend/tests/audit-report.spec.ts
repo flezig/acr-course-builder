@@ -35,11 +35,6 @@ for (const scenario of [
     await expect(
       page.locator('.checklist-item').filter({ hasText: 'Профстандарт и его код существуют' }),
     ).toContainText('Проблема');
-    await page.getByRole('link', { name: 'Технические проверки', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Баланс часов', exact: true })).toHaveCount(0);
-    await expect(
-      page.getByRole('heading', { name: 'Структура графа предпосылок', exact: true }),
-    ).toBeVisible();
   });
 }
 

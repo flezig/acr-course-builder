@@ -177,7 +177,10 @@ export function PlanPage() {
               skeleton.outcomes.some((outcome) => outcome.id === id) ||
               skeleton.explanations.some((explanation) => explanation.id === id)
             ? `${href('plan')}#fix-${id}${snapshot.observations.some((issue) => issue.id === issueId) ? `~${issueId}` : ''}`
-            : `${href('audit')}#issue-${issueId}`;
+            : id === 'map'
+              ? href('map')
+              : // Основания элементов разбираются в панели оснований на вкладке проверки.
+                `${href('plan')}#review`;
   const editButton = (block: IntentBlock, label: string) => (
     <button
       className="block-edit"

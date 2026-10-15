@@ -586,9 +586,3 @@ function withFindingStatus(snapshot: Snapshot, items: ChecklistItem[]): Checklis
   });
 }
 
-// Часы, покрытие, разделы и календарь представлены в чек-листе; повторять их на соседней вкладке не нужно.
-export function technicalChecks(audit: Audit): Audit['checks'] {
-  return audit.checks.filter(
-    (check) => !['hours', 'coverage', 'sections', 'calendar'].includes(check.id),
-  );
-}

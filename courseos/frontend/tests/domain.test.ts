@@ -15,11 +15,7 @@ import {
   type Snapshot,
 } from '../src/entities/course/model/schema';
 import { HttpCourseApi } from '../src/entities/course/api/http-course-api';
-import {
-  generalRequirements,
-  requestChecklist,
-  technicalChecks,
-} from '../src/entities/course/model/checklist';
+import { generalRequirements, requestChecklist } from '../src/entities/course/model/checklist';
 import { buildCoverage } from '../src/pages/competencies/coverage-model';
 import { agentFindings } from '../src/entities/course/model/findings';
 import { buildMap } from '../src/pages/competencies/map-model';
@@ -904,22 +900,6 @@ describe('Отсутствующие данные и ручные проверк
     expect(
       requestChecklist(snapshot).find((item) => item.title.startsWith('Результаты —'))?.status,
     ).toBe('manual_review');
-  });
-});
-
-describe('Единственные проверки в отчёте', () => {
-  it('не повторяет проверки чек-листа на технической вкладке', async () => {
-    const snapshot = await startPython();
-    const checks = technicalChecks(snapshot.audit);
-    expect(
-      checks.some((check) => ['hours', 'coverage', 'calendar', 'sections'].includes(check.id)),
-    ).toBe(false);
-    expect(checks.find((check) => check.id === 'prerequisites')).toEqual(
-      snapshot.audit.checks.find((check) => check.id === 'prerequisites'),
-    );
-    expect(generalRequirements(snapshot).find((item) => item.id === 'russian')?.status).toBe(
-      'manual_review',
-    );
   });
 });
 

@@ -1,16 +1,13 @@
-import { useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw } from 'lucide-react';
 import {
   generalRequirements,
   requestChecklist,
-  technicalChecks,
   type ChecklistItem,
 } from '../../entities/course/model/checklist';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
-import { Badge, Empty, ErrorMessage, Loading, Notice, Panel, statuses } from '../../shared/ui/ui';
-import { decisionQueue, programVerdict } from '../../entities/course/model/rules';
-import { issueState } from '../course-plan/decision-queue';
+import { Badge, Empty, ErrorMessage, Loading, Notice, Panel } from '../../shared/ui/ui';
+import { programVerdict } from '../../entities/course/model/rules';
 import './audit.css';
 const checklistStatuses: Record<ChecklistItem['status'], string> = {
   passed: 'Пройдено',
@@ -21,21 +18,6 @@ const checklistStatuses: Record<ChecklistItem['status'], string> = {
 export function AuditPage() {
   const query = useCourse();
   const command = useCommand();
-  const location = useLocation();
-  const section = location.hash.slice(1);
-  const tab =
-    section.startsWith('issue-') || section === 'audit-findings'
-      ? 'audit-findings'
-      : section === 'audit-checks'
-        ? section
-        : 'audit-checklist';
-  useEffect(() => {
-    if (!section.startsWith('issue-') || !query.data?.snapshot) return;
-    const frame = requestAnimationFrame(() =>
-      document.getElementById(section)?.scrollIntoView({ block: 'center' }),
-    );
-    return () => cancelAnimationFrame(frame);
-  }, [section, query.data]);
   if (query.isPending) return <Loading />;
   if (!query.data) return <ErrorMessage error={query.error} />;
   const view = query.data;
@@ -45,7 +27,6 @@ export function AuditPage() {
   const general = generalRequirements(snapshot);
   const request = requestChecklist(snapshot);
   const all = [...general, ...request];
-  const checks = technicalChecks(snapshot.audit);
   const verdict = programVerdict(snapshot);
   const count = (status: ChecklistItem['status']) =>
     all.filter((item) => item.status === status).length;
@@ -80,57 +61,7 @@ export function AuditPage() {
           Повторить проверку
         </button>
       </header>
-      <nav className="audit-nav" aria-label="Разделы проверки программы">
-        {(
-          [
-            ['audit-checklist', 'Чек-лист', count('problem')],
-            ['audit-findings', 'Находки аудита', verdict.open],
-            [
-              'audit-checks',
-              'Технические проверки',
-              checks.filter((check) => check.status === 'failed').length,
-            ],
-          ] as const
-        ).map(([id, title, count]) => (
-          <Link
-            key={id}
-            replace
-            to={{ search: location.search, hash: `#${id}` }}
-            aria-label={title}
-            aria-current={tab === id ? 'page' : undefined}
-          >
-            {title}
-            {count > 0 && <span className="tab-count">{count}</span>}
-          </Link>
-        ))}
-      </nav>
-      <section
-        id="audit-findings"
-        className="audit-section"
-        aria-label="Находки аудита"
-        hidden={tab !== 'audit-findings'}
-      >
-        <p>Блокируют утверждение: {verdict.open}</p>
-        {decisionQueue(snapshot.audit.issues).map((issue) => (
-          <article id={`issue-${issue.id}`} key={issue.id} tabIndex={-1}>
-            <Panel title={issue.message}>
-              <Badge tone={issueState(issue).tone}>{issueState(issue).label}</Badge>
-              <p>
-                {issue.evidence || `Ожидается: ${issue.expected}. Фактически: ${issue.actual}.`}
-              </p>
-              <p>{issue.suggested_fix}</p>
-              {issue.decision && <p>Причина решения: {issue.decision.reason}</p>}
-            </Panel>
-          </article>
-        ))}
-        {!snapshot.audit.issues.length && <Notice>Находок аудита нет.</Notice>}
-      </section>
-      <section
-        id="audit-checklist"
-        className="audit-section"
-        aria-label="Чек-лист"
-        hidden={tab !== 'audit-checklist'}
-      >
+      <section id="audit-checklist" className="audit-section" aria-label="Чек-лист">
         <dl className="checklist-summary">
           <div>
             <dt>Пройдено</dt>
@@ -195,44 +126,6 @@ export function AuditPage() {
               </ul>
             </Panel>
           ))}
-      </section>
-      <section
-        id="audit-checks"
-        className="audit-section"
-        aria-label="Результаты проверок"
-        hidden={tab !== 'audit-checks'}
-      >
-        <div className="audit-grid">
-          {checks.map((check) => (
-            <Panel key={check.id}>
-              {check.status === 'passed' ? (
-                <CheckCircle2 className="green-icon" size={22} />
-              ) : check.status === 'failed' ? (
-                <AlertTriangle className="red-icon" size={22} />
-              ) : (
-                <CircleDashed size={22} />
-              )}
-              <h3>{check.title}</h3>
-              <Badge
-                tone={
-                  check.status === 'passed'
-                    ? 'green'
-                    : check.status === 'failed'
-                      ? 'red'
-                      : 'neutral'
-                }
-              >
-                {statuses[check.status]}
-              </Badge>
-              <p>
-                <b>Ожидается:</b> {check.expected}
-              </p>
-              <p>
-                <b>Фактически:</b> {check.actual}
-              </p>
-            </Panel>
-          ))}
-        </div>
       </section>
       <Notice>
         {snapshot.audit.at
