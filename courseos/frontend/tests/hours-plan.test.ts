@@ -292,6 +292,30 @@ describe('Проверка программы — зеркало чек-лист
     }
   });
 
+  it.each([
+    ['demo', 'ready', 'unavailable', 'passed'],
+    ['demo', 'unavailable', 'unavailable', 'problem'],
+    ['demo', 'ready', 'failed', 'problem'],
+    ['live', 'ready', 'unavailable', 'problem'],
+    ['live', 'ready', 'ready', 'passed'],
+  ] as const)('экспорт: %s, JSON %s, DOCX %s → %s', async (mode, jsonStatus, docxStatus, status) => {
+    const result = await api.command({
+      action: 'start',
+      payload: requirementsFor('bank'),
+      request_id: crypto.randomUUID(),
+    });
+    vi.advanceTimersByTime(500);
+    const snapshot = (await api.get(result.course_id)).snapshot!;
+    snapshot.mode = mode;
+    snapshot.export_manifest.find((file) => file.format === 'json')!.status = jsonStatus;
+    snapshot.export_manifest.find((file) => file.format === 'docx')!.status = docxStatus;
+    const exportCheck = generalRequirements(snapshot).find((item) => item.id === 'exports')!;
+    expect(exportCheck.status).toBe(status);
+    if (mode === 'demo' && docxStatus === 'unavailable') {
+      expect(exportCheck.evidence).toContain('.docx — не входит в проверку демо');
+    }
+  });
+
   it('bank: все общие требования и девять пунктов запроса 3', async () => {
     const result = await api.command({
       action: 'start',

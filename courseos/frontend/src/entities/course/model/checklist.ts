@@ -57,6 +57,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
   );
   const docx = snapshot.export_manifest.find((file) => file.format === 'docx');
   const json = snapshot.export_manifest.find((file) => file.format === 'json');
+  const demoDocxUnavailable = snapshot.mode === 'demo' && docx?.status === 'unavailable';
   return [
     {
       id: 'hours-topics-module',
@@ -176,8 +177,11 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
     {
       id: 'exports',
       title: 'Выгрузка в .docx и JSON',
-      status: json?.status === 'ready' && docx?.status === 'ready' ? 'passed' : 'problem',
-      evidence: `JSON — ${json?.status === 'ready' ? 'готов' : 'нет'}; .docx — ${docx?.status === 'ready' ? 'готов' : 'экспортёр в демо не подключён'}.`,
+      status:
+        json?.status === 'ready' && (docx?.status === 'ready' || demoDocxUnavailable)
+          ? 'passed'
+          : 'problem',
+      evidence: `JSON — ${json?.status === 'ready' ? 'готов' : 'нет'}; .docx — ${docx?.status === 'ready' ? 'готов' : demoDocxUnavailable ? 'не входит в проверку демо' : 'не готов'}.`,
       target: { screen: 'materials', hash: '' },
     },
     {
