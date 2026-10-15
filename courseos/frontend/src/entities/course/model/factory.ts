@@ -638,6 +638,19 @@ const pythonQuestions = [
     'Сравнение команды позволяет выбрать выход и завершить повторение.',
   ],
 ] as const;
+// Критерии оценки задания берутся из результатов, которые оно проверяет: так
+// семинар оценивается по тому же, чего должен достичь слушатель, а не по шаблону.
+// Если у результата своих критериев нет, остаётся критерий его формы аттестации.
+function assessmentCriteria(skeleton: Skeleton, outcomeIds: string[]) {
+  const criteria = outcomeIds.flatMap((id) => {
+    const outcome = skeleton.outcomes.find((o) => o.id === id);
+    if (outcome?.criteria?.length) return outcome.criteria;
+    return skeleton.assessments
+      .filter((a) => a.outcome_ids.includes(id))
+      .map((a) => a.criterion);
+  });
+  return [...new Set(criteria)];
+}
 export async function makeMaterials(skeleton: Skeleton): Promise<Material[]> {
   const kind = scenarioKind(skeleton.requirements);
   const materials: Material[] = [];
@@ -657,11 +670,7 @@ export async function makeMaterials(skeleton: Skeleton): Promise<Material[]> {
     title,
     content,
     expected: 'Действие воспроизводится и объясняется',
-    criteria: [
-      'Результат соответствует заданию',
-      'Нет существенных ошибок',
-      'Слушатель объясняет решение',
-    ],
+    criteria: assessmentCriteria(skeleton, extra.outcome_ids ?? topic.outcome_ids),
     questions: [],
     slides: [],
     source_ids: skeleton.requirements.references.map((s) => s.id),

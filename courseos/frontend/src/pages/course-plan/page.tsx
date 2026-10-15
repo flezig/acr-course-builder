@@ -361,19 +361,6 @@ export function PlanPage() {
                                     <p className="outcome-statement">
                                       {outcomeText(outcome.description)}
                                     </p>
-                                    {outcome.criteria && outcome.criteria.length > 0 && (
-                                      <div className="outcome-checks">
-                                        <span>Критерии достижения</span>
-                                        <ul>
-                                          {outcome.criteria.map((criterion) => (
-                                            <li key={criterion}>
-                                              <CheckCircle2 size={14} aria-hidden />
-                                              {criterion}
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
                                     {target === outcome.id && (
                                       <div className="context-remark">
                                         <AlertCircle size={15} />

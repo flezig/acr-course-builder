@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { DemoCourseApi } from '../src/entities/course/api/demo-course-api';
 import { presets } from '../src/entities/course/model/presets';
-import { makeSkeleton, refreshExplanations } from '../src/entities/course/model/factory';
+import { makeMaterials, makeSkeleton, refreshExplanations } from '../src/entities/course/model/factory';
 import { hourTotals, auditSnapshot, calendarCalculation } from '../src/entities/course/model/rules';
 import { canonicalJson, contentHash, sumHours, formatHours } from '../src/shared/lib/decimal';
 import {
@@ -427,6 +427,16 @@ describe('Согласование, задачи и версии demo', () => {
     expect(final.skeleton.requirements.audience).toBe(requirements.audience);
     expect(final.skeleton.requirements.request).toBe(requirements.request);
     expect(final.skeleton.requirements.total_hours).toBe('72');
+  });
+  it('берёт критерии оценки задания из проверяемых им результатов', async () => {
+    const skeleton = makeSkeleton(preset('bank'));
+    const materials = await makeMaterials(skeleton);
+    const seminar = materials.find((m) => m.type === 'seminar' && m.outcome_ids.length)!;
+    const expected = seminar.outcome_ids.flatMap(
+      (id) => skeleton.outcomes.find((o) => o.id === id)!.criteria!,
+    );
+    expect(seminar.criteria).toEqual([...new Set(expected)]);
+    expect(seminar.criteria).not.toContain('Результат соответствует заданию');
   });
   it.each(['teachers', 'bank', 'devops'])(
     'поддерживает дополнительные параметры и материал %s',
