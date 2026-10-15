@@ -1414,14 +1414,6 @@ summary small {
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
 }
-.program-section summary {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.program-section pre {
-  font-size: 13px;
-}
 .export-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

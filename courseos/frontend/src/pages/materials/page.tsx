@@ -1,5 +1,5 @@
 import { useSearchParams, Link } from 'react-router-dom';
-import { FileText, ArrowRight, Layers3 } from 'lucide-react';
+import { ArrowRight, Layers3 } from 'lucide-react';
 import { useCourse } from '../../entities/course/api/provider';
 import { materialLabels } from '../../entities/course/model/presets';
 import { Badge, Empty, ErrorMessage, Loading, Notice, Panel } from '../../shared/ui/ui';
@@ -71,7 +71,6 @@ export function MaterialsPage() {
       <div className="tabs" role="tablist" aria-label="Разделы материалов">
         {[
           { id: 'content', label: 'Содержание' },
-          { id: 'sections', label: 'Разделы образца' },
           { id: 'revision', label: 'Согласованные правки' },
           { id: 'exports', label: 'Выгрузки' },
         ].map((item) => (
@@ -96,26 +95,6 @@ export function MaterialsPage() {
             Сначала утвердите каркас.
           </Empty>
         )
-      ) : tab === 'sections' ? (
-        <Panel
-          title={
-            snapshot.skeleton.requirements.template_id === 'acr_general'
-              ? 'Общеразвивающий образец АЦР'
-              : 'Образец повышения квалификации АЦР'
-          }
-          subtitle="Все применимые разделы; неподтверждённые реквизиты пустые."
-        >
-          {snapshot.sections.map((section) => (
-            <details key={section.id} className="program-section" id={section.id}>
-              <summary>
-                <FileText size={17} />
-                {section.title}
-              </summary>
-              <pre>{section.content}</pre>
-            </details>
-          ))}
-          {!snapshot.sections.length && <Notice>Разделы будут наполнены после утверждения.</Notice>}
-        </Panel>
       ) : !snapshot.materials.length ? (
         <Empty title={active ? 'Создаются материалы по модулям' : 'Сначала утвердите каркас'}>
           <Link to={`/courses/${snapshot.course_id}/plan`}>Перейти к каркасу →</Link>
