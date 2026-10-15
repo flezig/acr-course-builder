@@ -84,7 +84,21 @@ function load(): StoredDatabase {
     );
   }
 }
+// Каждая правка сохраняет полную копию курса вместе с материалами, поэтому без
+// ограничения история за несколько десятков правок упирается в квоту localStorage
+// (~5 МБ). Старые версии в демо не нужны для работы: сравнение и откат опираются
+// на недавние снимки.
+const keptSnapshotsPerCourse = 15;
+const keptOperations = 200;
+function pruneHistory(database: StoredDatabase) {
+  for (const course of Object.values(database.courses))
+    course.snapshots.splice(0, Math.max(0, course.snapshots.length - keptSnapshotsPerCourse));
+  const operationKeys = Object.keys(database.operations);
+  for (const key of operationKeys.slice(0, Math.max(0, operationKeys.length - keptOperations)))
+    delete database.operations[key];
+}
 function save(database: StoredDatabase) {
+  pruneHistory(database);
   try {
     localStorage.setItem(storageKey, JSON.stringify(database));
   } catch {
