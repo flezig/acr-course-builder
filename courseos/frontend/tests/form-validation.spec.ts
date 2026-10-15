@@ -124,7 +124,7 @@ test('Observation form rejects whitespace next to the field', async ({ page }) =
   await expect(message).toHaveAttribute('aria-invalid', 'false');
 });
 
-test('Material editing and hour changes validate before saving or preview', async ({ page }) => {
+test('Material editing validates before saving', async ({ page }) => {
   await pythonCourse(page);
   await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
@@ -151,19 +151,6 @@ test('Material editing and hour changes validate before saving or preview', asyn
   await content.fill('Задание: проверьте два сценария ввода.');
   await page.getByRole('button', { name: 'Сохранить и защитить ручную правку' }).click();
   await expect(page.getByText('Ручная правка защищена')).toBeVisible();
-  await page.getByRole('tab', { name: 'Согласованные правки', exact: true }).click();
-  await page.getByLabel('Что изменить', { exact: true }).selectOption('hours');
-  await page.getByLabel('Причина изменения', { exact: true }).fill('Расширить программу');
-  const hours = page.getByLabel('Новый объём часов', { exact: true });
-  await hours.fill('вава');
-  await expect(hours).toHaveAccessibleDescription(/Введите неотрицательное число/);
-  await page.getByRole('button', { name: 'Посмотреть влияние правки', exact: true }).click();
-  await expect(hours).toBeFocused();
-  await expect(page.locator('.notice.error')).toHaveCount(0);
-  await hours.fill('72,5');
-  await expect(hours).toHaveAttribute('aria-invalid', 'false');
-  await page.getByRole('button', { name: 'Посмотреть влияние правки', exact: true }).click();
-  await expect(page.getByText('Предложение · ещё не применено')).toBeVisible();
 });
 
 test('Outcome editing uses inline required checks for controlled fields', async ({ page }) => {

@@ -53,7 +53,7 @@ async function approveAndWait(page: Page) {
     .click();
   await expect(page.getByText('Технически: черновик полный')).toBeVisible();
 }
-test('Полный путь: уточнения, правка каркаса, аудит, ручная правка, preview/apply, JSON новой версии', async ({
+test('Полный путь: уточнения, правка каркаса, аудит, ручная правка и выгрузка JSON', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -97,58 +97,19 @@ test('Полный путь: уточнения, правка каркаса, а
   await page.getByRole('button', { name: 'Сохранить и защитить ручную правку' }).click();
   await expect(page.getByText('Ручная правка защищена')).toBeVisible();
   await page.getByRole('tab', { name: 'Выгрузки', exact: true }).click();
-  const beforeDownloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Скачать JSON' }).click();
-  const beforeDownload = await beforeDownloadPromise;
-  const beforePath = path.join(reports, 'e2e-python-before.json');
-  await beforeDownload.saveAs(beforePath);
-  const beforeSnapshot = JSON.parse(await readFile(beforePath, 'utf8'));
-  await page.getByRole('tab', { name: 'Согласованные правки' }).click();
-  await page.getByLabel('Причина изменения').fill('Уточнить формулировку первого вопроса');
-  await page.getByLabel('Предлагаемый текст').fill('Какое значение хранит score = 3?');
-  await page.getByLabel('Объяснение ключа').fill('Переменная score хранит число 3.');
-  await page.getByRole('button', { name: 'Посмотреть влияние правки' }).click();
-  await expect(page.getByText('Предложение · ещё не применено')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Применить согласованную правку' })).toBeDisabled();
-  await page.getByRole('checkbox', { name: 'Принимаю именно этот план изменений' }).check();
-  await page.getByRole('button', { name: 'Применить согласованную правку' }).click();
-  await expect(page.getByRole('heading', { name: /Версия \d+ → \d+/ })).toBeVisible();
-  await expect(page.locator('.line-diff .added').first()).toBeVisible();
-  // Когда все незатронутые элементы совпали, раздел свёрнут — раскрываем, чтобы проверить строки.
-  const preserved = page.locator('summary', { hasText: 'Незатронутые элементы' });
-  await expect(preserved).toContainText('совпадают');
-  await preserved.click();
-  await expect(page.getByText('ручная правка сохранена', { exact: false }).first()).toBeVisible();
-  await expect(page.getByText('Утверждение применимо', { exact: true })).toBeVisible();
-  await page.screenshot({ path: path.join(reports, 'comparison-1440.png') });
-  await page.getByRole('link', { name: 'Выгрузки новой версии' }).click();
-  await expect(page.getByRole('button', { name: 'Скачать DOCX' })).toBeDisabled();
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Скачать JSON' }).click();
   const download = await downloadPromise;
   await mkdir(reports, { recursive: true });
-  const exportPath = path.join(reports, 'e2e-python-new-version.json');
+  const exportPath = path.join(reports, 'e2e-python-export.json');
   await download.saveAs(exportPath);
   const snapshot = JSON.parse(await readFile(exportPath, 'utf8'));
   expect(snapshot.course_id).toBe(id);
-  expect(snapshot.course_version).toBeGreaterThan(3);
   expect(snapshot.mode).toBe('demo');
   expect(snapshot.draft).toBe(true);
   expect(
-    snapshot.materials.find((m: { id: string }) => m.id === 'test-final').questions[0].text,
-  ).toBe('Какое значение хранит score = 3?');
-  expect(
     snapshot.materials.find((m: { id: string }) => m.id === 'seminar-topic-1').content,
   ).toContain('Ручная правка методиста');
-  expect(snapshot.changes.at(-1).preserved.every((item: { equal: boolean }) => item.equal)).toBe(
-    true,
-  );
-  expect(snapshot.approval_applicable).toBe(true);
-  for (const preserved of snapshot.changes.at(-1).preserved) {
-    expect(snapshot.materials.find((m: { id: string }) => m.id === preserved.id)).toEqual(
-      beforeSnapshot.materials.find((m: { id: string }) => m.id === preserved.id),
-    );
-  }
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Выгрузки комплекта' })).toBeVisible();
   expect(errors).toEqual([]);

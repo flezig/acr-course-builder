@@ -5,7 +5,6 @@ import { materialLabels } from '../../entities/course/model/presets';
 import { Badge, Empty, ErrorMessage, Loading, Notice, Panel } from '../../shared/ui/ui';
 import { JobPanel } from '../../entities/job/job-panel';
 import { ExportPanel } from '../../features/export-course/export-panel';
-import { RevisionPanel } from '../../features/revise-material/revision-panel';
 import { MaterialViewer } from './material-viewer';
 export function MaterialsPage() {
   const query = useCourse();
@@ -71,7 +70,6 @@ export function MaterialsPage() {
       <div className="tabs" role="tablist" aria-label="Разделы материалов">
         {[
           { id: 'content', label: 'Содержание' },
-          { id: 'revision', label: 'Согласованные правки' },
           { id: 'exports', label: 'Выгрузки' },
         ].map((item) => (
           <button
@@ -87,14 +85,6 @@ export function MaterialsPage() {
       </div>
       {tab === 'exports' ? (
         <ExportPanel snapshot={snapshot} />
-      ) : tab === 'revision' ? (
-        snapshot.materials.length ? (
-          <RevisionPanel snapshot={snapshot} readonly={readonly} />
-        ) : (
-          <Empty title="Правки доступны после подготовки материалов">
-            Сначала утвердите каркас.
-          </Empty>
-        )
       ) : !snapshot.materials.length ? (
         <Empty title={active ? 'Создаются материалы по модулям' : 'Сначала утвердите каркас'}>
           <Link to={`/courses/${snapshot.course_id}/plan`}>Перейти к каркасу →</Link>
