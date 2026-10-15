@@ -286,6 +286,7 @@ function TopicAssessment({ skeleton, topic }: { skeleton: Skeleton; topic: Topic
             const label = topic.id === 'topic-final' ? form : `${form} по теме «${topic.title}»`;
             return (
               <li key={form}>
+                {targets.length > 1 && `${label}: `}
                 {targets.length
                   ? targets.map(({ assessment, outcome }, index) => (
                       <span key={assessment.id}>
@@ -297,7 +298,7 @@ function TopicAssessment({ skeleton, topic }: { skeleton: Skeleton; topic: Topic
                           }}
                           title={assessment.action}
                         >
-                          {targets.length > 1 ? `${label}: задание ${index + 1}` : label}
+                          {targets.length > 1 ? `задание ${index + 1}` : label}
                         </Link>
                       </span>
                     ))
