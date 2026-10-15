@@ -110,20 +110,6 @@ test('Source actions validate complete HTTP URLs inline, before adding a source'
   await expect(text).toHaveAttribute('aria-invalid', 'false');
 });
 
-test('Observation form rejects whitespace next to the field', async ({ page }) => {
-  await pythonCourse(page);
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
-  await page.getByRole('link', { name: 'Проверка программы', exact: true }).click();
-  await page.getByRole('link', { name: 'Замечания методиста', exact: true }).click();
-  const message = page.getByLabel('Конкретное замечание', { exact: true });
-  await message.fill('   ');
-  await page.getByRole('button', { name: 'Записать замечание', exact: true }).click();
-  await expect(message).toBeFocused();
-  await expect(message).toHaveAccessibleDescription('Заполните это поле.');
-  await message.fill('Нужно проверить применимость источника.');
-  await expect(message).toHaveAttribute('aria-invalid', 'false');
-});
-
 test('Material editing validates before saving', async ({ page }) => {
   await pythonCourse(page);
   await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();

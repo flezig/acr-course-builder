@@ -143,9 +143,7 @@ test('Block editing restores a draft, saves only the selected block and requires
   await other.close();
 });
 
-test('A coverage remark opens the assessment field and a methodist remark opens its rationale', async ({
-  page,
-}) => {
+test('A coverage remark opens the assessment field', async ({ page }) => {
   await create(page, python);
   await page.getByRole('button', { name: 'Редактировать программу', exact: true }).click();
   await page.getByText('Оценочные материалы', { exact: true }).click();
@@ -159,38 +157,6 @@ test('A coverage remark opens the assessment field and a methodist remark opens 
   await expect(page.locator('.assessment-plan-editor')).toHaveAttribute('open', '');
   await expect(page.locator('.assessment-plan-editor input.field-highlight')).toBeFocused();
   await page.getByRole('button', { name: 'Закрыть редактор', exact: true }).click();
-  await tab(page, 'Решения и утверждение');
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page.getByRole('link', { name: 'Отчёт проверки программы', exact: true }).click();
-  await page.getByRole('link', { name: 'Замечания методиста', exact: true }).click();
-  await page
-    .getByLabel('Конкретное замечание', { exact: true })
-    .fill('Уточните основание достижимости для этой аудитории.');
-  await page.getByRole('checkbox', { name: 'Блокирует утверждение программы' }).check();
-  await page.getByRole('button', { name: 'Записать замечание', exact: true }).click();
-  await page.getByRole('link', { name: 'Каркас и учебный план', exact: true }).click();
-  await expect(page.locator('.verdict')).toContainText(
-    'Уточните основание достижимости для этой аудитории.',
-  );
-  await page.locator('.verdict').getByRole('link', { name: 'К первому вопросу' }).click();
-  await expect(page.locator('.decision-item.field-highlight')).toContainText(
-    'Уточните основание достижимости для этой аудитории.',
-  );
-  await page
-    .locator('.decision-item.field-highlight')
-    .getByRole('link', { name: 'Открыть место в программе' })
-    .click();
-  await expect(page.locator('#why-reachability')).toHaveAttribute('open', '');
-  await expect(page.getByLabel('Исправление основания', { exact: true })).toBeVisible();
-  await page
-    .getByLabel('Исправление основания', { exact: true })
-    .fill(
-      'Для входного уровня предусмотрены практикумы с обратной связью; результаты требуют предметной проверки.',
-    );
-  await page.getByRole('button', { name: 'Сохранить исправление', exact: true }).click();
-  await expect(page.locator('.save-feedback')).toContainText(
-    'Программа ожидает отдельного утверждения',
-  );
 });
 
 test('Programme states preserve approval, archive restrictions and materials access at all target widths', async ({

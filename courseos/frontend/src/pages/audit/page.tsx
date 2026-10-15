@@ -1,26 +1,14 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw } from 'lucide-react';
 import {
   generalRequirements,
-  observationChecklist,
   requestChecklist,
   technicalChecks,
   type ChecklistItem,
 } from '../../entities/course/model/checklist';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
-import {
-  Form,
-  Badge,
-  Empty,
-  ErrorMessage,
-  Field,
-  Loading,
-  Notice,
-  Panel,
-  statuses,
-} from '../../shared/ui/ui';
+import { Badge, Empty, ErrorMessage, Loading, Notice, Panel, statuses } from '../../shared/ui/ui';
 import { decisionQueue, programVerdict } from '../../entities/course/model/rules';
 import { issueState } from '../course-plan/decision-queue';
 import './audit.css';
@@ -38,7 +26,7 @@ export function AuditPage() {
   const tab =
     section.startsWith('issue-') || section === 'audit-findings'
       ? 'audit-findings'
-      : section === 'audit-observation' || section === 'audit-checks'
+      : section === 'audit-checks'
         ? section
         : 'audit-checklist';
   useEffect(() => {
@@ -48,10 +36,6 @@ export function AuditPage() {
     );
     return () => cancelAnimationFrame(frame);
   }, [section, query.data]);
-  const form = useForm<{ message: string; element_id: string; blocking: boolean }>({
-    mode: 'onChange',
-    defaultValues: { message: '', element_id: 'why-reachability', blocking: false },
-  });
   if (query.isPending) return <Loading />;
   if (!query.data) return <ErrorMessage error={query.error} />;
   const view = query.data;
@@ -60,8 +44,7 @@ export function AuditPage() {
   const suffix = view.is_latest ? '' : `?version=${snapshot.course_version}`;
   const general = generalRequirements(snapshot);
   const request = requestChecklist(snapshot);
-  const observations = observationChecklist(snapshot);
-  const all = [...general, ...request, ...observations];
+  const all = [...general, ...request];
   const checks = technicalChecks(snapshot.audit);
   const verdict = programVerdict(snapshot);
   const count = (status: ChecklistItem['status']) =>
@@ -107,7 +90,6 @@ export function AuditPage() {
               'Технические проверки',
               checks.filter((check) => check.status === 'failed').length,
             ],
-            ['audit-observation', 'Замечания методиста', snapshot.observations.length],
           ] as const
         ).map(([id, title, count]) => (
           <Link
@@ -175,7 +157,6 @@ export function AuditPage() {
               general,
             ],
             ['Требования запроса', snapshot.skeleton.requirements.title, request],
-            ['Замечания методиста', 'Открытые замечания и решения по ним.', observations],
           ] as const
         )
           .filter(([, , items]) => items.length > 0)
@@ -253,76 +234,10 @@ export function AuditPage() {
           ))}
         </div>
       </section>
-      <section
-        id="audit-observation"
-        className="audit-section"
-        aria-label="Замечания методиста"
-        hidden={tab !== 'audit-observation'}
-      >
-        <Panel
-          title="Замечания методиста"
-          subtitle="То, что автопроверка не может оценить сама. Замечание не меняет программу; блокирующее не даст её утвердить, пока основание не исправят в каркасе."
-        >
-          <Form
-            errors={form.formState.errors}
-            submitCount={form.formState.submitCount}
-            onSubmit={form.handleSubmit(async (values) => {
-              try {
-                await command.mutateAsync({
-                  action: 'record_observation',
-                  expected_version: snapshot.course_version,
-                  payload: values,
-                });
-                form.reset();
-              } catch {
-                /* Замечание остаётся доступным при ошибке. */
-              }
-            })}
-          >
-            {/* Только обоснования каркаса: исправление замечания пересчитывает основания,
-                а для материалов такого пути нет. */}
-            <Field label="К какому обоснованию">
-              <select {...form.register('element_id')}>
-                {snapshot.skeleton.explanations.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.title}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Конкретное замечание">
-              <textarea {...form.register('message')} rows={3} required />
-            </Field>
-            <label className="checkbox">
-              <input type="checkbox" {...form.register('blocking')} /> Блокирует утверждение
-              программы
-            </label>
-            <button type="submit" disabled={!view.is_latest || command.isPending}>
-              Записать замечание
-            </button>
-          </Form>
-          {snapshot.observations.length > 0 && (
-            <ul className="observation-list">
-              {snapshot.observations.map((issue) => (
-                <li key={issue.id}>
-                  <p>{issue.message}</p>
-                  <Badge tone={issue.blocking ? 'red' : 'neutral'}>
-                    {issue.blocking ? 'Блокирует утверждение' : 'Не блокирует'}
-                  </Badge>
-                  <Link to={`/courses/${snapshot.course_id}/plan${suffix}#${issue.element_id}`}>
-                    Исправить в каркасе
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-      </section>
       <Notice>
         {snapshot.audit.at
           ? `Аудит выполнен. Блокируют утверждение: ${verdict.open}. Решено методистом: ${snapshot.audit.issues.filter((issue) => issue.decision).length}.`
           : 'Аудит ещё не выполнен.'}{' '}
-        {snapshot.audit.expert_status === 'not_reviewed' && 'Экспертная проверка не проведена.'}{' '}
         {snapshot.approval_applicable
           ? 'Программа утверждена.'
           : 'Программа ожидает утверждения методиста.'}

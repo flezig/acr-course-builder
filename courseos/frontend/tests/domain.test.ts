@@ -19,7 +19,6 @@ import {
   generalRequirements,
   requestChecklist,
   technicalChecks,
-  observationChecklist,
 } from '../src/entities/course/model/checklist';
 import { buildCoverage } from '../src/pages/competencies/coverage-model';
 import { agentFindings } from '../src/entities/course/model/findings';
@@ -941,9 +940,6 @@ describe('Замечания методиста в отчёте', () => {
     const snapshot = (await api.get(initial.course_id)).snapshot!;
     const observation = snapshot.observations[0];
     expect(snapshot.audit.issues.find((issue) => issue.id === observation.id)?.blocking).toBe(true);
-    expect(observationChecklist(snapshot)).toMatchObject([
-      { status: 'problem', target: { screen: 'audit', hash: `issue-${observation.id}` } },
-    ]);
     await expect(approve(snapshot)).rejects.toMatchObject({ status: 409 });
     await api.command({
       action: 'resolve_observation',
@@ -953,7 +949,6 @@ describe('Замечания методиста в отчёте', () => {
       payload: { issue_id: observation.id, correction: 'Уточнена связь результата с заданием' },
     });
     const resolved = (await api.get(snapshot.course_id)).snapshot!;
-    expect(observationChecklist(resolved)).toEqual([]);
     expect(resolved.audit.issues.some((issue) => issue.id === observation.id)).toBe(false);
   });
 });

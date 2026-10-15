@@ -58,31 +58,3 @@ test('ссылка очереди на неизвестный элемент о�
   await reportLink.click();
   await expect(page.locator(`[id="${href!.split('#')[1]}"]`)).toBeInViewport();
 });
-
-test('блокирующие замечания методиста входят в сводку чек-листа', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: /Анализ данных на Python/ }).click();
-  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.locator('.course-heading h1')).toBeVisible();
-  const planUrl = page.url().split('#')[0];
-  await page.goto(planUrl.replace(/\/plan.*$/, '/audit#audit-observation'));
-  for (const message of [
-    'Первое основание требует исправления',
-    'Второе основание требует исправления',
-  ]) {
-    await page.getByLabel('Конкретное замечание', { exact: true }).fill(message);
-    await page.getByRole('checkbox').check();
-    await page.getByRole('button', { name: 'Записать замечание', exact: true }).click();
-    await expect(
-      page.locator('#audit-observation').getByText(message, { exact: true }),
-    ).toBeVisible();
-  }
-  await page.getByRole('link', { name: 'Чек-лист', exact: true }).click();
-  await expect(
-    page.locator('.checklist-item').filter({ hasText: 'Второе основание требует исправления' }),
-  ).toContainText('Проблема');
-  const problems = await page.locator('.checklist-item.problem').count();
-  await expect(
-    page.locator('.checklist-summary div').filter({ hasText: 'Проблема' }).locator('dd'),
-  ).toHaveText(String(problems));
-});

@@ -592,16 +592,3 @@ export function technicalChecks(audit: Audit): Audit['checks'] {
     (check) => !['hours', 'coverage', 'sections', 'calendar'].includes(check.id),
   );
 }
-
-export function observationChecklist(snapshot: Snapshot): ChecklistItem[] {
-  const observationIds = new Set(snapshot.observations.map((issue) => issue.id));
-  return snapshot.audit.issues
-    .filter((issue) => observationIds.has(issue.id))
-    .map((issue) => ({
-      id: `observation-${issue.id}`,
-      title: issue.message,
-      status: issue.decision ? 'passed' : issue.blocking ? 'problem' : 'manual_review',
-      evidence: issue.decision ? `Причина решения: ${issue.decision.reason}` : issue.suggested_fix,
-      target: { screen: 'audit', hash: `issue-${issue.id}` },
-    }));
-}
