@@ -42,6 +42,19 @@ export interface CommandResult {
   job: Job;
   change_plan: ChangePlan | null;
 }
+/** Свободный запрос методиста к ИИ о правке одного поля формы. */
+export interface FieldEditRequest {
+  course_id: string | null;
+  /** Подпись поля и путь страницы, чтобы ИИ понимал, что именно правится. */
+  field_label: string;
+  page: string;
+  current_value: string;
+  request: string;
+}
+export interface FieldEditProposal {
+  value: string;
+  note: string;
+}
 export interface CourseApi {
   readonly mode: 'demo' | 'live';
   list(): Promise<CourseSummary[]>;
@@ -55,6 +68,7 @@ export interface CourseApi {
   retrieveReference(courseId: string, url: string): Promise<Requirements['references'][number]>;
   uploadReference(courseId: string, file: File): Promise<Requirements['references'][number]>;
   reset(): Promise<void>;
+  proposeFieldEdit(input: FieldEditRequest): Promise<FieldEditProposal>;
 }
 export function withManifest(snapshot: Snapshot): Snapshot {
   snapshot.export_manifest = (['json', 'docx', 'pptx', 'lms'] as const).map((format) => ({

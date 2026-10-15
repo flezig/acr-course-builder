@@ -29,7 +29,13 @@ import { contentHash, canonicalJson } from '../../../shared/lib/decimal';
 import { proposedAssessment, proposedCalendar } from '../model/findings';
 import { assessmentLabels } from '../model/presets';
 import { ApiError } from '../../../shared/api/http';
-import { withManifest, type CommandEnvelope, type CommandResult, type CourseApi } from './contract';
+import {
+  withManifest,
+  type CommandEnvelope,
+  type CommandResult,
+  type CourseApi,
+  type FieldEditRequest,
+} from './contract';
 const storageKey = 'courseos-demo-v1';
 interface StoredCourse {
   requirements: Requirements;
@@ -894,6 +900,34 @@ export class DemoCourseApi implements CourseApi {
     throw new ApiError(
       503,
       `«${file.name}»: реальное извлечение PDF/DOCX недоступно без backend. Для скана нужен текстовый референс; OCR не поддерживается. Вставьте текст.`,
+    );
+  }
+  // В демо нет языковой модели: распознаём несколько однозначных команд,
+  // а на остальные честно отвечаем, что нужен backend, а не выдумываем текст.
+  async proposeFieldEdit({ current_value, request }: FieldEditRequest) {
+    const text = request.trim();
+    const replace = text.match(/замени\S*\s+[«"](.+?)[»"]\s+на\s+[«"](.*?)[»"]/i);
+    if (replace) {
+      if (!current_value.includes(replace[1]))
+        throw new ApiError(422, `В поле нет фрагмента «${replace[1]}».`);
+      return {
+        value: current_value.split(replace[1]).join(replace[2]),
+        note: `Заменено «${replace[1]}» на «${replace[2]}».`,
+      };
+    }
+    const append = text.match(/^добав\S*\s*:?\s*([\s\S]+)/i);
+    if (append) {
+      const separator = current_value && !/\s$/.test(current_value) ? ' ' : '';
+      return { value: current_value + separator + append[1], note: 'Текст добавлен в конец.' };
+    }
+    if (/сократ|короче/i.test(text)) {
+      const first = current_value.match(/^[\s\S]*?[.!?](\s|$)/)?.[0].trim() || current_value;
+      return { value: first, note: 'Оставлено первое предложение.' };
+    }
+    if (/очист|удали вс/i.test(text)) return { value: '', note: 'Поле очищено.' };
+    throw new ApiError(
+      503,
+      'Свободные запросы к ИИ выполняет backend. В демо доступны команды: «замени "А" на "Б"», «добавь: …», «сократи», «очисти».',
     );
   }
   async reset() {

@@ -1,0 +1,78 @@
+.ai-field-trigger {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--theme-purple-ink, #6b3fa0);
+  cursor: pointer;
+}
+
+.ai-field-trigger:hover {
+  background: var(--theme-purple-surface, #f3ecfb);
+}
+
+.ai-field-dialog {
+  position: fixed;
+  z-index: 61;
+  display: grid;
+  gap: 10px;
+  width: min(400px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.16);
+}
+
+.ai-field-dialog form,
+.ai-field-proposal {
+  display: grid;
+  gap: 8px;
+}
+
+.ai-field-dialog textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.ai-field-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--theme-purple-ink, #6b3fa0);
+}
+
+.ai-field-heading strong {
+  flex: 1;
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-field-close {
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.ai-field-dialog .diff-grid {
+  grid-template-columns: 1fr;
+}
+
+.ai-field-dialog pre {
+  max-height: 140px;
+  overflow: auto;
+  white-space: pre-wrap;
+}

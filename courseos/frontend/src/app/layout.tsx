@@ -30,6 +30,7 @@ import { useApi, useCourse, useCourses } from '../entities/course/api/provider';
 import { UnsavedProvider } from '../shared/lib/use-unsaved';
 import { Badge } from '../shared/ui/ui';
 import { DismissibleDetails } from '../shared/ui/dismissible-details';
+import { AiFieldEdit } from '../features/ai-field-edit/ai-field-edit';
 import courseosLogo from '../shared/assets/courseos-logo.png';
 export function Layout() {
   return (
@@ -377,6 +378,7 @@ function LayoutContent() {
         <main id="main" tabIndex={-1}>
           <Outlet key={api.mode} />
         </main>
+        <AiFieldEdit />
         <footer>
           CourseOS · Черновики для содержательной проверки и решения методиста{' '}
           <span>Локальный frontend · 0.1.0</span>
