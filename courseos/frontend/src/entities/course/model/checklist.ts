@@ -14,7 +14,7 @@ export type ChecklistItem = {
   status: ChecklistStatus;
   evidence: string;
   // Куда ведёт ссылка: экран программы и якорь на нём.
-  target: { screen: 'plan' | 'map' | 'materials'; hash: string };
+  target: { screen: 'plan' | 'map' | 'materials' | 'audit'; hash: string };
 };
 
 const hours = (value: Decimal.Value) => `${formatHours(new Decimal(value).toString())} ч`;
@@ -564,7 +564,9 @@ function standardStatus(snapshot: Snapshot): ChecklistStatus {
 function withFindingStatus(snapshot: Snapshot, items: ChecklistItem[]): ChecklistItem[] {
   return items.map((item) => {
     const findings = snapshot.audit.issues.filter((issue) =>
-      item.id === 'hours-daily'
+      item.id === 'hours-daily' ||
+      item.target.hash === 'calendar' ||
+      item.target.hash.startsWith('issue-calendar-')
         ? issue.element_id === 'calendar'
         : item.id === 'standard-exists'
           ? issue.id === 'professional-standard'
@@ -589,4 +591,17 @@ export function technicalChecks(audit: Audit): Audit['checks'] {
   return audit.checks.filter(
     (check) => !['hours', 'coverage', 'sections', 'calendar'].includes(check.id),
   );
+}
+
+export function observationChecklist(snapshot: Snapshot): ChecklistItem[] {
+  const observationIds = new Set(snapshot.observations.map((issue) => issue.id));
+  return snapshot.audit.issues
+    .filter((issue) => observationIds.has(issue.id))
+    .map((issue) => ({
+      id: `observation-${issue.id}`,
+      title: issue.message,
+      status: issue.decision ? 'passed' : issue.blocking ? 'problem' : 'manual_review',
+      evidence: issue.decision ? `Причина решения: ${issue.decision.reason}` : issue.suggested_fix,
+      target: { screen: 'audit', hash: `issue-${issue.id}` },
+    }));
 }

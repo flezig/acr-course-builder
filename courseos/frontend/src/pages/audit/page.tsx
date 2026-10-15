@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw, ArrowLeft } from 'lucide-react';
 import {
   generalRequirements,
+  observationChecklist,
   requestChecklist,
   technicalChecks,
   type ChecklistItem,
@@ -52,7 +53,7 @@ export function AuditPage() {
     mode: 'onChange',
     defaultValues: { message: '', element_id: 'why-reachability', blocking: false },
   });
-  const [correction, setCorrection] = useState('');
+  const [corrections, setCorrections] = useState<Record<string, string>>({});
   if (query.isPending) return <Loading />;
   if (!query.data) return <ErrorMessage error={query.error} />;
   const view = query.data;
@@ -61,7 +62,8 @@ export function AuditPage() {
   const suffix = view.is_latest ? '' : `?version=${snapshot.course_version}`;
   const general = generalRequirements(snapshot);
   const request = requestChecklist(snapshot);
-  const all = [...general, ...request];
+  const observations = observationChecklist(snapshot);
+  const all = [...general, ...request, ...observations];
   const checks = technicalChecks(snapshot.audit);
   const verdict = programVerdict(snapshot);
   const count = (status: ChecklistItem['status']) =>
@@ -179,42 +181,45 @@ export function AuditPage() {
               general,
             ],
             ['Требования запроса', snapshot.skeleton.requirements.title, request],
+            ['Замечания методиста', 'Открытые замечания и решения по ним.', observations],
           ] as const
-        ).map(([title, subtitle, items]) => (
-          <Panel key={title} title={title} subtitle={subtitle} className="checklist-panel">
-            <ul className="checklist">
-              {items.map((item) => (
-                <li key={item.id} className={`checklist-item ${item.status}`}>
-                  {item.status === 'passed' ? (
-                    <CheckCircle2 className="green-icon" size={18} aria-hidden="true" />
-                  ) : item.status === 'problem' ? (
-                    <AlertTriangle className="red-icon" size={18} aria-hidden="true" />
-                  ) : (
-                    <CircleDashed size={18} aria-hidden="true" />
-                  )}
-                  <div>
-                    <strong>{item.title}</strong>
-                    <p>{item.evidence}</p>
-                  </div>
-                  <Badge
-                    tone={
-                      item.status === 'passed'
-                        ? 'green'
-                        : item.status === 'problem'
-                          ? 'red'
-                          : 'neutral'
-                    }
-                  >
-                    {checklistStatuses[item.status]}
-                  </Badge>
-                  <Link className="checklist-link" to={itemHref(item)}>
-                    Открыть
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </Panel>
-        ))}
+        )
+          .filter(([, , items]) => items.length > 0)
+          .map(([title, subtitle, items]) => (
+            <Panel key={title} title={title} subtitle={subtitle} className="checklist-panel">
+              <ul className="checklist">
+                {items.map((item) => (
+                  <li key={item.id} className={`checklist-item ${item.status}`}>
+                    {item.status === 'passed' ? (
+                      <CheckCircle2 className="green-icon" size={18} aria-hidden="true" />
+                    ) : item.status === 'problem' ? (
+                      <AlertTriangle className="red-icon" size={18} aria-hidden="true" />
+                    ) : (
+                      <CircleDashed size={18} aria-hidden="true" />
+                    )}
+                    <div>
+                      <strong>{item.title}</strong>
+                      <p>{item.evidence}</p>
+                    </div>
+                    <Badge
+                      tone={
+                        item.status === 'passed'
+                          ? 'green'
+                          : item.status === 'problem'
+                            ? 'red'
+                            : 'neutral'
+                      }
+                    >
+                      {checklistStatuses[item.status]}
+                    </Badge>
+                    <Link className="checklist-link" to={itemHref(item)}>
+                      Открыть
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          ))}
       </section>
       <section
         id="audit-checks"
@@ -307,24 +312,44 @@ export function AuditPage() {
           </Form>
           {snapshot.observations.length > 0 && (
             <div>
-              <Field label="Исправление основания (создаёт новую ревизию)">
-                <textarea
-                  value={correction}
-                  onChange={(e) => setCorrection(e.target.value)}
-                  rows={3}
-                />
-              </Field>
               {snapshot.observations.map((issue) => (
                 <div key={issue.id}>
                   <p>{issue.message}</p>
+                  <Badge tone={issue.blocking ? 'red' : 'neutral'}>
+                    {issue.blocking ? 'Блокирует утверждение' : 'Проверяет методист'}
+                  </Badge>
+                  <Field label={`Исправление основания: ${issue.message} (создаёт новую ревизию)`}>
+                    <textarea
+                      value={corrections[issue.id] || ''}
+                      onChange={(event) =>
+                        setCorrections((previous) => ({
+                          ...previous,
+                          [issue.id]: event.target.value,
+                        }))
+                      }
+                      rows={3}
+                    />
+                  </Field>
                   <button
-                    disabled={!view.is_latest || !correction.trim() || command.isPending}
+                    disabled={
+                      !view.is_latest || !corrections[issue.id]?.trim() || command.isPending
+                    }
                     onClick={() =>
-                      command.mutate({
-                        action: 'resolve_observation',
-                        expected_version: snapshot.course_version,
-                        payload: { issue_id: issue.id, correction },
-                      })
+                      command.mutate(
+                        {
+                          action: 'resolve_observation',
+                          expected_version: snapshot.course_version,
+                          payload: { issue_id: issue.id, correction: corrections[issue.id] },
+                        },
+                        {
+                          onSuccess: () =>
+                            setCorrections((previous) => {
+                              const remaining = { ...previous };
+                              delete remaining[issue.id];
+                              return remaining;
+                            }),
+                        },
+                      )
                     }
                   >
                     Сохранить исправление этого основания

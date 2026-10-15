@@ -15,6 +15,7 @@ import {
   generalRequirements,
   requestChecklist,
   technicalChecks,
+  observationChecklist,
 } from '../src/entities/course/model/checklist';
 import { buildCoverage } from '../src/pages/competencies/coverage-model';
 import { buildMap } from '../src/pages/competencies/map-model';
@@ -906,5 +907,68 @@ describe('Единственные проверки в отчёте', () => {
     expect(generalRequirements(snapshot).find((item) => item.id === 'russian')?.status).toBe(
       'manual_review',
     );
+  });
+});
+
+describe('Замечания методиста в отчёте', () => {
+  it('учитывает блокирующее замечание и снимает его только после исправления', async () => {
+    const initial = await startPython();
+    await api.command({
+      action: 'record_observation',
+      course_id: initial.course_id,
+      expected_version: initial.course_version,
+      request_id: crypto.randomUUID(),
+      payload: {
+        element_id: 'why-reachability',
+        message: 'Исправить основание результата',
+        blocking: true,
+      },
+    });
+    const snapshot = (await api.get(initial.course_id)).snapshot!;
+    const observation = snapshot.observations[0];
+    expect(snapshot.audit.issues.find((issue) => issue.id === observation.id)?.blocking).toBe(true);
+    expect(observationChecklist(snapshot)).toMatchObject([
+      { status: 'problem', target: { screen: 'audit', hash: `issue-${observation.id}` } },
+    ]);
+    await expect(approve(snapshot)).rejects.toMatchObject({ status: 409 });
+    await api.command({
+      action: 'resolve_observation',
+      course_id: snapshot.course_id,
+      expected_version: snapshot.course_version,
+      request_id: crypto.randomUUID(),
+      payload: { issue_id: observation.id, correction: 'Уточнена связь результата с заданием' },
+    });
+    const resolved = (await api.get(snapshot.course_id)).snapshot!;
+    expect(observationChecklist(resolved)).toEqual([]);
+    expect(resolved.audit.issues.some((issue) => issue.id === observation.id)).toBe(false);
+  });
+});
+
+describe('Блокеры календаря и инструментов', () => {
+  it('согласует пункты с находками и сохраняет решение о версиях', async () => {
+    const result = await api.command({
+      action: 'start',
+      payload: preset('bank'),
+      request_id: crypto.randomUUID(),
+    });
+    vi.advanceTimersByTime(500);
+    const snapshot = (await api.get(result.course_id)).snapshot!;
+    expect(generalRequirements(snapshot).find((item) => item.id === 'hours-daily')?.status).toBe(
+      'problem',
+    );
+    const toolCheck = () =>
+      requestChecklist(snapshot).find((item) => item.title.startsWith('Инструменты и версии'))!;
+    const finding = snapshot.audit.issues.find((issue) => issue.id === 'tool-versions')!;
+    expect(toolCheck().status).toBe('manual_review');
+    finding.blocking = true;
+    expect(toolCheck().status).toBe('problem');
+    finding.blocking = false;
+    finding.decision = {
+      actor: 'Методист',
+      at: new Date().toISOString(),
+      reason: 'Версии проверены на учебном стенде',
+    };
+    expect(toolCheck().status).toBe('passed');
+    expect(toolCheck().evidence).toContain(finding.decision.reason);
   });
 });
