@@ -346,10 +346,8 @@ export function PlanPage() {
                       return (
                         items.length > 0 && (
                           <section className="outcome-group" key={kind}>
-                            <h4>
-                              {kindLabels[kind]} <span>{items.length}</span>
-                            </h4>
-                            <ul className="outcome-list">
+                            <h4>{kindLabels[kind]}</h4>
+                            <ul>
                               {items.map((outcome) => (
                                 <li
                                   key={outcome.id}
@@ -358,21 +356,13 @@ export function PlanPage() {
                                   tabIndex={-1}
                                 >
                                   <div>
-                                    <p className="outcome-statement">
-                                      {outcomeText(outcome.description)}
-                                    </p>
+                                    {outcomeText(outcome.description)}
                                     {outcome.criteria && outcome.criteria.length > 0 && (
-                                      <div className="outcome-checks">
-                                        <span>Критерии достижения</span>
-                                        <ul>
-                                          {outcome.criteria.map((criterion) => (
-                                            <li key={criterion}>
-                                              <CheckCircle2 size={14} aria-hidden />
-                                              {criterion}
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </div>
+                                      <ul className="outcome-criteria" aria-label="Критерии">
+                                        {outcome.criteria.map((criterion) => (
+                                          <li key={criterion}>{criterion}</li>
+                                        ))}
+                                      </ul>
                                     )}
                                     {target === outcome.id && (
                                       <div className="context-remark">
