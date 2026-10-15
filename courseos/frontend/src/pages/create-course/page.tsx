@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, BookOpen, Sparkles, Check } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { useApi, useCommand, useCourses } from '../../entities/course/api/provider';
 import { inputSchema, type Requirements } from '../../entities/course/model/schema';
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
@@ -52,7 +52,9 @@ export function CreateCoursePage() {
     setPresetId(id);
     form.reset(structuredClone(presets.find((p) => p.id === id)!.requirements));
     formRef.current?.querySelector('.create-request')?.scrollIntoView({
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'instant'
+        : 'smooth',
       block: 'start',
     });
   };
@@ -68,9 +70,11 @@ export function CreateCoursePage() {
   return (
     <div className="create-workspace">
       <header className="page-heading create-heading">
-        <div className="eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО МЕТОДИСТА</div>
-        <h1>От запроса к проверяемой программе</h1>
-        <p>Проверьте результаты, последовательность, часы и оценивание до создания материалов.</p>
+        <h1>Создайте учебную программу</h1>
+        <p>
+          Опишите задачу — CourseOS предложит структуру, распределение часов и способы проверки
+          знаний
+        </p>
       </header>
       <form ref={formRef} onSubmit={submit} className="create-layout">
         <Panel
@@ -106,13 +110,14 @@ export function CreateCoursePage() {
               {command.isPending ? 'Запрос сохраняется…' : 'Отправить запрос'}
               <ArrowRight size={18} />
             </button>
-            <small>Далее — уточнения недостающих данных или создание каркаса.</small>
+            <small>Вы сможете проверить и изменить программу перед утверждением</small>
           </div>
         </Panel>
         <section className="examples" aria-labelledby="examples-title">
-          <h2 id="examples-title">Начните с примера</h2>
-          <p id="examples-hint">Выбор заполнит поля. Их можно изменить до отправки.</p>
-          <small className="examples-source">Демонстрационные сценарии</small>
+          <h2 id="examples-title">Попробуйте на примере</h2>
+          <p id="examples-hint">
+            Выберите пример, чтобы заполнить запрос. Затем измените его под свою задачу
+          </p>
           <div className="example-grid">
             {presets.map((p) => (
               <button
@@ -123,8 +128,12 @@ export function CreateCoursePage() {
                 aria-describedby="examples-hint"
                 onClick={() => choose(p.id)}
               >
-                <span className="example-icon" aria-hidden="true">
-                  {presetId === p.id ? <Check size={18} /> : <BookOpen size={18} />}
+                <span className="example-topic" aria-hidden="true">
+                  {
+                    { python: 'PY', teachers: 'ИИ', bank: 'DATA', security: 'SEC', devops: 'OPS' }[
+                      p.id
+                    ]
+                  }
                 </span>
                 <span className="example-copy">
                   <strong>{p.label}</strong>
@@ -275,10 +284,6 @@ export function CreateCoursePage() {
           </Panel>
         </aside>
       </form>
-      <p className="create-caption">
-        CourseOS помогает собрать проверяемый каркас и комплект программы. Решения и утверждение
-        остаются за методистом.
-      </p>
       {!!courses.data?.length && (
         <Panel title="Ваши сохранённые курсы">
           <div className="course-list">

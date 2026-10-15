@@ -270,7 +270,7 @@ function LayoutContent() {
         <div className="sidebar-bottom">
           <div className="sidebar-note">
             <FlaskConical size={18} />
-            <strong>{api.mode === 'demo' ? 'Демонстрационный режим' : 'Реальный API'}</strong>
+            {api.mode === 'live' && <strong>Реальный API</strong>}
             <p>
               {api.mode === 'demo'
                 ? 'Данные и задачи сохраняются в этом браузере. Генерация моделируется.'
@@ -318,7 +318,7 @@ function LayoutContent() {
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
             <Badge tone={api.mode === 'demo' ? 'amber' : 'green'}>
-              {api.mode === 'demo' ? 'Демоданные' : 'LIVE · Данные сервера'}
+              {api.mode === 'demo' ? 'Демо-режим' : 'LIVE · Данные сервера'}
             </Badge>
             <label className="mode-select">
               <span className="sr-only">Режим работы</span>

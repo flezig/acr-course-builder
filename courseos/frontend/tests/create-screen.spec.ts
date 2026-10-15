@@ -5,9 +5,9 @@ import { presets } from '../src/entities/course/model/presets';
 
 for (const [width, height] of [
   [1440, 900],
-  [1280, 800],
+  [768, 1024],
   [390, 844],
-  [375, 667],
+  [360, 800],
 ]) {
   test(`Start screen and all five examples at ${width}×${height}`, async ({ page }) => {
     const errors: string[] = [];
@@ -28,6 +28,50 @@ for (const [width, height] of [
       width,
     );
     await expect(page.locator('.example')).toHaveCount(5);
+    await expect(page.getByRole('heading', { name: 'Создайте учебную программу' })).toBeVisible();
+    await expect(page.locator('.topbar .badge')).toHaveText('Демо-режим');
+    await expect(page.locator('.example-topic')).toHaveText(['PY', 'ИИ', 'DATA', 'SEC', 'OPS']);
+    const layout = await page.evaluate(() => {
+      const heading = document.querySelector('.create-heading')!;
+      const arc = getComputedStyle(heading, '::after');
+      const examples = [...document.querySelectorAll('.example')];
+      return {
+        arcDiameter: parseFloat(arc.width),
+        arcRight: parseFloat(arc.right),
+        arcBottom: parseFloat(arc.top) + parseFloat(arc.height),
+        headingPadding: parseFloat(getComputedStyle(heading).paddingTop),
+        descriptionTop:
+          document.querySelector('.create-heading p')!.getBoundingClientRect().top -
+          heading.getBoundingClientRect().top,
+        titleRight:
+          document.querySelector('.create-heading h1')!.getBoundingClientRect().right -
+          parseFloat(getComputedStyle(document.querySelector('.create-heading h1')!).paddingRight),
+        arcLeft:
+          heading.getBoundingClientRect().right - parseFloat(arc.right) - parseFloat(arc.width),
+        examples: examples.map((e) => ({
+          x: e.getBoundingClientRect().x,
+          height: e.getBoundingClientRect().height,
+        })),
+        clipped: [
+          ...document.querySelectorAll(
+            '.create-workspace strong, .create-workspace small, .create-workspace p, .topbar .badge',
+          ),
+        ]
+          .filter((e) => e.scrollWidth > e.clientWidth + 1)
+          .map((e) => e.textContent),
+      };
+    });
+    expect(layout.clipped).toEqual([]);
+    expect(layout.arcBottom).toBeLessThanOrEqual(layout.descriptionTop);
+    if (width <= 600) {
+      expect(layout.arcDiameter).toBeGreaterThanOrEqual(100);
+      expect(layout.arcDiameter).toBeLessThanOrEqual(120);
+      expect(layout.arcRight).toBeLessThan(-60);
+      expect(layout.arcBottom).toBeLessThan(layout.descriptionTop);
+      expect(layout.titleRight).toBeLessThanOrEqual(layout.arcLeft);
+      expect(new Set(layout.examples.map((e) => e.x)).size).toBe(1);
+      expect(layout.examples.every((e) => e.height >= 48)).toBe(true);
+    }
     for (const preset of presets) {
       const example = page.getByRole('button', {
         name: `${preset.label} ${preset.description}`,
@@ -91,4 +135,11 @@ test('Submit preserves the incomplete request and opens existing clarification s
   await page.getByRole('button', { name: /Кибербезопасность Неполный запрос/ }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Уточните 5 параметров' })).toBeVisible();
+});
+
+test('Empty form keeps validation and does not submit', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await expect(page.getByLabel('Аудитория', { exact: true })).toBeFocused();
+  await expect(page).toHaveURL(/\/$/);
 });

@@ -1,17 +1,15 @@
 .create-workspace .create-heading {
   padding: 18px 24px;
   margin-bottom: 20px;
-  border-radius: 22px;
+  border-radius: 16px;
+  border: 0;
 }
 .create-workspace .create-heading::after {
   width: 220px;
   height: 220px;
-  top: -150px;
+  top: -160px;
   right: -35px;
   box-shadow: none;
-}
-.create-workspace .eyebrow {
-  margin-bottom: 6px;
 }
 .create-workspace .create-heading h1 {
   max-width: none;
@@ -95,11 +93,6 @@
   line-height: 1.5;
   margin: 6px 0 8px;
 }
-.create-workspace .examples-source {
-  display: block;
-  font-size: 11px;
-  margin-bottom: 8px;
-}
 .create-workspace .example-grid {
   grid-template-columns: minmax(0, 1fr);
   gap: 6px;
@@ -116,10 +109,12 @@
 .create-workspace .example:last-child {
   grid-column: auto;
 }
-.create-workspace .example-icon {
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
+.create-workspace .example-topic {
+  flex: 0 0 34px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.3px;
 }
 .create-workspace .example-copy {
   min-width: 0;
@@ -147,9 +142,8 @@
   border-color: var(--ink);
   background: var(--theme-raised, #eef0f3);
 }
-.create-workspace .example.selected .example-icon {
-  background: var(--ink);
-  color: var(--surface);
+.create-workspace .example.selected .example-topic {
+  color: var(--ink);
 }
 .create-workspace .create-guidance {
   grid-area: guidance;
@@ -188,10 +182,21 @@
   padding-top: 14px;
   margin-bottom: 0;
 }
-.create-workspace .create-caption {
-  font-size: 12px;
-  margin: 20px 0 24px;
+.create-workspace .panel {
+  border-radius: 16px;
+  box-shadow: none;
 }
+.create-workspace > .panel {
+  margin-top: 24px;
+}
+.create-workspace .create-guidance > .panel {
+  border: 0;
+  padding: 4px 0;
+}
+.create-workspace .template-choice {
+  border: 0;
+}
+
 @media (max-width: 1250px) {
   .create-workspace .create-layout {
     grid-template-columns: minmax(0, 1fr) 290px;
@@ -199,6 +204,9 @@
   }
 }
 @media (max-width: 1000px) {
+  .create-workspace .create-heading::after {
+    top: -190px;
+  }
   .create-workspace .create-layout {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: 'request' 'examples' 'parameters' 'references' 'guidance';
@@ -217,11 +225,16 @@
     margin-bottom: 12px;
     border-radius: 16px;
   }
-  .create-workspace .create-heading .eyebrow {
-    display: none;
+  .create-workspace .create-heading::after {
+    box-sizing: border-box;
+    width: 112px;
+    height: 112px;
+    top: -78px;
+    right: -72px;
   }
   .create-workspace .create-heading h1 {
-    font-size: 24px;
+    font-size: 22px;
+    padding-right: 28px;
   }
   .create-workspace .create-layout > .panel {
     padding: 18px;
