@@ -375,6 +375,11 @@ const demoScopeExample: Record<EditScope, (draft: Skeleton) => void> = {
   calendar: (draft) => {
     draft.requirements.calendar.description = `${draft.requirements.calendar.description.replace(/[.\s]+$/, '')}. Последняя неделя оставлена под защиту проектов.`;
   },
+  materials: (draft) => {
+    const activity = draft.activities[0];
+    if (activity)
+      activity.description = `${activity.description.replace(/[.\s]+$/, '')}. Перед выполнением — разбор образца решения.`;
+  },
 };
 export class DemoCourseApi implements CourseApi {
   readonly mode = 'demo';
@@ -958,6 +963,17 @@ export class DemoCourseApi implements CourseApi {
       },
       calendar: () => {
         draft.requirements.calendar.description = swap(draft.requirements.calendar.description);
+      },
+      materials: () => {
+        for (const topic of draft.topics) {
+          topic.title = swap(topic.title);
+          topic.content = swap(topic.content);
+        }
+        for (const activity of draft.activities) activity.description = swap(activity.description);
+        for (const assessment of draft.assessments) {
+          assessment.action = swap(assessment.action);
+          assessment.criterion = swap(assessment.criterion);
+        }
       },
     };
     edits[scope]();

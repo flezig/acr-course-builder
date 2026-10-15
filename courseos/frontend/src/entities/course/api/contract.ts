@@ -43,7 +43,7 @@ export interface CommandResult {
   change_plan: ChangePlan | null;
 }
 /** Часть программы, которую видит методист на открытой вкладке. */
-export type EditScope = 'intent' | 'curriculum' | 'calendar' | 'outcomes';
+export type EditScope = 'intent' | 'curriculum' | 'calendar' | 'outcomes' | 'materials';
 /**
  * Свободный запрос методиста к ИИ. ИИ получает весь каркас, но меняет
  * только часть, относящуюся к открытой вкладке, и возвращает каркас целиком.

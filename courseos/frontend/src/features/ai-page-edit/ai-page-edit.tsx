@@ -14,12 +14,16 @@ const scopeTitles: Record<EditScope, string> = {
   curriculum: 'Учебный план',
   calendar: 'Календарь',
   outcomes: 'Карта результатов',
+  materials: 'Материалы и выгрузки',
 };
 
 // Повторяет выбор вкладки из pages/course-plan/page.tsx: ИИ правит ровно то,
 // что методист сейчас видит. Вкладки без редактируемой программы не дают кнопку.
 function editScope(pathname: string, hash: string): EditScope | null {
   if (pathname.endsWith('/map')) return 'outcomes';
+  // Материалы и выгрузки собираются из тем, практик и заданий каркаса,
+  // поэтому ИИ правит эти тексты, а материалы пересобираются после сохранения.
+  if (pathname.endsWith('/materials')) return 'materials';
   if (!pathname.endsWith('/plan')) return null;
   const target = decodeURIComponent(hash.slice(1)).replace(/^fix-/, '').split('~')[0];
   if (target === 'review' || target === 'approve' || target.startsWith('issue-')) return null;
@@ -41,6 +45,8 @@ const sectionLabels: Record<string, string> = {
   topics: 'Тема',
   activities: 'Активность',
   assessments: 'Оценивание',
+  action: 'действие',
+  criterion: 'критерий',
   requirements: 'Параметры',
   audience: 'аудитория',
   entry_level: 'входной уровень',
