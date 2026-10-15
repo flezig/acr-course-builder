@@ -82,7 +82,6 @@
   --theme-muted: #5b6475;
   --theme-border: rgba(29, 35, 48, 0.1);
   --theme-subtle: #eef3ff;
-  --theme-accent: #2f6bff;
   --page-gradient: linear-gradient(135deg, #f7f9ff 0%, #e4edff 45%, #d6e4ff 75%, #d9f3f7 100%);
   --glass-shadow: 0 20px 60px rgba(40, 80, 160, 0.12);
 }
@@ -111,9 +110,6 @@
 }
 :root:not([data-theme='dark']) :is(textarea, input, select) {
   border-radius: 20px;
-}
-:root:not([data-theme='dark']) a:not(.button) {
-  color: var(--theme-accent);
 }
 /* Карточки примеров тоже кнопки, но многострочные: капсула для них ломает форму. */
 :root:not([data-theme='dark']) .example-grid .example {
