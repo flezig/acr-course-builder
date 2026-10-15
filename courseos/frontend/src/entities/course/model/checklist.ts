@@ -172,7 +172,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
         ? 'passed'
         : 'problem',
       evidence: 'Поля приказа, даты, подписи и ФИО оставлены пустыми: их заполняет человек.',
-      target: { screen: 'plan', hash: 'requisites' },
+      target: { screen: 'materials', hash: requisites[0]?.id ?? '' },
     },
     {
       id: 'exports',

@@ -466,21 +466,6 @@ export function PlanPage() {
                   </div>
                 </section>
               )}
-              <section className="intent-block" id="requisites" tabIndex={-1}>
-                <h3>Реквизиты</h3>
-                <dl className="requisites">
-                  {[
-                    'Приказ об утверждении: номер и дата',
-                    'Подпись руководителя',
-                    'ФИО преподавателей',
-                  ].map((field) => (
-                    <div key={field}>
-                      <dt>{field}</dt>
-                      <dd>заполняет человек</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
             </Panel>
           </div>
           <div id="curriculum" hidden={tab !== 'curriculum'}>
