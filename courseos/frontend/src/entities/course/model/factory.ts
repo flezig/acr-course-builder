@@ -19,6 +19,7 @@ import {
 import {
   bankModuleAssessments,
   bankOutcomes,
+  bankProject,
   bankProjectActions,
   bankTools,
   bankTopics,
@@ -255,7 +256,8 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
     id: 'topic-final',
     module_id: 'module-final',
     title: 'Итоговая аттестация',
-    content: requirements.assessment,
+    content:
+      kind === 'bank' ? `${requirements.assessment}.\n${bankProject}` : requirements.assessment,
     planned_total: finalHours.toString(),
     hours: {
       lecture: '0',

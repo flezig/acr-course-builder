@@ -6,6 +6,7 @@ import { makeSkeleton } from '../src/entities/course/model/factory';
 import { allocateHours, weeklyLoad } from '../src/entities/course/model/hours-plan';
 import { auditSnapshot, hourTotals, programVerdict } from '../src/entities/course/model/rules';
 import { samplePlanMismatch } from '../src/entities/course/model/findings';
+import { generalRequirements, requestChecklist } from '../src/entities/course/model/checklist';
 import { sumHours } from '../src/shared/lib/decimal';
 import type { Requirements } from '../src/entities/course/model/schema';
 
@@ -231,5 +232,59 @@ describe('Находки агента и вердикт', () => {
     const skeleton = makeSkeleton(requirementsFor('bank'));
     expect(skeleton.outcomes.every((o) => o.professional_standard_code === null)).toBe(true);
     expect(skeleton.tools!.every((t) => t.status === 'unconfirmed' && t.version === '')).toBe(true);
+  });
+});
+
+describe('Проверка программы — зеркало чек-листа кейсодателя', () => {
+  it.each(ids)('%s: каждый пункт имеет статус, доказательство и место', async (id) => {
+    const result = await api.command({
+      action: 'start',
+      payload: requirementsFor(id),
+      request_id: crypto.randomUUID(),
+    });
+    vi.advanceTimersByTime(500);
+    const snapshot = (await api.get(result.course_id)).snapshot!;
+    const items = [...generalRequirements(snapshot), ...requestChecklist(snapshot)];
+    for (const item of items) {
+      expect(['passed', 'problem', 'not_checked']).toContain(item.status);
+      expect(item.evidence.trim(), item.title).not.toBe('');
+      expect(item.target.screen).toBeTruthy();
+    }
+  });
+
+  it('bank: все общие требования и девять пунктов запроса 3', async () => {
+    const result = await api.command({
+      action: 'start',
+      payload: requirementsFor('bank'),
+      request_id: crypto.randomUUID(),
+    });
+    vi.advanceTimersByTime(500);
+    const snapshot = (await api.get(result.course_id)).snapshot!;
+    expect(generalRequirements(snapshot).map((item) => item.title)).toEqual([
+      'Сумма тем равна модулю',
+      'ЛК + ПР + ЛБ + СРС равны строке',
+      'Итог с итоговой аттестацией равен объёму',
+      'Шаг часов 0,5 ч, как в образцах',
+      'Нагрузка в день в пределах ограничения',
+      'Обязательные разделы шаблона заполнены',
+      'Каждый результат раскрыт хотя бы в одной теме',
+      'Каждый результат проверяется двумя средствами',
+      'Неподтверждённые источники помечены',
+      'Профстандарт и его код существуют',
+      'Реквизиты приказа, ФИО и подписи пустые',
+      'Выгрузка в .docx и JSON',
+      'Все материалы на русском языке',
+    ]);
+    const request = requestChecklist(snapshot);
+    expect(request).toHaveLength(9);
+    const byTitle = Object.fromEntries(request.map((item) => [item.title, item]));
+    expect(byTitle['В начале — вводный блок по основам Python'].status).toBe('passed');
+    expect(byTitle['Профстандарт в области данных: название и код существуют'].status).toBe(
+      'not_checked',
+    );
+    expect(byTitle['Объём ровно 72 ч, календарь на 4 недели']).toMatchObject({
+      status: 'problem',
+      target: { screen: 'plan', hash: 'issue-calendar-unknown' },
+    });
   });
 });
