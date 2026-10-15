@@ -40,12 +40,8 @@ test('Основания в интерфейсе, JSON и MD относятся 
   await page.getByRole('button', { name: /^Практика/ }).click();
   await page.locator('[data-decision-id="activity-topic-4"]').click();
   const basis = page.locator('[id="basis-activity-topic-4"]');
-  await basis.getByText('Источники и подробности', { exact: false }).click();
-  await expect(basis).toContainText('Примеры с подцелями');
-  await expect(basis).toContainText('Подтверждено частично');
-  await expect(basis).toContainText(
-    'Этого пока недостаточно, чтобы считать решение проверенным для вашей группы.',
-  );
+  await expect(basis).toContainText('Почему');
+  await expect(basis).not.toContainText('Источники и подробности');
   const oldDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Скачать пояснения · MD', exact: true }).click();
   const old = await contents(await oldDownload);

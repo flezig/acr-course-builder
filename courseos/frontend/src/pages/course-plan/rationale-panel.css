@@ -194,58 +194,6 @@
 .rationale-next-step p {
   font-size: 13px;
 }
-.rationale-card details {
-  border: 0;
-  border-top: 1px solid var(--border);
-  border-radius: 0;
-  padding: 0;
-  margin: 18px 0 0;
-  background: transparent;
-}
-.rationale-card details > summary {
-  padding: 14px 0 0;
-  font-size: 13px;
-  font-weight: 500;
-}
-.rationale-evidence > summary > span {
-  color: var(--muted);
-  margin-left: 6px;
-  font-size: 11px;
-}
-.rationale-source {
-  margin-top: 18px;
-}
-.rationale-source + .rationale-source {
-  border-top: 1px solid var(--border);
-  padding-top: 18px;
-}
-.rationale-source-heading {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.rationale-source-heading h4 {
-  margin: 0;
-  color: var(--ink);
-}
-.rationale-source p + p {
-  margin-top: 10px;
-}
-.rationale-source p {
-  font-size: 13px;
-}
-.rationale-source blockquote {
-  margin: 12px 0;
-  padding: 8px 14px;
-  border-left: 2px solid #ccd1d9;
-  color: #555f6f;
-  font-size: 13px;
-}
-.rationale-source-note {
-  color: #8a5d21;
-}
 .rationale-empty {
   text-align: center;
   padding: 28px 16px;

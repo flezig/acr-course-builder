@@ -4,23 +4,18 @@ import type { Snapshot } from '../../entities/course/model/schema';
 import {
   currentRationales,
   rationaleCoverage,
-  rationaleIsSupported,
   rationaleSignature,
   skeletonElements,
-  sourceById,
   skeletonRationaleMarkdown,
 } from '../../entities/course/model/rationale';
 import { saveFile } from '../../shared/lib/use-unsaved';
 import { Badge, Panel } from '../../shared/ui/ui';
 import {
-  basisLabels,
   elementDecision,
   elementName,
   rationaleGroup,
   rationaleGroups,
   rationaleSummary,
-  readableRationaleText,
-  statusLabels,
   type RationaleGroup,
 } from './rationale-presentation';
 import './rationale-panel.css';
@@ -67,7 +62,6 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
     setGroup(value);
     setSelectedId('');
   };
-  const readable = (value: string) => readableRationaleText(s, value);
 
   return (
     <Panel title="Почему курс устроен так" className="rationale-panel">
@@ -196,49 +190,6 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
                 <h4>{selected.summary.needsReview ? 'Что ещё проверить' : 'Следующий шаг'}</h4>
                 <p>{selected.summary.next}</p>
               </div>
-              {!!selected.records.length && (
-                <details className="rationale-evidence">
-                  <summary>
-                    Источники и подробности <span>{selected.records.length}</span>
-                  </summary>
-                  {selected.records.map((record) => {
-                    const source = sourceById(s, record.source_id);
-                    return (
-                      <section className="rationale-source" key={record.id}>
-                        <div className="rationale-source-heading">
-                          <h4>{basisLabels[record.kind]}</h4>
-                          <Badge>{statusLabels[record.status]}</Badge>
-                        </div>
-                        <p>
-                          <strong>На что опираемся: </strong>
-                          {record.source_id === 'request'
-                            ? 'Ваш запрос при создании этой версии курса.'
-                            : source?.name || 'Подтверждающий источник не указан.'}
-                        </p>
-                        {record.fragment && <blockquote>{readable(record.fragment)}</blockquote>}
-                        {record.applicability && (
-                          <p>
-                            <strong>Что это объясняет: </strong>
-                            {readable(record.applicability)}
-                          </p>
-                        )}
-                        {record.limitations && (
-                          <p>
-                            <strong>Границы объяснения: </strong>
-                            {readable(record.limitations)}
-                          </p>
-                        )}
-                        {!rationaleIsSupported(s, record, signature) && (
-                          <p className="rationale-source-note">
-                            Этого пока недостаточно, чтобы считать решение проверенным для вашей
-                            группы.
-                          </p>
-                        )}
-                      </section>
-                    );
-                  })}
-                </details>
-              )}
             </article>
           </div>
         </>

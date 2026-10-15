@@ -13,23 +13,6 @@ export const rationaleGroups = [
 ] as const;
 export type RationaleGroup = (typeof rationaleGroups)[number]['id'];
 
-export const basisLabels: Record<Rationale['kind'], string> = {
-  request: 'Условие из запроса',
-  subject_reference: 'Учебный источник',
-  research: 'Исследование',
-  calculation: 'Расчёт',
-  expert: 'Мнение специалиста',
-  assumption: 'Предложение для обсуждения',
-  gap: 'Объяснение не добавлено',
-};
-export const statusLabels: Record<Rationale['status'], string> = {
-  unverified: 'Ещё не проверено',
-  partial: 'Подтверждено частично',
-  confirmed: 'Подтверждено в указанных пределах',
-  expert_checked: 'Проверено специалистом',
-  pilot_checked: 'Проверено на пробном обучении',
-  stale: 'Нужно проверить заново',
-};
 const hours = (value: string) => `${value.replace('.', ',')} уч. ч.`;
 
 export function rationaleGroup(s: Skeleton, id: string): RationaleGroup {
