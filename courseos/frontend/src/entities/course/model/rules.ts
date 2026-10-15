@@ -8,7 +8,7 @@ import {
   rationaleSignature,
 } from './rationale';
 import type { Audit, Requirements, Skeleton, Snapshot } from './schema';
-import { hourKinds, sumHours } from '../../../shared/lib/decimal';
+import { formatHours, hourKinds, sumHours } from '../../../shared/lib/decimal';
 import {
   agentFindings,
   calendarProposalText,
@@ -53,6 +53,28 @@ export function calendarSummary(requirements: Requirements) {
   ]
     .filter(Boolean)
     .join(' ');
+}
+// Объяснение проблемы с календарём простым языком: что не так и что сделать.
+export function calendarExplanation(requirements: Requirements) {
+  const calc = calendarCalculation(requirements);
+  const calendar = requirements.calendar;
+  const total = formatHours(String(requirements.total_hours || 0));
+  const hasDates =
+    !!calendar.start && !Number.isNaN(Date.parse(calendar.start)) && calendar.calendar_days > 0;
+  const weeks = Math.ceil(calendar.calendar_days / 7);
+  const missing = [
+    !hasDates && 'дату начала и длительность',
+    calc.needed === null && 'сколько часов в день можно заниматься',
+    !calendar.same_units && 'в каких единицах считаются часы',
+  ].filter(Boolean);
+  if (missing.length)
+    return [
+      `Не хватает данных: ${missing.join(', ')}.`,
+      hasDates && calc.minimumLimit
+        ? `Без этого нельзя проверить, уложатся ли ${total} ч в ${weeks} нед. (${calc.days} учебных дней) — для этого нужно заниматься не меньше ${formatHours(calc.minimumLimit)} ч в день.`
+        : `Без этого нельзя проверить, уложатся ли ${total} ч в срок.`,
+    ].join(' ');
+  return `Календарь заполнен (${calc.days} учебных дней, до ${formatHours(calendar.daily_limit)} ч в день — всего ${formatHours(calc.capacity)} ч), но ещё не подтверждён. Проверьте параметры и подтвердите.`;
 }
 export function hourTotals(skeleton: Skeleton) {
   return Object.fromEntries(
@@ -111,18 +133,21 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
         element_id: 'calendar',
         message:
           conflict.id === 'calendar-unknown'
-            ? 'Календарь не задан: нет подтверждённых учебных дней и дневной нагрузки'
+            ? 'Неясно, уложится ли курс в срок'
             : conflict.id === 'calendar-capacity'
               ? 'Объём не помещается в календарь при дневном лимите запроса'
               : conflict.expected,
-        evidence: [conflict.actual, conflict.calculation].filter(Boolean).join('. '),
+        evidence:
+          conflict.id === 'calendar-unknown'
+            ? calendarExplanation(skeleton.requirements)
+            : [conflict.actual, conflict.calculation].filter(Boolean).join('. '),
         expected: conflict.expected,
         actual: conflict.actual,
         suggested_fix:
           proposal ||
           (conflict.options.length
             ? `${conflict.options[0].title}: ${conflict.options[0].consequence}`
-            : 'Укажите учебные дни и нагрузку в календаре и сохраните решение.'),
+            : 'Откройте календарь, укажите часы в день и нажмите «Подтвердить».'),
         fix: proposal ? 'confirm_calendar' : undefined,
         blocking: true,
       });
