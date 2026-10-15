@@ -122,14 +122,12 @@ export function CoverageMatrix({
             <tr>
               <th>Результат обучения</th>
               <th>Где формируется</th>
-              <th>Как проверяется</th>
-              <th>Критерии достижения</th>
               <th>Пробелы</th>
             </tr>
           </thead>
           <tbody>
             {visible.map((row) => {
-              const { outcome, topics, activities, assessments, criteria, gaps } = row;
+              const { outcome, topics, activities, assessments, gaps } = row;
               const open = expanded.includes(outcome.id);
               return (
                 <Fragment key={outcome.id}>
@@ -174,45 +172,6 @@ export function CoverageMatrix({
                             </p>
                           ))}
                         </details>
-                      )}
-                    </td>
-                    <td data-label="Как проверяется">
-                      <strong>
-                        {assessments.length
-                          ? `Связано ${assessments.length} ${assessments.length % 100 >= 11 && assessments.length % 100 <= 14 ? 'заданий' : assessments.length % 10 === 1 ? 'задание' : assessments.length % 10 >= 2 && assessments.length % 10 <= 4 ? 'задания' : 'заданий'}`
-                          : 'Нет проверочного задания'}
-                      </strong>
-                      {assessments.map((assessment) => (
-                        <a
-                          className="coverage-item"
-                          key={assessment.id}
-                          href={`#coverage-${outcome.id}-${assessment.id}`}
-                          onClick={() => {
-                            if (!open) setExpanded([...expanded, outcome.id]);
-                          }}
-                        >
-                          <small>{assessmentLabels[assessment.type]}</small>
-                          {assessment.action.trim() || 'Формулировка задания не указана'}
-                        </a>
-                      ))}
-                    </td>
-                    <td data-label="Критерии достижения">
-                      {criteria.length ? (
-                        <details>
-                          <summary className="coverage-criterion">{criteria[0]}</summary>
-                          {criteria.map((criterion) => (
-                            <p key={criterion}>{criterion}</p>
-                          ))}
-                          <small>
-                            Критерии результата и связанных заданий; соответствие проверяется
-                            отдельно.
-                          </small>
-                        </details>
-                      ) : (
-                        'Не указаны критерии'
-                      )}
-                      {row.missingCriteria && criteria.length > 0 && (
-                        <span className="gap-count">Не у всех заданий указан критерий</span>
                       )}
                     </td>
                     <td data-label="Пробелы">
@@ -261,7 +220,7 @@ export function CoverageMatrix({
                     hidden={!open}
                     className="coverage-detail"
                   >
-                    <td colSpan={5}>
+                    <td colSpan={3}>
                       <p className="coverage-outcome-text">{outcome.description}</p>
                       <h3>Как проверяется</h3>
                       {!assessments.length && (
@@ -283,25 +242,15 @@ export function CoverageMatrix({
                             tabIndex={-1}
                           >
                             <div className="coverage-chain-head">
-                              <span className="coverage-chain-type">
-                                {assessmentLabels[assessment.type]}
-                              </span>
                               <strong>
-                                {assessment.action || 'Формулировка задания не указана'}
+                                {assessmentLabels[assessment.type]}
+                                {topic ? ` по теме «${topic.title}»` : ''}
                               </strong>
                               {editable && (
                                 <button onClick={() => edit(assessment.id)}>Открыть задание</button>
                               )}
                             </div>
                             <dl>
-                              <dt>Тема</dt>
-                              <dd>
-                                {topic ? (
-                                  <Link to={`${planHref}#${topic.id}`}>{topic.title}</Link>
-                                ) : (
-                                  'Не указана'
-                                )}
-                              </dd>
                               <dt>Критерий</dt>
                               <dd className={criterion ? undefined : 'gap-count'}>
                                 {criterion || 'Не указан'}
