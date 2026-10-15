@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { editDraft } from './create-draft';
 
 test('navigation fits laptop and phone heights; theme survives reload and navigation', async ({
   page,
@@ -11,11 +12,12 @@ test('navigation fits laptop and phone heights; theme survives reload and naviga
       name: 'ИИ в работе учителя 36 часов · учителя · повышение квалификации',
     })
     .click();
-  await page
-    .getByLabel('Название / ИТ-тема')
-    .fill(
-      'Искусственный интеллект в профессиональной деятельности учителя: проектирование образовательных материалов и проверка результатов обучения',
-    );
+  await editDraft(
+    page,
+    (draft) =>
+      (draft.title =
+        'Искусственный интеллект в профессиональной деятельности учителя: проектирование образовательных материалов и проверка результатов обучения'),
+  );
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.locator('.verdict')).toBeVisible();
   for (const [width, height] of [

@@ -109,13 +109,18 @@ test('No remarks, explicit approval, rationale filters and archived restrictions
   await expect(page.locator('.verdict')).toContainText('Можно утверждать');
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
   await expect(page.locator('.verdict')).toContainText('Программа утверждена');
-  await expect(page.locator('#review').getByRole('link', { name: 'Перейти к материалам', exact: true })).toBeVisible();
+  await expect(
+    page.locator('#review').getByRole('link', { name: 'Перейти к материалам', exact: true }),
+  ).toBeVisible();
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await expect(page.getByLabel('Найти пояснение')).toHaveValue('План');
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Скачать пояснения · MD', exact: true }).click();
   expect((await download).suggestedFilename()).toMatch(/rationale.md$/);
-  await page.locator('#review').getByRole('link', { name: 'Перейти к материалам', exact: true }).click();
+  await page
+    .locator('#review')
+    .getByRole('link', { name: 'Перейти к материалам', exact: true })
+    .click();
   await expect(page).toHaveURL(/\/materials/);
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await page.goto(`/courses/${id}/plan?version=1#review`);

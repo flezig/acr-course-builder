@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { editDraft } from './create-draft';
 const reports = path.resolve('../reports');
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -9,7 +10,7 @@ async function createPython(page: Page, incomplete = false) {
   await page
     .getByRole('button', { name: 'Первые шаги в Python 16 часов · школьники · общеразвивающая' })
     .click();
-  if (incomplete) await page.getByLabel('Входной уровень', { exact: true }).fill('');
+  if (incomplete) await editDraft(page, (draft) => (draft.entry_level = ''));
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   if (incomplete) {
     await page
@@ -55,7 +56,7 @@ test('Полный путь: уточнения, правка каркаса, а
   await page
     .getByRole('button', { name: 'Первые шаги в Python 16 часов · школьники · общеразвивающая' })
     .click();
-  await page.getByLabel('Входной уровень', { exact: true }).fill('');
+  await editDraft(page, (draft) => (draft.entry_level = ''));
   await page.getByLabel('Название источника').fill('Требования проверочного прогона');
   await page
     .getByLabel('Текст референса', { exact: true })
@@ -80,7 +81,9 @@ test('Полный путь: уточнения, правка каркаса, а
     .locator('#main')
     .getByRole('link', { name: 'Проверка программы', exact: true })
     .click();
-  await expect(page.getByRole('heading', { name: 'Проверка программы', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Проверка программы', exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('Итог с итоговой аттестацией равен объёму')).toBeVisible();
   await page.getByRole('button', { name: 'Вернуться к месту просмотра' }).click();
   await page
@@ -239,12 +242,13 @@ test('Длинная новая программа500часов, прокрут�
   await page
     .getByRole('button', { name: 'Первые шаги в Python 16 часов · школьники · общеразвивающая' })
     .click();
-  await page.getByLabel('Название / ИТ-тема').fill('Архитектура распределённых систем');
-  await page.getByLabel('Аудитория', { exact: true }).fill('Инженеры');
-  await page.getByLabel('Объём, часы', { exact: false }).fill('500');
-  await page.getByText('Даты и учебная нагрузка', { exact: true }).click();
-  await page.getByLabel('Календарных дней', { exact: true }).fill('250');
-  await page.getByLabel('Максимум часов в учебный день').fill('4');
+  await editDraft(page, (draft) => {
+    draft.title = 'Архитектура распределённых систем';
+    draft.audience = 'Инженеры';
+    draft.total_hours = '500';
+    draft.calendar.calendar_days = 250;
+    draft.calendar.daily_limit = '4';
+  });
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.locator('.verdict')).toBeVisible();
   await expect(page.locator('.plan-table tbody tr')).toHaveCount(33);
@@ -315,12 +319,12 @@ test('HTTP-сбой: нет скрытого demo; request_id переживае
   await expect(page.getByRole('alert').filter({ hasText: 'Сервер недоступен' })).toBeVisible();
   await page.reload();
   await expect(page.getByText('LIVE · Данные сервера')).toBeVisible();
-  await expect(page.getByLabel('Название / ИТ-тема')).toHaveValue('Первые шаги в Python');
+  await expect(page.getByLabel('Запрос методиста')).not.toHaveValue('');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Сервер недоступен' })).toBeVisible();
   expect(ids).toHaveLength(2);
   expect(ids[0]).toBe(ids[1]);
-  await page.getByLabel('Объём, часы', { exact: false }).fill('17');
+  await page.getByLabel('Запрос методиста').fill('Курс Python для школьников на 17 часов');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Сервер недоступен' })).toBeVisible();
   expect(ids).toHaveLength(3);

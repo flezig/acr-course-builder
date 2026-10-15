@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { editDraft } from './create-draft';
 
 test('Course OS: замечания, версии и адаптивность 1440/1280/768/390', async ({ page }) => {
   const reports = path.resolve('../reports/workspace-redesign');
@@ -89,7 +90,7 @@ test('Course OS: замечания, версии и адаптивность 14
     .click();
   const longTitle =
     'Искусственный интеллект в профессиональной деятельности учителя: проектирование образовательных материалов и проверка результатов обучения';
-  await page.getByLabel('Название / ИТ-тема').fill(longTitle);
+  await editDraft(page, (draft) => (draft.title = longTitle));
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('heading', { name: longTitle, exact: true })).toBeVisible();
   await expect(page.locator('.verdict')).toBeVisible();

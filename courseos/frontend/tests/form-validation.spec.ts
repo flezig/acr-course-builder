@@ -9,36 +9,17 @@ async function pythonCourse(page: Page) {
   await expect(page.locator('.verdict')).toBeVisible();
 }
 
-test('Creation validates inline, accepts commas and reveals errors inside collapsed sections', async ({
-  page,
-}) => {
+test('Creation requires a request before submitting', async ({ page }) => {
   await page.goto('/');
   await page
     .getByRole('button', { name: 'Первые шаги в Python 16 часов · школьники · общеразвивающая' })
     .click();
-  const hours = page.getByLabel('Объём, часы', { exact: true });
-  await hours.fill('вава');
-  await expect(hours).toHaveAttribute('aria-invalid', 'true');
-  await expect(hours).toHaveAccessibleDescription(/Введите неотрицательное число/);
-  await hours.fill('15');
-  await expect(hours).toHaveAccessibleDescription(/от 16 до 500/);
-  await hours.fill('16,5');
-  await expect(hours).toHaveAttribute('aria-invalid', 'false');
-  const audience = page.getByLabel('Аудитория', { exact: true });
-  await audience.fill('   ');
+  const request = page.getByLabel('Запрос методиста');
+  await request.fill('   ');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(audience).toBeFocused();
-  await expect(audience).toHaveAccessibleDescription(/Заполните/);
-  await audience.fill('Школьники');
-  await page.getByText('Даты и учебная нагрузка', { exact: true }).click();
-  const limit = page.getByLabel('Максимум часов в учебный день', { exact: true });
-  await limit.fill('ошибка');
-  await expect(limit).toHaveAccessibleDescription(/Введите неотрицательное число/);
-  await page.getByText('Даты и учебная нагрузка', { exact: true }).click();
-  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(limit).toBeVisible();
-  await expect(limit).toBeFocused();
-  await limit.fill('2,5');
+  await expect(request).toBeFocused();
+  await expect(request).toHaveAttribute('aria-invalid', 'true');
+  await request.fill('Курс Python для школьников без опыта программирования, 16 часов');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.locator('.verdict')).toBeVisible();
 });

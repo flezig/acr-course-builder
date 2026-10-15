@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 for (const mobile of [false, true]) {
-  test(`Sidebar menus dismiss outside and preserve inside clicks (${mobile ? 'mobile' : 'desktop'})`, async ({ page }) => {
+  test(`Sidebar menus dismiss outside and preserve inside clicks (${mobile ? 'mobile' : 'desktop'})`, async ({
+    page,
+  }) => {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
     if (mobile) await page.getByRole('button', { name: 'Открыть навигацию' }).click();
