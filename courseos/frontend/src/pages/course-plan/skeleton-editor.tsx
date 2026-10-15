@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
-import type { Skeleton, Snapshot } from '../../entities/course/model/schema';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  skeletonSchema,
+  courseHoursSchema,
+  type Skeleton,
+  type Snapshot,
+} from '../../entities/course/model/schema';
 import { hourKinds, hourLabels } from '../../shared/lib/decimal';
 import { useCommand } from '../../entities/course/api/provider';
-import { Field, Panel, ErrorMessage, Notice } from '../../shared/ui/ui';
+import { Form, Field, Panel, ErrorMessage, Notice } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 import { materialLabels } from '../../entities/course/model/presets';
 export function SkeletonEditor({
@@ -20,6 +26,12 @@ export function SkeletonEditor({
   const [snapshot] = useState(currentSnapshot);
   const key = `courseos-skeleton-draft-${snapshot.mode}-${snapshot.course_id}-${snapshot.course_version}`;
   const form = useForm<Skeleton>({
+    mode: 'onChange',
+    resolver: zodResolver(
+      skeletonSchema.extend({
+        requirements: skeletonSchema.shape.requirements.extend({ total_hours: courseHoursSchema }),
+      }),
+    ),
     defaultValues: (() => {
       try {
         return JSON.parse(localStorage.getItem(key) || 'null') || snapshot.skeleton;
@@ -95,7 +107,11 @@ export function SkeletonEditor({
           нельзя применить поверх новых данных. Закройте редактор и откройте актуальную версию.
         </Notice>
       )}
-      <form onSubmit={submit}>
+      <Form
+        errors={form.formState.errors}
+        submitCount={form.formState.submitCount}
+        onSubmit={submit}
+      >
         <Field label="Цель">
           <textarea {...form.register('goal')} rows={2} required />
         </Field>
@@ -107,11 +123,7 @@ export function SkeletonEditor({
             <input {...form.register('requirements.entry_level')} required />
           </Field>
           <Field label="Общий объём, часы">
-            <input
-              {...form.register('requirements.total_hours')}
-              pattern="\d+(?:[.,]\d+)?"
-              required
-            />
+            <input {...form.register('requirements.total_hours')} inputMode="decimal" required />
           </Field>
           <Field label="Аттестация">
             <input {...form.register('requirements.assessment')} required />
@@ -138,35 +150,44 @@ export function SkeletonEditor({
               {snapshot.skeleton.topics.map((topic, index) => (
                 <tr key={topic.id}>
                   <th>
-                    <input
-                      aria-label={`Название ${topic.id}`}
-                      {...form.register(`topics.${index}.title`)}
-                      required
-                    />
-                    <textarea
-                      aria-label={`Содержание ${topic.id}`}
-                      {...form.register(`topics.${index}.content`)}
-                      rows={2}
-                    />
+                    <Field>
+                      <input
+                        aria-label={`Название ${topic.id}`}
+                        {...form.register(`topics.${index}.title`)}
+                        required
+                      />
+                    </Field>
+                    <Field>
+                      <textarea
+                        aria-label={`Содержание ${topic.id}`}
+                        {...form.register(`topics.${index}.content`)}
+                        rows={2}
+                      />
+                    </Field>
                   </th>
                   {hourKinds.map((kind) => (
                     <td key={kind}>
-                      <input
-                        className="hour-input"
-                        aria-label={`${topic.id} ${hourLabels[kind]}`}
-                        {...form.register(`topics.${index}.hours.${kind}`)}
-                        pattern="\d+(?:[.,]\d+)?"
-                        required
-                      />
+                      <Field>
+                        <input
+                          className="hour-input"
+                          aria-label={`${topic.id} ${hourLabels[kind]}`}
+                          {...form.register(`topics.${index}.hours.${kind}`)}
+                          inputMode="decimal"
+                          required
+                        />
+                      </Field>
                     </td>
                   ))}
                   <td>
-                    <input
-                      className="hour-input"
-                      aria-label={`Заявленный объём ${topic.id}`}
-                      {...form.register(`topics.${index}.planned_total`)}
-                      required
-                    />
+                    <Field>
+                      <input
+                        className="hour-input"
+                        aria-label={`Заявленный объём ${topic.id}`}
+                        {...form.register(`topics.${index}.planned_total`)}
+                        inputMode="decimal"
+                        required
+                      />
+                    </Field>
                   </td>
                 </tr>
               ))}
@@ -304,7 +325,7 @@ export function SkeletonEditor({
           </button>
           <BadgeDirty dirty={form.formState.isDirty} />
         </div>
-      </form>
+      </Form>
     </Panel>
   );
 }

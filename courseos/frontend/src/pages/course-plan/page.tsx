@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Decimal from 'decimal.js';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -15,7 +16,11 @@ import {
 import { useCommand, useCourse } from '../../entities/course/api/provider';
 import { hourTotals, calendarSummary } from '../../entities/course/model/rules';
 import { kindLabels } from '../../entities/course/model/presets';
-import type { CourseView, Requirements } from '../../entities/course/model/schema';
+import {
+  inputSchema,
+  type CourseView,
+  type Requirements,
+} from '../../entities/course/model/schema';
 import { JobPanel } from '../../entities/job/job-panel';
 import {
   sumHours,
@@ -27,6 +32,7 @@ import {
   formatSummaryHours,
 } from '../../shared/lib/decimal';
 import {
+  Form,
   Badge,
   Empty,
   ErrorMessage,
@@ -849,7 +855,7 @@ export function PlanPage() {
                     )}
                     {snapshot.observations.filter((issue) => issue.element_id === explanation.id)
                       .length > 0 && (
-                      <form
+                      <Form
                         onSubmit={async (event) => {
                           event.preventDefault();
                           const observation = snapshot.observations.find(
@@ -886,7 +892,7 @@ export function PlanPage() {
                           Сохранить исправление
                         </button>
                         <ErrorMessage error={command.error} />
-                      </form>
+                      </Form>
                     )}
                     <div className="id-links">
                       <small>Перейти к связанным элементам:</small>
@@ -990,14 +996,38 @@ function ModuleRows({
   );
 }
 function Clarifications({ view }: { view: CourseView }) {
-  const form = useForm<Requirements>({ defaultValues: view.requirements });
+  const form = useForm<Requirements>({
+    mode: 'onChange',
+    resolver: zodResolver(
+      inputSchema.superRefine((values, ctx) => {
+        for (const question of view.questions) {
+          const value = values[question.field as keyof Requirements];
+          if (
+            typeof value === 'string' &&
+            (!value.trim() || (question.field === 'template_id' && value === 'unknown'))
+          )
+            ctx.addIssue({
+              code: 'custom',
+              path: [question.field],
+              message:
+                question.field === 'template_id'
+                  ? 'Выберите тип программы.'
+                  : 'Заполните это поле.',
+            });
+        }
+      }),
+    ),
+    defaultValues: view.requirements,
+  });
   const command = useCommand();
   return (
     <Panel
       title={`Уточните ${view.questions.length} параметров`}
       subtitle="Уже известные сведения сохраняются. До ответов каркас и материалы не создаются."
     >
-      <form
+      <Form
+        errors={form.formState.errors}
+        submitCount={form.formState.submitCount}
         onSubmit={form.handleSubmit((values) =>
           command.mutate({
             action: 'clarify',
@@ -1010,13 +1040,16 @@ function Clarifications({ view }: { view: CourseView }) {
           <Field label={question.label} key={question.field}>
             {question.field === 'template_id' ? (
               <select {...form.register('template_id')} required>
-                <option value="unknown">Выберите тип</option>
+                <option value="unknown" disabled>
+                  Выберите тип
+                </option>
                 <option value="acr_professional">Повышение квалификации</option>
                 <option value="acr_general">Общеразвивающая</option>
               </select>
             ) : (
               <input
                 {...form.register(question.field as 'total_hours')}
+                inputMode={question.field === 'total_hours' ? 'decimal' : undefined}
                 required
                 placeholder={
                   question.field === 'entry_level'
@@ -1036,7 +1069,7 @@ function Clarifications({ view }: { view: CourseView }) {
           Сохранить ответы и построить каркас
           <ArrowRight size={17} />
         </button>
-      </form>
+      </Form>
     </Panel>
   );
 }

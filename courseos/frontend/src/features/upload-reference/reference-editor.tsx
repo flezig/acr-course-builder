@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { FileText, Link2, Upload } from 'lucide-react';
 import type { Requirements } from '../../entities/course/model/schema';
 import { useApi } from '../../entities/course/api/provider';
@@ -18,6 +18,21 @@ export function ReferenceEditor({
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState<unknown>(null);
+  const [attempted, setAttempted] = useState(false);
+  const urlRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  const urlError = (() => {
+    if (!url.trim()) return undefined;
+    try {
+      const parsed = new URL(url.trim());
+      if (['https:', 'http:'].includes(parsed.protocol)) return undefined;
+    } catch {
+      /* Show the same guidance for an incomplete URL. */
+    }
+    return 'Введите полную ссылку, например https://example.com.';
+  })();
+  const textError =
+    attempted && !text.trim() && !url.trim() ? 'Вставьте текст или ссылку.' : undefined;
   const [pending, setPending] = useState(false);
   const [coordinate, setCoordinate] = useState('');
   const [claim, setClaim] = useState('');
@@ -25,19 +40,20 @@ export function ReferenceEditor({
   const [contentConfirmed, setContentConfirmed] = useState(false);
   const add = async () => {
     setError(null);
+    setAttempted(true);
     if (!text.trim() && !url.trim()) {
-      setError(new Error('Вставьте текст или ссылку.'));
+      textRef.current?.focus();
       return;
     }
-    if (url && !/^https?:\/\//.test(url)) {
-      setError(new Error('Ссылка должна начинаться с https:// или http://'));
+    if (urlError) {
+      urlRef.current?.focus();
       return;
     }
     const source = {
       id: crypto.randomUUID(),
       name: name || (url ? 'Ссылка методиста' : 'Текст методиста'),
       text,
-      url,
+      url: url.trim(),
       status: text ? ('provided' as const) : ('unconfirmed' as const),
       coordinate:
         coordinate || (text ? 'Вставленный фрагмент; координаты в оригинале не указаны' : ''),
@@ -68,6 +84,7 @@ export function ReferenceEditor({
       },
     };
     onChange([...references, source]);
+    setAttempted(false);
     setText('');
     setUrl('');
     setName('');
@@ -78,6 +95,10 @@ export function ReferenceEditor({
   };
   const retrieve = async () => {
     if (!courseId || !url) return;
+    if (urlError) {
+      urlRef.current?.focus();
+      return;
+    }
     setPending(true);
     setError(null);
     try {
@@ -117,8 +138,9 @@ export function ReferenceEditor({
             placeholder="Например, требования заказчика"
           />
         </Field>
-        <Field label="Ссылка">
+        <Field label="Ссылка" error={urlError}>
           <input
+            ref={urlRef}
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -126,8 +148,9 @@ export function ReferenceEditor({
           />
         </Field>
       </div>
-      <Field label="Текст референса">
+      <Field label="Текст референса" error={textError}>
         <textarea
+          ref={textRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={3}

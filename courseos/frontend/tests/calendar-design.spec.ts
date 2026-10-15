@@ -75,11 +75,15 @@ test('Empty, partial, invalid and sufficient calendar', async ({ page }) => {
   await expect(form.locator('.calendar-problem')).toHaveText('Заполните параметры для расчёта');
   await form.getByLabel('Календарных дней').fill('0');
   await form.getByLabel('Календарных дней').blur();
-  await expect(form.locator('#calendar-days-error')).toBeVisible();
+  await expect(form.getByLabel('Календарных дней')).toHaveAttribute('aria-invalid', 'true');
+  await expect(form.getByLabel('Календарных дней')).toHaveAccessibleDescription(
+    /не меньше 1|от 1 до 3650/,
+  );
   await form.getByLabel('Календарных дней').fill('7');
   await form.getByLabel('Максимум часов в день').fill('0');
   await form.getByLabel('Максимум часов в день').blur();
-  await expect(form.locator('#calendar-limit-error')).toBeVisible();
+  await expect(form.getByLabel('Максимум часов в день')).toHaveAttribute('aria-invalid', 'true');
+  await expect(form.getByLabel('Максимум часов в день')).toHaveAccessibleDescription(/больше нуля/);
   await form.getByRole('checkbox', { name: 'Только будни', exact: true }).check();
   await form.getByLabel('Максимум часов в день').fill('8');
   await expect(form.locator('.calendar-problem')).toContainText('5 учебных дней');

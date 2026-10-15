@@ -4,7 +4,7 @@ import Decimal from 'decimal.js';
 import type { Snapshot, Requirements } from '../../entities/course/model/schema';
 import { calendarCalculation } from '../../entities/course/model/rules';
 import { useCommand } from '../../entities/course/api/provider';
-import { ErrorMessage, Field, Panel } from '../../shared/ui/ui';
+import { Form, ErrorMessage, Field, Panel } from '../../shared/ui/ui';
 
 type Option = 'confirm' | 'extend' | 'reduce' | 'raise';
 const hours = (value: string) =>
@@ -33,7 +33,7 @@ export function CalendarPanel({
   const [editing, setEditing] = useState(false);
   const [option, setOption] = useState<Option | null>(null);
   const form = useForm<Requirements['calendar']>({
-    mode: 'onTouched',
+    mode: 'onChange',
     defaultValues: {
       ...snapshot.skeleton.requirements.calendar,
       confirmed: false,
@@ -56,7 +56,6 @@ export function CalendarPanel({
     return () => cancelAnimationFrame(frame);
   }, [focusIssue, readonly, form, snapshot]);
   const calendar = form.watch();
-  const errors = form.formState.errors;
   const validDate = (value: string) =>
     /^\d{4}-\d{2}-\d{2}$/.test(value) &&
     !Number.isNaN(Date.parse(value)) &&
@@ -234,7 +233,9 @@ export function CalendarPanel({
           />
         )}
         {!readonly && editing && (
-          <form
+          <Form
+            errors={form.formState.errors}
+            submitCount={form.formState.submitCount}
             className={`calendar-form ${focusIssue ? 'field-highlight' : ''}`}
             noValidate
             onSubmit={submit}
@@ -254,29 +255,18 @@ export function CalendarPanel({
               <Field label="Дата начала">
                 <input
                   type="date"
-                  aria-invalid={!!errors.start}
-                  aria-describedby={errors.start ? 'calendar-start-error' : undefined}
                   {...form.register('start', {
                     validate: (value) => validDate(value) || 'Укажите корректную дату начала',
                   })}
                   required
                 />
-                {errors.start && (
-                  <small id="calendar-start-error" className="field-error">
-                    {errors.start.message}
-                  </small>
-                )}
               </Field>
-              <Field label="Календарных дней">
+              <Field label="Календарных дней" hint="Продолжительность включает выходные.">
                 <input
                   type="number"
                   min="1"
                   max="3650"
                   step="1"
-                  aria-invalid={!!errors.calendar_days}
-                  aria-describedby={
-                    errors.calendar_days ? 'calendar-days-error' : 'calendar-days-hint'
-                  }
                   {...form.register('calendar_days', {
                     valueAsNumber: true,
                     validate: (value) =>
@@ -285,18 +275,10 @@ export function CalendarPanel({
                   })}
                   required
                 />
-                <small id="calendar-days-hint">Продолжительность включает выходные.</small>
-                {errors.calendar_days && (
-                  <small id="calendar-days-error" className="field-error">
-                    {errors.calendar_days.message}
-                  </small>
-                )}
               </Field>
               <Field label="Максимум часов в день">
                 <input
                   inputMode="decimal"
-                  aria-invalid={!!errors.daily_limit}
-                  aria-describedby={errors.daily_limit ? 'calendar-limit-error' : undefined}
                   {...form.register('daily_limit', {
                     validate: (value) =>
                       validLimit(value) || 'Введите количество часов больше нуля',
@@ -304,11 +286,6 @@ export function CalendarPanel({
                   pattern="\d+(?:[.,]\d+)?"
                   required
                 />
-                {errors.daily_limit && (
-                  <small id="calendar-limit-error" className="field-error">
-                    {errors.daily_limit.message}
-                  </small>
-                )}
               </Field>
             </div>
             <label className="checkbox">
@@ -487,7 +464,7 @@ export function CalendarPanel({
               </>
             )}
             <ErrorMessage error={command.error} />
-          </form>
+          </Form>
         )}
       </Panel>
     </div>

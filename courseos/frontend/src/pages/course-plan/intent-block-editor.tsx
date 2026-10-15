@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { Snapshot } from '../../entities/course/model/schema';
 import { useCommand } from '../../entities/course/api/provider';
-import { ErrorMessage, Field } from '../../shared/ui/ui';
+import { Form, ErrorMessage, Field } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 
 export type IntentBlock = 'goal' | 'audience' | 'outcomes';
@@ -31,6 +31,7 @@ export function IntentBlockEditor({
   const [draftError, setDraftError] = useState('');
   const command = useCommand();
   const form = useForm<Values>({
+    mode: 'onChange',
     defaultValues: (() => {
       try {
         const draft = localStorage.getItem(key);
@@ -72,7 +73,9 @@ export function IntentBlockEditor({
     );
   }, [block, form, snapshot, focusOutcome]);
   return (
-    <form
+    <Form
+      errors={form.formState.errors}
+      submitCount={form.formState.submitCount}
       className="intent-editor"
       onSubmit={form.handleSubmit(async (values) => {
         const skeleton = snapshot.skeleton;
@@ -115,7 +118,9 @@ export function IntentBlockEditor({
       {block === 'goal' && (
         <Field label="Цель обучения">
           <textarea
-            {...form.register('goal', { validate: (value) => !!value.trim() })}
+            {...form.register('goal', {
+              validate: (value) => !!value.trim() || 'Заполните это поле.',
+            })}
             required
             rows={3}
           />
@@ -125,13 +130,17 @@ export function IntentBlockEditor({
         <div className="form-grid">
           <Field label="Аудитория">
             <input
-              {...form.register('audience', { validate: (value) => !!value.trim() })}
+              {...form.register('audience', {
+                validate: (value) => !!value.trim() || 'Заполните это поле.',
+              })}
               required
             />
           </Field>
           <Field label="Входной уровень">
             <input
-              {...form.register('entry_level', { validate: (value) => !!value.trim() })}
+              {...form.register('entry_level', {
+                validate: (value) => !!value.trim() || 'Заполните это поле.',
+              })}
               required
             />
           </Field>
@@ -143,18 +152,13 @@ export function IntentBlockEditor({
             <textarea
               className={outcome.id === focusOutcome ? 'field-highlight' : ''}
               {...form.register(`outcomes.${index}.description`, {
-                validate: (value) => !!value.trim(),
+                validate: (value) => !!value.trim() || 'Заполните это поле.',
               })}
               required
               rows={2}
             />
           </Field>
         ))}
-      {Object.keys(form.formState.errors).length > 0 && (
-        <p role="alert" className="field-error">
-          Заполните поля: текст не может быть пустым.
-        </p>
-      )}
       <ErrorMessage error={command.error} />
       {draftError && <p role="alert">{draftError}</p>}
       <div className="actions">
@@ -173,6 +177,6 @@ export function IntentBlockEditor({
       <small className="muted">
         Черновик сохраняется в этом браузере. Утверждение выполняется отдельно.
       </small>
-    </form>
+    </Form>
   );
 }

@@ -7,7 +7,7 @@ import { useApi, useCommand, useCourses } from '../../entities/course/api/provid
 import { inputSchema, type Requirements } from '../../entities/course/model/schema';
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
 import { ReferenceEditor } from '../../features/upload-reference/reference-editor';
-import { Badge, ErrorMessage, Field, Notice, Panel, statuses } from '../../shared/ui/ui';
+import { Form, Badge, ErrorMessage, Field, Panel, statuses } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 import './create-course.css';
 export function CreateCoursePage() {
@@ -18,6 +18,7 @@ export function CreateCoursePage() {
   const [presetId, setPresetId] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
   const form = useForm<Requirements>({
+    mode: 'onChange',
     resolver: zodResolver(inputSchema),
     defaultValues: (() => {
       try {
@@ -61,11 +62,15 @@ export function CreateCoursePage() {
   const fillFromText = () => {
     const request = form.getValues('request');
     const hours = request.match(/(\d+(?:[.,]\d+)?)\s*(?:час|ч\b)/i);
-    if (hours) form.setValue('total_hours', hours[1].replace(',', '.'), { shouldDirty: true });
+    if (hours)
+      form.setValue('total_hours', hours[1].replace(',', '.'), {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
     if (/общеразвивающ/i.test(request))
-      form.setValue('template_id', 'acr_general', { shouldDirty: true });
+      form.setValue('template_id', 'acr_general', { shouldDirty: true, shouldValidate: true });
     else if (/повышени.*квалификац/i.test(request))
-      form.setValue('template_id', 'acr_professional', { shouldDirty: true });
+      form.setValue('template_id', 'acr_professional', { shouldDirty: true, shouldValidate: true });
   };
   return (
     <div className="create-workspace">
@@ -76,7 +81,13 @@ export function CreateCoursePage() {
           знаний
         </p>
       </header>
-      <form ref={formRef} onSubmit={submit} className="create-layout">
+      <Form
+        errors={form.formState.errors}
+        submitCount={form.formState.submitCount}
+        ref={formRef}
+        onSubmit={submit}
+        className="create-layout"
+      >
         <Panel
           className="create-request"
           title="Опишите будущую программу"
@@ -91,19 +102,17 @@ export function CreateCoursePage() {
           </Field>
           <div className="form-grid">
             <Field label="Название / ИТ-тема">
-              <input {...form.register('title')} placeholder="Например, основы веб-разработки" />
+              <input
+                {...form.register('title')}
+                required
+                minLength={2}
+                placeholder="Например, основы веб-разработки"
+              />
             </Field>
             <Field label="Аудитория">
               <input {...form.register('audience')} placeholder="Кто будет учиться?" required />
             </Field>
           </div>
-          {Object.values(form.formState.errors).length > 0 && (
-            <Notice tone="error">
-              {form.formState.errors.title?.message ||
-                form.formState.errors.total_hours?.message ||
-                'Проверьте введённые поля.'}
-            </Notice>
-          )}
           <ErrorMessage error={command.error} />
           <div className="create-submit">
             <button className="primary" disabled={command.isPending} type="submit">
@@ -204,7 +213,11 @@ export function CreateCoursePage() {
                 <input
                   type="number"
                   min="0"
-                  {...form.register('calendar.calendar_days', { valueAsNumber: true })}
+                  max="3650"
+                  step="1"
+                  {...form.register('calendar.calendar_days', {
+                    setValueAs: (value) => (value === '' ? 0 : Number(value)),
+                  })}
                 />
               </Field>
               <Field label="Максимум часов в учебный день">
@@ -283,7 +296,7 @@ export function CreateCoursePage() {
             </div>
           </Panel>
         </aside>
-      </form>
+      </Form>
       {!!courses.data?.length && (
         <Panel title="Ваши сохранённые курсы">
           <div className="course-list">

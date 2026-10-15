@@ -1,12 +1,26 @@
 import { z } from 'zod';
 import Decimal from 'decimal.js';
 import { normalizeDecimal } from '../../../shared/lib/decimal';
+const decimalPattern = /^\d+(?:[.,]\d+)?$/;
 export const decimalSchema = z
   .string()
-  .regex(/^\d+(?:[.,]\d+)?$/, 'Введите неотрицательное число')
+  .trim()
+  .regex(decimalPattern, 'Введите неотрицательное число, например 16 или 16,5')
   .transform(normalizeDecimal);
-const hoursRange = decimalSchema.refine(
+const optionalDecimalSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => !value || decimalPattern.test(value),
+    'Введите неотрицательное число, например 16 или 16,5',
+  )
+  .transform((value) => (value ? normalizeDecimal(value) : ''));
+export const courseHoursSchema = decimalSchema.refine(
   (value) => new Decimal(value).gte(16) && new Decimal(value).lte(500),
+  'Объём — от 16 до 500 часов',
+);
+const optionalHoursSchema = optionalDecimalSchema.refine(
+  (value) => !value || (new Decimal(value).gte(16) && new Decimal(value).lte(500)),
   'Объём — от 16 до 500 часов',
 );
 export const requirementsSchema = z.object({
@@ -16,16 +30,20 @@ export const requirementsSchema = z.object({
   audience: z.string(),
   entry_level: z.string(),
   goal: z.string(),
-  total_hours: decimalSchema.or(z.literal('')),
+  total_hours: optionalDecimalSchema,
   delivery: z.string(),
   assessment: z.string(),
   constraints: z.string(),
   calendar: z.object({
     description: z.string(),
     start: z.string(),
-    calendar_days: z.number().int().nonnegative(),
+    calendar_days: z
+      .number({ error: 'Введите целое число дней' })
+      .int('Введите целое число дней')
+      .min(0, 'Число дней не может быть отрицательным')
+      .max(3650, 'Укажите не больше 3650 дней'),
     weekdays_only: z.boolean(),
-    daily_limit: decimalSchema.or(z.literal('')),
+    daily_limit: optionalDecimalSchema,
     confirmed: z.boolean(),
     same_units: z.boolean(),
   }),
@@ -61,10 +79,11 @@ export const requirementsSchema = z.object({
 });
 export type Requirements = z.infer<typeof requirementsSchema>;
 export const inputSchema = requirementsSchema.extend({
-  title: z.string().min(2, 'Укажите тему курса'),
-  total_hours: hoursRange.or(z.literal('')),
+  title: z.string().trim().min(2, 'Укажите тему курса — не менее 2 символов'),
+  audience: z.string().trim().min(1, 'Укажите, кто будет учиться'),
+  total_hours: optionalHoursSchema,
   calendar: requirementsSchema.shape.calendar.extend({
-    daily_limit: decimalSchema.or(z.literal('')),
+    daily_limit: optionalDecimalSchema,
   }),
 });
 export const hoursSchema = z.object({
@@ -82,6 +101,10 @@ export const outcomeSchema = z.object({
   prerequisite: z.string(),
   depth: z.string(),
   professional_standard_code: z.string().nullable(),
+  title: z.string().optional(),
+  criteria: z.array(z.string()).optional(),
+  edited_by: z.literal('human').optional(),
+  review: z.object({ signature: z.string(), checked_at: z.string() }).optional(),
 });
 export const topicSchema = z.object({
   id: z.string(),
@@ -397,14 +420,25 @@ export const courseViewSchema = z.object({
   is_latest: z.boolean(),
 });
 export type CourseView = z.infer<typeof courseViewSchema>;
-export const changeInputSchema = z.object({
-  type: z.enum(['question', 'project', 'topic', 'hours', 'audience']),
-  target_id: z.string(),
-  request: z.string().min(3),
-  replacement: z.string().min(2),
-  correct_index: z.number().int().optional(),
-  explanation: z.string().optional(),
-});
+export const changeInputSchema = z
+  .object({
+    type: z.enum(['question', 'project', 'topic', 'hours', 'audience']),
+    target_id: z.string(),
+    request: z.string().trim().min(3, 'Опишите причину изменения — не менее 3 символов'),
+    replacement: z.string().trim().min(2, 'Введите новый текст — не менее 2 символов'),
+    correct_index: z.number().int().optional(),
+    explanation: z.string().optional(),
+  })
+  .superRefine((input, ctx) => {
+    if (input.type !== 'hours') return;
+    const result = courseHoursSchema.safeParse(input.replacement);
+    if (!result.success)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['replacement'],
+        message: result.error.issues[0].message,
+      });
+  });
 export type ChangeInput = z.infer<typeof changeInputSchema>;
 export const changePlanSchema = z.object({
   id: z.string(),

@@ -5,7 +5,7 @@ import { Pencil, LockKeyhole } from 'lucide-react';
 import type { Material, Snapshot } from '../../entities/course/model/schema';
 import { useCommand } from '../../entities/course/api/provider';
 import { materialLabels } from '../../entities/course/model/presets';
-import { Badge, ErrorMessage, Field, Notice } from '../../shared/ui/ui';
+import { Form, Badge, ErrorMessage, Field, Notice } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 export function MaterialViewer({
   material,
@@ -21,6 +21,7 @@ export function MaterialViewer({
   const command = useCommand();
   const key = `courseos-material-draft-${snapshot.mode}-${snapshot.course_id}-${editVersion}-${material.id}`;
   const form = useForm<{ content: string }>({
+    mode: 'onChange',
     defaultValues: { content: localStorage.getItem(key) || material.content },
   });
   useUnsavedChanges(editing && form.formState.isDirty && !command.isSuccess);
@@ -76,7 +77,9 @@ export function MaterialViewer({
         </Notice>
       )}
       {editing ? (
-        <form
+        <Form
+          errors={form.formState.errors}
+          submitCount={form.formState.submitCount}
           onSubmit={form.handleSubmit(async (values) => {
             try {
               await command.mutateAsync({
@@ -98,7 +101,7 @@ export function MaterialViewer({
             Сохранить и защитить ручную правку
           </button>
           <ErrorMessage error={command.error} />
-        </form>
+        </Form>
       ) : (
         <pre className="material-content">{material.content}</pre>
       )}

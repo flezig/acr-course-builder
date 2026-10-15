@@ -19,7 +19,11 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react';
-import type { Snapshot } from '../../entities/course/model/schema';
+import type { Skeleton, Snapshot } from '../../entities/course/model/schema';
+import { useCommand } from '../../entities/course/api/provider';
+import { ErrorMessage } from '../../shared/ui/ui';
+import { OutcomeReview } from './outcome-review';
+import { outcomeReviewStatus } from './outcome-review-model';
 import { kindLabels } from '../../entities/course/model/presets';
 import { SkeletonEditor } from '../course-plan/skeleton-editor';
 import { buildMap, relatedChain, type MapNode } from './map-model';
@@ -30,6 +34,7 @@ const layers = ['Требования', 'Результаты', 'Обучени�
 const gapFilters = {
   '': 'Все состояния связей',
   problems: 'Требуют проверки',
+  verified: 'Проверены пользователем',
   learning: 'Нет обучения / темы / практики',
   assessment: 'Нет оценивания',
   requirement: 'Нет требования',
@@ -48,6 +53,28 @@ export function ResultsMap({
   editable: boolean;
   initialSearch: string;
 }) {
+  const undoCommand = useCommand();
+  const undoKey = `courseos-result-undo:${snapshot.mode}:${snapshot.course_id}`;
+  const [undo, setUndo] = useState<{ before: Skeleton; version: number } | null>(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem(undoKey) || 'null');
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    try {
+      if (undo) sessionStorage.setItem(undoKey, JSON.stringify(undo));
+      else sessionStorage.removeItem(undoKey);
+    } catch {
+      /* Отмена в открытом экране доступна и без хранилища браузера. */
+    }
+  }, [undo, undoKey]);
+  const [feedback, setFeedback] = useState('');
+  function saved(before: Skeleton, version: number) {
+    setUndo({ before: structuredClone(before), version });
+    setFeedback('Изменение сохранено в новой ревизии.');
+  }
   const { nodes, edges } = useMemo(() => buildMap(snapshot.skeleton), [snapshot.skeleton]);
   const [mode, setMode] = useState<'overview' | 'map'>('overview');
   const [search, setSearch] = useState(initialSearch);
@@ -79,7 +106,9 @@ export function ResultsMap({
   const selected = nodes.find((n) => n.id === selectedId);
   const outcomes = nodes.filter((n) => n.column === 1);
   const allOrphans = nodes.filter((n) => n.column !== 1 && n.gap);
-  const problemOutcomes = outcomes.filter((n) => n.gap);
+  const problemOutcomes = outcomes.filter(
+    (n) => outcomeReviewStatus(snapshot.skeleton, n.sourceId) !== 'Проверен',
+  );
   const normalizedSearch = search.trim().toLocaleLowerCase('ru');
   const filtering = !!(kind || gapFilter || normalizedSearch);
   const matches = (n: MapNode) =>
@@ -94,7 +123,10 @@ export function ResultsMap({
     (o) =>
       (!kind || o.kind === kind) &&
       (!gapFilter ||
-        (gapFilter === 'problems' && o.gap) ||
+        (gapFilter === 'problems' &&
+          outcomeReviewStatus(snapshot.skeleton, o.sourceId) !== 'Проверен') ||
+        (gapFilter === 'verified' &&
+          outcomeReviewStatus(snapshot.skeleton, o.sourceId) === 'Проверен') ||
         (gapFilter === 'learning' && (!hasLink(o.id, 'topic') || !hasLink(o.id, 'activity'))) ||
         (gapFilter === 'assessment' && !hasLink(o.id, 'assessment')) ||
         (gapFilter === 'requirement' && !hasLink(o.id, 'requirement'))) &&
@@ -246,39 +278,103 @@ export function ResultsMap({
   function node(n: MapNode, graph = false) {
     const p = positions.get(n.id);
     const linkedResults = neighbors(n.id).filter((item) => item.column === 1);
+    const roleOutcome =
+      linkedResults.find((item) => item.id === currentOutcome?.id) || linkedResults[0];
+    if (!graph)
+      return (
+        <article key={n.id} className={`chain-card ${selectedId === n.id ? 'selected' : ''}`}>
+          <span className="node-meta">{badge(n)}</span>
+          <button className="chain-card-title map-inline-action" onClick={() => openDetails(n.id)}>
+            {n.title}
+            <ChevronRight size={13} />
+          </button>
+          <p className="element-role">
+            {!roleOutcome
+              ? 'Роль не определена: нет связи с результатом'
+              : n.column === 3
+                ? `Связано для проверки: ${roleOutcome.title}`
+                : n.id.startsWith('topic:')
+                  ? `Содержание: ${n.description || 'Не задано'}`
+                  : `Связано для практики: ${roleOutcome.title}`}
+          </p>
+          {n.column === 3 && (
+            <p className="element-role">
+              <strong>Критерий:</strong> {n.criterion || 'Не задан'}
+            </p>
+          )}
+          {n.column === 3 && (
+            <details className="element-rationale">
+              <summary>Почему это проверяет результат</summary>
+              {assessmentReason(n)}
+            </details>
+          )}
+          <p className="element-role">
+            Связано с {linkedResults.length}{' '}
+            {plural(linkedResults.length, ['результатом', 'результатами', 'результатами'])}
+          </p>
+          <button
+            className="map-inline-action"
+            aria-controls={detailId}
+            onClick={() => openDetails(n.id)}
+          >
+            Связанные результаты · {linkedResults.length}
+            <ChevronRight size={13} />
+          </button>
+          {warnings(n)}
+        </article>
+      );
     return (
       <button
         key={n.id}
         title={n.originalTitle}
-        aria-controls={selectedId === n.id ? detailId : undefined}
-        className={`${graph ? 'map-card' : 'chain-card'} ${n.gap ? 'has-gap' : ''} ${chain && !chain.has(n.id) ? 'dimmed' : ''} ${chain?.has(n.id) ? 'related' : ''} ${selectedId === n.id ? 'selected' : ''} ${normalizedSearch && matches(n) ? 'search-match' : ''}`}
+        className={`map-card ${n.gap ? 'has-gap' : ''} ${chain && !chain.has(n.id) ? 'dimmed' : ''} ${chain?.has(n.id) ? 'related' : ''} ${selectedId === n.id ? 'selected' : ''} ${normalizedSearch && matches(n) ? 'search-match' : ''}`}
         style={
-          graph && p
-            ? { left: p.x, top: p.y, height: cardHeight(n), minHeight: cardHeight(n) }
-            : undefined
+          p ? { left: p.x, top: p.y, height: cardHeight(n), minHeight: cardHeight(n) } : undefined
         }
-        onMouseEnter={() => graph && hover(n.id)}
+        onMouseEnter={() => hover(n.id)}
         onMouseLeave={() => hover(null)}
-        onFocus={() => graph && hover(n.id)}
+        onFocus={() => hover(n.id)}
         onBlur={() => hover(null)}
         onClick={() => openDetails(n.id)}
         aria-pressed={selectedId === n.id}
       >
-        <span className="node-meta">
-          {badge(n)}
-          {!graph && linkedResults.length > 0 && (
-            <small>
-              {linkedResults.length}{' '}
-              {plural(linkedResults.length, ['результат', 'результата', 'результатов'])} · открыть
-              связи
-            </small>
-          )}
-        </span>
+        <span className="node-meta">{badge(n)}</span>
         <strong>{n.title}</strong>
         {warnings(n)}
       </button>
     );
   }
+  function assessmentReason(n: MapNode) {
+    const reasons = (snapshot.skeleton.rationales || []).filter(
+      (r) =>
+        r.kind !== 'gap' &&
+        ((r.element_id === n.sourceId && r.related_ids.includes(currentOutcome?.sourceId || '')) ||
+          (r.element_id === currentOutcome?.sourceId && r.related_ids.includes(n.sourceId))),
+    );
+    return reasons.length ? (
+      reasons.map((r) => (
+        <p key={r.id}>
+          {r.purpose || r.decision}{' '}
+          <small>
+            {r.status === 'expert_checked' || r.status === 'pilot_checked'
+              ? 'Проверенное обоснование'
+              : 'Черновик обоснования — нужна проверка'}
+          </small>
+        </p>
+      ))
+    ) : (
+      <p>
+        Обоснование соответствия оценивания результату отсутствует. Сопоставьте задание с действием
+        и критериями.
+        {editable && (
+          <button className="map-inline-action" onClick={() => setEditing(true)}>
+            Проверить и изменить оценивание
+          </button>
+        )}
+      </p>
+    );
+  }
+
   function group(items: MapNode[], label: string) {
     return (
       <section className="connection-group" aria-label={label}>
@@ -350,6 +446,32 @@ export function ResultsMap({
           <p>Выберите результат: где он формируется, чем проверяется и каких связей не хватает.</p>
         </div>
       </header>
+      {(feedback || (undo && editable && undo.version === snapshot.course_version)) && (
+        <div className="outcome-save-feedback" role="status">
+          {feedback || 'Доступна отмена последнего изменения.'}
+          {undo && editable && undo.version === snapshot.course_version && (
+            <button
+              disabled={undoCommand.isPending}
+              onClick={async () => {
+                try {
+                  await undoCommand.mutateAsync({
+                    action: 'save_skeleton',
+                    expected_version: snapshot.course_version,
+                    payload: undo.before,
+                  });
+                  setUndo(null);
+                  setFeedback('Последнее изменение отменено. Сохранена новая ревизия.');
+                } catch {
+                  /* Ошибка доступна рядом с действием. */
+                }
+              }}
+            >
+              Отменить последнее изменение
+            </button>
+          )}
+        </div>
+      )}
+      <ErrorMessage error={undoCommand.error} />
       <section
         className="results-map results-workspace"
         style={{ '--map-sticky-top': `${headerHeight}px` } as CSSProperties}
@@ -468,7 +590,7 @@ export function ResultsMap({
                   {!outcomes.length && !filtering
                     ? 'В программе пока нет результатов'
                     : gapFilter === 'problems' && !kind && !normalizedSearch
-                      ? 'Пробелов в связях не найдено'
+                      ? 'Все результаты проверены'
                       : 'Ничего не найдено'}
                 </h2>
                 <p>
@@ -479,14 +601,16 @@ export function ResultsMap({
                 {filtering ? (
                   <button onClick={resetFilters}>Показать все результаты</button>
                 ) : (
-                  editable && <button onClick={() => setEditing(true)}>Редактировать программу</button>
+                  editable && (
+                    <button onClick={() => setEditing(true)}>Редактировать программу</button>
+                  )
                 )}
               </div>
             ) : mode === 'overview' ? (
               <div className="outcome-workspace">
                 <nav className="outcome-sidebar" aria-label="Результаты обучения">
                   <div className="sidebar-heading">
-                    <h2>Результаты</h2>
+                    <h2>Результаты обучения</h2>
                     <span>{filteredOutcomes.length}</span>
                   </div>
                   <div className="outcome-list">
@@ -503,6 +627,11 @@ export function ResultsMap({
                         </span>
                         <span>
                           <strong>{o.title}</strong>
+                          <small
+                            className={`review-state ${outcomeReviewStatus(snapshot.skeleton, o.sourceId) === 'Проверен' ? 'checked' : ''}`}
+                          >
+                            {outcomeReviewStatus(snapshot.skeleton, o.sourceId)}
+                          </small>
                           {warnings(o)}
                         </span>
                         <ChevronRight size={14} />
@@ -549,54 +678,101 @@ export function ResultsMap({
                             }
                           >
                             <Link2 size={14} />
-                            Настроить связи
+                            Изменить связи результата
                           </button>
                         )}
                       </div>
                       <div className="result-requirements">
                         <h3>
                           <FileText size={14} />
-                          Исходные требования <span>{currentRequirements.length}</span>
+                          Исходные требования
                         </h3>
-                        {currentRequirements.length === 1 ? (
-                          <button
-                            className="requirement-context"
-                            title={currentRequirements[0].description}
-                            onClick={() => openDetails(currentRequirements[0].id)}
-                          >
-                            <strong>{currentRequirements[0].title}</strong>
-                            <span>{currentRequirements[0].description}</span>
-                            <small>
-                              Прочитать полностью
-                              <ChevronRight size={13} />
-                            </small>
-                          </button>
-                        ) : currentRequirements.length > 1 ? (
-                          group(currentRequirements, 'Все требования')
-                        ) : (
-                          outcomeGaps(currentOutcome, 0)
-                        )}
+                        <p className="requirements-summary">
+                          {snapshot.skeleton.requirements.audience || 'Аудитория не указана'} ·{' '}
+                          {snapshot.skeleton.requirements.total_hours || '—'} уч. ч. ·{' '}
+                          {snapshot.skeleton.requirements.delivery || 'Формат не указан'}
+                        </p>
+                        <details>
+                          <summary>Показать исходный запрос</summary>
+                          <p className="request-full">
+                            {snapshot.skeleton.requirements.request ||
+                              'Исходный запрос отсутствует'}
+                          </p>
+                        </details>
+                        <details>
+                          <summary>Покрытие требований · {currentRequirements.length}</summary>
+                          {currentRequirements.map((r) => (
+                            <div key={r.id}>
+                              <strong>{r.title}</strong>
+                              <p>{r.description}</p>
+                            </div>
+                          ))}
+                          <p>
+                            Связь указывает на источник требования. Точный фрагмент и полнота
+                            покрытия требуют проверки.
+                          </p>
+                          {(snapshot.skeleton.rationales || [])
+                            .filter(
+                              (r) =>
+                                r.element_id === currentOutcome.sourceId && r.kind === 'request',
+                            )
+                            .map((r) => (
+                              <p key={r.id}>
+                                {r.fragment}
+                                <br />
+                                {r.purpose} ·{' '}
+                                {r.status === 'confirmed' ? 'Подтверждено' : 'Нужна проверка'}
+                              </p>
+                            ))}
+                          {!(snapshot.skeleton.rationales || []).some(
+                            (r) => r.element_id === currentOutcome.sourceId && r.kind === 'request',
+                          ) && <p>Обоснование покрытия конкретного требования отсутствует.</p>}
+                          {outcomeGaps(currentOutcome, 0)}
+                        </details>
                       </div>
-                      <div className="result-formulation">
-                        {badge(currentOutcome)}
-                        <h2>{currentOutcome.title}</h2>
-                        {currentOutcome.description !== currentOutcome.title && (
-                          <p className="full-outcome-text">{currentOutcome.description}</p>
-                        )}
-                        {warnings(currentOutcome)}
-                        <button
-                          className="map-inline-action"
-                          onClick={() => openDetails(currentOutcome.id)}
-                        >
-                          Подробности результата
-                          <ChevronRight size={14} />
-                        </button>
-                      </div>
+                      {warnings(currentOutcome)}
+                      {[...snapshot.audit.issues, ...snapshot.observations]
+                        .filter(
+                          (issue, index, all) =>
+                            issue.element_id === currentOutcome.sourceId &&
+                            all.findIndex((other) => other.id === issue.id) === index,
+                        )
+                        .map((issue) => (
+                          <div className="map-remark" key={issue.id}>
+                            <div>
+                              <strong>{issue.message}</strong>
+                              <p>{issue.suggested_fix}</p>
+                              {editable && (
+                                <button
+                                  className="map-inline-action"
+                                  onClick={() => setEditing(true)}
+                                >
+                                  Открыть исправление
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      <OutcomeReview
+                        key={`${currentOutcome.id}-${snapshot.course_version}`}
+                        snapshot={snapshot}
+                        id={currentOutcome.sourceId}
+                        editable={editable && !undoCommand.isPending}
+                        onSaved={saved}
+                      />
                       <div className="result-connections">
                         <section className="learning-column" aria-label="Связанное обучение">
                           <h3>
                             <BookOpen size={17} />
-                            Обучение<span>{currentLinks.filter((n) => n.column === 2).length}</span>
+                            Обучение
+                            <span>
+                              {currentLinks.filter((n) => n.column === 2).length}{' '}
+                              {plural(currentLinks.filter((n) => n.column === 2).length, [
+                                'учебный элемент',
+                                'учебных элемента',
+                                'учебных элементов',
+                              ])}
+                            </span>
                           </h3>
                           <p className="column-caption">Где формируется результат</p>
                           {group(
@@ -613,7 +789,14 @@ export function ResultsMap({
                           <h3>
                             <ClipboardCheck size={17} />
                             Оценивание
-                            <span>{currentLinks.filter((n) => n.column === 3).length}</span>
+                            <span>
+                              {currentLinks.filter((n) => n.column === 3).length}{' '}
+                              {plural(currentLinks.filter((n) => n.column === 3).length, [
+                                'способ оценивания',
+                                'способа оценивания',
+                                'способов оценивания',
+                              ])}
+                            </span>
                           </h3>
                           <p className="column-caption">Чем проверяется достижение</p>
                           {group(
@@ -876,6 +1059,13 @@ export function ResultsMap({
                 <p className="map-remark" key={r.id}>
                   <AlertTriangle size={14} />
                   {r.message}
+                  <button
+                    className="map-inline-action"
+                    onClick={() => setEditing(true)}
+                    disabled={!editable}
+                  >
+                    Открыть исправление
+                  </button>
                 </p>
               ))}
             </>
@@ -893,7 +1083,9 @@ export function ResultsMap({
                 }
               >
                 <Link2 size={14} />
-                Настроить связи
+                {selected?.column === 1
+                  ? 'Изменить связи результата'
+                  : 'Изменить связанные результаты'}
               </button>
               <button onClick={() => setEditing(true)}>Редактировать программу</button>
             </>
@@ -920,6 +1112,7 @@ export function ResultsMap({
         <MapLinkEditor
           snapshot={snapshot}
           request={linkRequest}
+          onSaved={saved}
           close={() => setLinkRequest(null)}
           edit={() => {
             setLinkRequest(null);
@@ -930,7 +1123,14 @@ export function ResultsMap({
       {editing && (
         <div className="map-editor-overlay">
           <div className="map-editor-content">
-            <SkeletonEditor snapshot={snapshot} close={() => setEditing(false)} />
+            <SkeletonEditor
+              snapshot={snapshot}
+              close={() => setEditing(false)}
+              saved={() => {
+                saved(snapshot.skeleton, snapshot.course_version + 1);
+                setEditing(false);
+              }}
+            />
           </div>
         </div>
       )}

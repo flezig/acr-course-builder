@@ -6,6 +6,7 @@ import { skeletonElements } from '../../entities/course/model/rationale';
 import { materialLabels } from '../../entities/course/model/presets';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
 import {
+  Form,
   Badge,
   Empty,
   ErrorMessage,
@@ -29,6 +30,7 @@ export function AuditPage() {
         ? 'audit-issues'
         : 'audit-checks';
   const form = useForm<{ message: string; element_id: string; blocking: boolean }>({
+    mode: 'onChange',
     defaultValues: { message: '', element_id: 'why-reachability', blocking: false },
   });
   const [correction, setCorrection] = useState('');
@@ -214,7 +216,9 @@ export function AuditPage() {
           title="Замечание методиста"
           subtitle="Наблюдение хранится отдельно от утверждённого содержимого. Блокирующее замечание остановит продолжение, даже если утверждённая версия не менялась."
         >
-          <form
+          <Form
+            errors={form.formState.errors}
+            submitCount={form.formState.submitCount}
             onSubmit={form.handleSubmit(async (values) => {
               try {
                 await command.mutateAsync({
@@ -252,7 +256,7 @@ export function AuditPage() {
             <button type="submit" disabled={!view.is_latest || command.isPending}>
               Записать замечание
             </button>
-          </form>
+          </Form>
           {snapshot.observations.length > 0 && (
             <div>
               <Field label="Исправление основания (создаёт новую ревизию)">

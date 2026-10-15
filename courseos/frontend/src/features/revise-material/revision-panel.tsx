@@ -4,8 +4,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GitCompareArrows, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useApi, useCommand } from '../../entities/course/api/provider';
 import { useQuery } from '@tanstack/react-query';
-import type { ChangeInput, ChangePlan, Snapshot } from '../../entities/course/model/schema';
-import { Badge, ErrorMessage, Field, Notice, Panel } from '../../shared/ui/ui';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  changeInputSchema,
+  type ChangeInput,
+  type ChangePlan,
+  type Snapshot,
+} from '../../entities/course/model/schema';
+import { Form, Badge, ErrorMessage, Field, Notice, Panel } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 export function RevisionPanel({
   snapshot: currentSnapshot,
@@ -24,6 +30,8 @@ export function RevisionPanel({
   const [manualConsent, setManualConsent] = useState(false);
   const key = `courseos-change-draft-${snapshot.mode}-${snapshot.course_id}-${snapshot.course_version}`;
   const form = useForm<ChangeInput>({
+    mode: 'onChange',
+    resolver: zodResolver(changeInputSchema),
     defaultValues: (() => {
       try {
         return (
@@ -61,7 +69,10 @@ export function RevisionPanel({
       const result = await command.mutateAsync({
         action: 'change_preview',
         expected_version: snapshot.course_version,
-        payload: input,
+        payload:
+          input.type === 'hours'
+            ? { ...input, replacement: input.replacement.replace(',', '.') }
+            : input,
       });
       setPlan(result.change_plan);
       setConsent(false);
@@ -117,14 +128,21 @@ export function RevisionPanel({
         </Notice>
       )}
       {!plan ? (
-        <form onSubmit={preview}>
+        <Form
+          errors={form.formState.errors}
+          submitCount={form.formState.submitCount}
+          onSubmit={preview}
+        >
           <div className="form-grid">
             <Field label="Что изменить">
               <select
                 {...form.register('type')}
                 disabled={readonly}
                 onChange={(e) => {
-                  form.setValue('type', e.target.value as ChangeInput['type']);
+                  form.setValue('type', e.target.value as ChangeInput['type'], {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
                   form.setValue(
                     'target_id',
                     e.target.value === 'question'
@@ -194,11 +212,13 @@ export function RevisionPanel({
                 <input
                   type="number"
                   min="1"
+                  required
                   max={questions.find((q) => q.id === form.watch('target_id'))?.options.length || 3}
                   value={(form.watch('correct_index') ?? 0) + 1}
                   onChange={(e) =>
                     form.setValue('correct_index', Number(e.target.value) - 1, {
                       shouldDirty: true,
+                      shouldValidate: true,
                     })
                   }
                   disabled={readonly}
@@ -220,7 +240,7 @@ export function RevisionPanel({
           <small className="muted">
             Стоимость неизвестна: usage и тариф backend не подключены.
           </small>
-        </form>
+        </Form>
       ) : (
         <div className="change-preview">
           <div className="toolbar">

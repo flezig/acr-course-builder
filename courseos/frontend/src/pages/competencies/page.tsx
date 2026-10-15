@@ -6,7 +6,16 @@ import type { Snapshot, Requirements } from '../../entities/course/model/schema'
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 import { ReferenceEditor } from '../../features/upload-reference/reference-editor';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
-import { Badge, Empty, ErrorMessage, Loading, Notice, Panel, statuses } from '../../shared/ui/ui';
+import {
+  Form,
+  Badge,
+  Empty,
+  ErrorMessage,
+  Loading,
+  Notice,
+  Panel,
+  statuses,
+} from '../../shared/ui/ui';
 export function MapPage() {
   const query = useCourse();
   const [search] = useSearchParams();
@@ -70,6 +79,7 @@ function CourseReferences({ snapshot }: { snapshot: Snapshot }) {
   const command = useCommand();
   const key = `courseos-reference-draft-${snapshot.mode}-${snapshot.course_id}-${snapshot.course_version}`;
   const form = useForm<{ references: Requirements['references'] }>({
+    mode: 'onChange',
     defaultValues: (() => {
       try {
         return JSON.parse(localStorage.getItem(key) || 'null') || { references: snapshot.sources };
@@ -90,7 +100,9 @@ function CourseReferences({ snapshot }: { snapshot: Snapshot }) {
       {!editing ? (
         <button onClick={() => setEditing(true)}>Добавить текст, PDF, DOCX или ссылку</button>
       ) : (
-        <form
+        <Form
+          errors={form.formState.errors}
+          submitCount={form.formState.submitCount}
           onSubmit={form.handleSubmit(async (values) => {
             try {
               await command.mutateAsync({
@@ -126,7 +138,7 @@ function CourseReferences({ snapshot }: { snapshot: Snapshot }) {
             Сохранить основания в новой ревизии
           </button>
           <ErrorMessage error={command.error} />
-        </form>
+        </Form>
       )}
     </Panel>
   );

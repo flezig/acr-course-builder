@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { errorMessage } from '../lib/error-message';
 import { AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 export function Notice({
   children,
@@ -15,11 +16,7 @@ export function Notice({
   );
 }
 export function ErrorMessage({ error }: { error: unknown }) {
-  return error ? (
-    <Notice tone="error">
-      {error instanceof Error ? error.message : 'Не удалось выполнить действие.'}
-    </Notice>
-  ) : null;
+  return error ? <Notice tone="error">{errorMessage(error)}</Notice> : null;
 }
 export function Loading() {
   return (
@@ -31,23 +28,7 @@ export function Loading() {
 export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: string }) {
   return <span className={`badge ${tone}`}>{children}</span>;
 }
-export function Field({
-  label,
-  children,
-  hint,
-}: {
-  label: string;
-  children: ReactNode;
-  hint?: string;
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-      {hint && <small>{hint}</small>}
-    </label>
-  );
-}
+export { Field, Form } from './form';
 export function Panel({
   title,
   subtitle,

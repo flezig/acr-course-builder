@@ -560,7 +560,8 @@ main {
   margin-bottom: 15px;
   min-width: 0;
 }
-.field > span {
+.field > span,
+.field > .field-label {
   font-size: 13px;
   color: var(--theme-foreground, #545454);
   font-weight: 650;
@@ -4736,4 +4737,25 @@ button.primary,
 
 .calendar-form .field {
   margin-bottom: 0;
+}
+
+/* Validation is presented beside the control across all forms. */
+.field .field-error {
+  color: var(--error-ink, var(--theme-red-ink, #a52c2c));
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.field.has-error {
+  --theme-border-strong: var(--error-ink, var(--theme-red-ink, #a52c2c));
+}
+.field.has-error :is(input, textarea, select)[aria-invalid='true'] {
+  border-color: var(--error-ink, var(--theme-red-ink, #a52c2c));
+}
+.field.has-error > .field-label {
+  color: var(--error-ink, var(--theme-red-ink, #a52c2c));
+}
+.table-scroll td .field,
+.table-scroll th .field {
+  margin: 0;
 }

@@ -78,7 +78,7 @@ export function buildMap(s: Skeleton) {
       id: `outcome:${o.id}`,
       sourceId: o.id,
       column: 1,
-      title: compactMapTitle(o.description),
+      title: o.title || compactMapTitle(o.description),
       originalTitle: o.description,
       warnings,
       description: o.description,

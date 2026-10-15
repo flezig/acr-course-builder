@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Link2, Check } from 'lucide-react';
-import type { Snapshot } from '../../entities/course/model/schema';
+import type { Skeleton, Snapshot } from '../../entities/course/model/schema';
 import { useCommand } from '../../entities/course/api/provider';
-import { ErrorMessage } from '../../shared/ui/ui';
+import { Form, ErrorMessage } from '../../shared/ui/ui';
 import { buildMap, type MapNode } from './map-model';
 
 export type LinkRequest = {
@@ -22,11 +22,13 @@ export function MapLinkEditor({
   request,
   close,
   edit,
+  onSaved,
 }: {
   snapshot: Snapshot;
   request: LinkRequest;
   close: () => void;
   edit?: () => void;
+  onSaved?: (before: Skeleton, version: number) => void;
 }) {
   const { nodes, edges } = buildMap(snapshot.skeleton);
   const [target, setTarget] = useState(request.target);
@@ -48,6 +50,19 @@ export function MapLinkEditor({
       ]),
     ),
   );
+  const initialChosen = useRef(chosen);
+  const changes = Object.keys(labels).flatMap((prefix) => {
+    const before = initialChosen.current[prefix];
+    const after = chosen[prefix];
+    return [
+      ...after
+        .filter((id) => !before.includes(id))
+        .map((id) => ({ id: `${prefix}:${id}`, action: 'Добавить' })),
+      ...before
+        .filter((id) => !after.includes(id))
+        .map((id) => ({ id: `${prefix}:${id}`, action: 'Убрать' })),
+    ];
+  });
   const dialog = useRef<HTMLDialogElement>(null);
   const command = useCommand();
   const options = nodes.filter((n) => n.id.startsWith(`${target}:`));
@@ -96,6 +111,7 @@ export function MapLinkEditor({
         expected_version: snapshot.course_version,
         payload: skeleton,
       });
+      onSaved?.(snapshot.skeleton, snapshot.course_version + 1);
       close();
     } catch {
       /* Keep the choices visible if saving fails. */
@@ -111,7 +127,7 @@ export function MapLinkEditor({
         if (!command.isPending) close();
       }}
     >
-      <form
+      <Form
         onSubmit={(e) => {
           e.preventDefault();
           void save();
@@ -120,7 +136,9 @@ export function MapLinkEditor({
         <div className="details-topline">
           <span>
             <Link2 size={17} />
-            Настроить связи
+            {request.node.column === 1
+              ? 'Изменить связи результата'
+              : 'Изменить связанные результаты'}
           </span>
           <button
             type="button"
@@ -198,6 +216,24 @@ export function MapLinkEditor({
             Убрать связь с требованием
           </button>
         )}
+        <section className="link-change-preview" aria-label="Предпросмотр изменений связей">
+          <h3>Изменения связей · {changes.length}</h3>
+          {changes.length ? (
+            <ul>
+              {changes.map((change) => (
+                <li key={change.id}>
+                  {change.action}: {nodes.find((n) => n.id === change.id)?.title}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Связи остаются прежними. Выберите элементы, чтобы подготовить изменение.</p>
+          )}
+          <p>
+            Текущая версия: {Object.values(initialChosen.current).flat().length} связей.
+            Предложенная: {Object.values(chosen).flat().length} связей.
+          </p>
+        </section>
         <p className="map-link-note">
           Связи сохранятся в новой ревизии. Утверждение программы потребует отдельной проверки.
         </p>
@@ -211,12 +247,12 @@ export function MapLinkEditor({
               Открыть редактор каркаса
             </button>
           )}
-          <button className="primary" type="submit" disabled={command.isPending}>
+          <button className="primary" type="submit" disabled={command.isPending || !changes.length}>
             <Check size={15} />
             {command.isPending ? 'Сохраняем…' : 'Сохранить связи'}
           </button>
         </div>
-      </form>
+      </Form>
     </dialog>
   );
 }

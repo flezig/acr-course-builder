@@ -87,24 +87,23 @@ test('Результат — точка входа; обучение и оцен
   );
   await expect(page.getByLabel('Связанное обучение')).toBeVisible();
   await expect(page.getByLabel('Связанное оценивание')).toBeVisible();
-  await expect(page.locator('.full-outcome-text')).toHaveText(original.outcomes[0].description);
+  await expect(page.locator('.full-outcome-text')).toContainText('Наблюдаемое действие не задано');
   await expect(page.locator('.map-lines')).toHaveCount(0);
   await expect(page.getByLabel('Масштаб', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Связи есть', { exact: true })).toHaveCount(0);
   await expect(page.getByText('решение и объяснение', { exact: false })).toHaveCount(0);
-  await page.locator('.assessment-column .chain-card').first().click();
+  await page.locator('.assessment-column .chain-card button').first().click();
   await expect(panel(page)).toBeVisible();
   await expect(panel(page).getByRole('heading', { name: 'Полная формулировка' })).toBeVisible();
   await expect(panel(page)).toContainText(original.assessments[0].action);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(
-    panel(page).getByRole('button', { name: 'Настроить связи', exact: true }),
+    panel(page).getByRole('button', { name: 'Изменить связанные результаты', exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Закрыть детали' }).click();
-  await expect(page.locator('.assessment-column .chain-card').first()).toBeFocused();
-  await page.locator('.requirement-context').click();
-  await expect(panel(page)).toContainText(original.requirements.request);
-  await page.getByRole('button', { name: 'Закрыть детали' }).click();
+  await expect(page.locator('.assessment-column .chain-card button').first()).toBeFocused();
+  await page.getByText('Показать исходный запрос', { exact: true }).click();
+  await expect(page.locator('.request-full')).toHaveText(original.requirements.request);
   await page.locator('.outcome-list-item').nth(2).click();
   await expect(page.locator('.selected-result-heading')).toContainText('Результат 03 из 5');
   await page.screenshot({ path: '../reports/results-outcome-workspace.png', fullPage: true });
@@ -135,8 +134,8 @@ test('Поиск раскрывает окружение объекта; тип,
   await expect(page.getByRole('heading', { name: 'Ничего не найдено' })).toBeVisible();
   await page.getByRole('button', { name: 'Сбросить фильтры' }).click();
   await page.getByLabel('Пробелы в связях').selectOption('problems');
-  await expect(page.getByText('Пробелов в связях не найдено')).toBeVisible();
-  await page.getByRole('button', { name: 'Показать все результаты' }).click();
+  await expect(page.locator('.outcome-list-item')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Сбросить фильтры' }).click();
   await expect(page.locator('.outcome-list-item')).toHaveCount(3);
 });
 
@@ -198,10 +197,10 @@ test('Пробелы сохраняют контекст; общая оценк�
   await expect(page.locator('.outcome-list-item').first()).toContainText(
     'Нет обучения · Нет оценивания',
   );
-  await expect(page.getByLabel('Сводка результатов')).toContainText('Требуют проверки: 1');
+  await expect(page.getByLabel('Сводка результатов')).toContainText('Требуют проверки: 3');
   await page.getByLabel('Пробелы в связях').selectOption('assessment');
   await expect(page.locator('.outcome-list-item')).toHaveCount(1);
-  await expect(page.locator('.result-requirements')).toContainText('Исходный запрос');
+  await expect(page.locator('.result-requirements')).toContainText('Показать исходный запрос');
   await page.getByRole('button', { name: 'Добавить проверку' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
@@ -235,8 +234,8 @@ test('Общие элементы показывают все прямые св�
   const id = await openMap(page);
   await fixture(page, id, 'shared');
   const assessment = page.locator('.assessment-column .chain-card').first();
-  await expect(assessment).toContainText('2 результата');
-  await assessment.click();
+  await expect(assessment).toContainText('Связанные результаты · 2');
+  await assessment.getByRole('button', { name: 'Связанные результаты · 2' }).click();
   const linkedResults = panel(page).getByRole('region', { name: 'Связанные результаты' });
   await expect(linkedResults.getByRole('button')).toHaveCount(2);
   await expect(panel(page).getByRole('region', { name: 'Связанные обучение' })).toContainText(
@@ -285,18 +284,16 @@ test('Большие списки, длинные названия, мобиль
   await expect(topicList.locator('summary')).toContainText('Все 19');
   await topicList.locator('summary').click();
   await expect(topicList.locator('.chain-card')).toHaveCount(19);
-  await topicList.locator('.chain-card').last().click();
+  await topicList.locator('.chain-card').last().getByRole('button').first().click();
   await expect(panel(page)).toContainText('Очень длинное название');
   await page.getByRole('button', { name: 'Закрыть детали' }).click();
   await page.getByLabel('Поиск по карте').fill('Дополнительный результат 47:');
   await expect(page.locator('.outcome-list-item')).toHaveCount(1);
-  await expect(page.locator('.result-formulation')).toContainText('Нет обучения · Нет оценивания');
+  await expect(page.locator('.outcome-content')).toContainText('Нет обучения · Нет оценивания');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole('button', { name: 'Подробности результата' }).click();
-  await expect(panel(page)).toBeVisible();
-  await page.getByRole('button', { name: 'Закрыть детали' }).click();
-  await expect(page.getByRole('button', { name: 'Подробности результата' })).toBeFocused();
+  await page.getByText('Критерии достижения · 0', { exact: true }).click();
+  await expect(page.getByText('Критерии не заданы.', { exact: false })).toBeVisible();
   await page.screenshot({ path: '../reports/results-mobile-workspace.png', fullPage: true });
   await page.getByRole('button', { name: 'Сбросить фильтры' }).click();
   await page.getByRole('button', { name: 'Показать всю карту' }).click();
@@ -307,7 +304,7 @@ test('Большие списки, длинные названия, мобиль
 
 test('Пустая программа и архивная ревизия доступны без неработающих действий', async ({ page }) => {
   const id = await openMap(page);
-  await page.getByRole('button', { name: 'Настроить связи', exact: true }).click();
+  await page.getByRole('button', { name: 'Изменить связи результата', exact: true }).click();
   await page.getByRole('dialog').getByRole('checkbox').first().uncheck();
   await page.getByRole('dialog').getByRole('button', { name: 'Сохранить связи' }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -316,11 +313,13 @@ test('Пустая программа и архивная ревизия дос�
   );
   await page.goto(`/courses/${id}/map?version=1`);
   await expect(page.locator('.outcome-list-item')).toHaveCount(3);
-  await expect(page.getByRole('button', { name: 'Настроить связи', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Подробности результата' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Изменить связи результата', exact: true }),
+  ).toHaveCount(0);
+  await page.locator('.assessment-column .chain-card button').first().click();
   await expect(panel(page)).toContainText('Эта ревизия доступна для просмотра.');
   await expect(
-    panel(page).getByRole('button', { name: 'Настроить связи', exact: true }),
+    panel(page).getByRole('button', { name: 'Изменить связи результата', exact: true }),
   ).toHaveCount(0);
   await page.getByRole('button', { name: 'Закрыть детали' }).click();
   await page.goto(`/courses/${id}/map`);
@@ -330,4 +329,94 @@ test('Пустая программа и архивная ревизия дос�
   ).toBeVisible();
   await page.getByRole('button', { name: 'Редактировать программу', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Редактирование программы' })).toBeVisible();
+});
+
+test('Правка результата: сравнение, отклонение, применение, сохранение и отмена', async ({
+  page,
+}) => {
+  const id = await openMap(page);
+  const current = page.locator('.outcome-content');
+  await expect(current.locator('.review-state').first()).toHaveText('Нужна проверка');
+  await expect(current.locator('.request-full')).not.toBeVisible();
+  await current.getByRole('button', { name: 'Уточнить с ИИ', exact: true }).click();
+  for (const action of [
+    'Сделать формулировку измеримой',
+    'Изменить сложность',
+    'Предложить оценивание',
+  ]) {
+    await current.getByRole('button', { name: action, exact: true }).click();
+    await expect(current.locator('.outcome-ai-panel')).toContainText('требуется подключение ИИ');
+  }
+  const original = await current.locator('.result-formulation > h2').innerText();
+  await current.getByRole('button', { name: 'Редактировать', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Короткое название').fill('Вывод данных');
+  await dialog
+    .getByLabel('Наблюдаемое действие учащегося')
+    .fill('Выводит строку и значение переменной с помощью print.');
+  await dialog
+    .getByLabel('Критерии достижения — по одному на строку')
+    .fill('Программа запускается без ошибок.\nВыведены строка и значение переменной.');
+  await dialog.getByRole('button', { name: 'Просмотреть изменения', exact: true }).click();
+  await expect(dialog).toContainText('Текущая версия');
+  await expect(dialog).toContainText('Предложенная версия');
+  await expect(dialog).toContainText('Затрагиваемые связи');
+  await expect(current.locator('.result-formulation > h2').first()).toHaveText(original);
+  await dialog.getByRole('button', { name: 'Отклонить', exact: true }).click();
+  await expect(current.locator('.result-formulation > h2')).toHaveText(original);
+  await current.getByRole('button', { name: 'Редактировать', exact: true }).click();
+  await dialog.getByLabel('Короткое название').fill('Вывод данных');
+  await dialog
+    .getByLabel('Наблюдаемое действие учащегося')
+    .fill('Выводит строку и значение переменной с помощью print.');
+  await dialog
+    .getByLabel('Критерии достижения — по одному на строку')
+    .fill('Выведены строка и значение переменной.');
+  await dialog.getByRole('button', { name: 'Просмотреть изменения', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Применить', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(current.locator('.result-formulation > h2')).toHaveText('Вывод данных');
+  await current.getByRole('button', { name: 'Подтвердить проверку результата' }).click();
+  await expect(page.locator('.outcome-list-item').first()).toContainText('Проверен');
+  await page.reload();
+  await expect(page.locator('.outcome-list-item').first()).toContainText('Проверен');
+  await current.getByRole('button', { name: 'Редактировать', exact: true }).click();
+  await dialog.getByLabel('Короткое название').fill('Печать данных');
+  await dialog.getByRole('button', { name: 'Просмотреть изменения', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Применить', exact: true }).click();
+  await expect(current.locator('.result-formulation > h2')).toHaveText('Печать данных');
+  await expect(page.locator('.outcome-list-item').first()).toContainText('Нужна проверка');
+  await page.reload();
+  await page.getByRole('button', { name: 'Отменить последнее изменение' }).click();
+  await expect(current.locator('.result-formulation > h2')).toHaveText('Вывод данных');
+  await expect(page.locator('.outcome-list-item').first()).toContainText('Проверен');
+  await page.reload();
+  await expect(current.locator('.result-formulation > h2')).toHaveText('Вывод данных');
+  const learningCount = await current.locator('.learning-column .chain-card').count();
+  const assessmentCount = await current.locator('.assessment-column .chain-card').count();
+  await expect(current.locator('.learning-column h3')).toContainText(`${learningCount} учебн`);
+  await expect(current.locator('.assessment-column h3')).toContainText(`${assessmentCount} способ`);
+  await page.screenshot({ path: '../reports/results-review-updated.png', fullPage: true });
+  await page.goto(`/courses/${id}/map?version=1`);
+  await expect(page.getByRole('button', { name: 'Редактировать', exact: true })).toHaveCount(0);
+});
+
+test('Связи можно просмотреть до сохранения и отменить после сохранения', async ({ page }) => {
+  await openMap(page);
+  const current = page.locator('.outcome-content');
+  const learning = current.locator('.learning-column .chain-card');
+  const count = await learning.count();
+  await page.getByRole('button', { name: 'Изменить связи результата', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('button', { name: 'Сохранить связи' })).toBeDisabled();
+  await dialog.getByRole('checkbox').first().uncheck();
+  await expect(dialog.getByLabel('Предпросмотр изменений связей')).toContainText('Убрать:');
+  await dialog.getByRole('button', { name: 'Сохранить связи' }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(learning).toHaveCount(count - 1);
+  await page.getByRole('button', { name: 'Отменить последнее изменение' }).click();
+  await expect(learning).toHaveCount(count);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: '../reports/results-review-mobile.png', fullPage: true });
 });

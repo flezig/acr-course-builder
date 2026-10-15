@@ -140,6 +140,13 @@ test('Submit preserves the incomplete request and opens existing clarification s
 test('Empty form keeps validation and does not submit', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.getByLabel('Аудитория', { exact: true })).toBeFocused();
+  await expect(page.getByLabel('Название / ИТ-тема', { exact: true })).toBeFocused();
+  await expect(page.getByLabel('Название / ИТ-тема', { exact: true })).toHaveAccessibleDescription(
+    'Заполните это поле.',
+  );
+  await expect(page.getByLabel('Аудитория', { exact: true })).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
   await expect(page).toHaveURL(/\/$/);
 });
