@@ -129,9 +129,6 @@ export function ComparisonPage() {
     <div className="compare-page">
       <header className="compare-hero">
         <div>
-          <span className="compare-eyebrow">
-            Сравнение версий · {after.skeleton.requirements.title}
-          </span>
           <h1>
             Версия {base.course_version} → {after.course_version}
           </h1>
