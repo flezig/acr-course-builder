@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw } from 'lucide-react';
+import { ArrowRight, CheckCircle2, AlertTriangle, CircleDashed, RefreshCw } from 'lucide-react';
 import {
   generalRequirements,
   requestChecklist,
@@ -45,21 +45,30 @@ export function AuditPage() {
             содержательная ручная проверка.
           </p>
         </div>
-        <button
-          disabled={
-            !view.is_latest || command.isPending || ['running', 'queued'].includes(view.job.status)
-          }
-          onClick={() =>
-            command.mutate({
-              action: 'audit',
-              expected_version: snapshot.course_version,
-              payload: {},
-            })
-          }
-        >
-          <RefreshCw size={16} />
-          Повторить проверку
-        </button>
+        <div className="heading-buttons">
+          <button
+            className="secondary"
+            disabled={
+              !view.is_latest ||
+              command.isPending ||
+              ['running', 'queued'].includes(view.job.status)
+            }
+            onClick={() =>
+              command.mutate({
+                action: 'audit',
+                expected_version: snapshot.course_version,
+                payload: {},
+              })
+            }
+          >
+            <RefreshCw size={16} />
+            Повторить проверку
+          </button>
+          <Link className="button" to={`/courses/${snapshot.course_id}/materials${suffix}`}>
+            Материалы и выгрузки
+            <ArrowRight size={16} />
+          </Link>
+        </div>
       </header>
       <section id="audit-checklist" className="audit-section" aria-label="Чек-лист">
         <dl className="checklist-summary">

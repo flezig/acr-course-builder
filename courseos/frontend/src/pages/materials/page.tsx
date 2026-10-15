@@ -1,5 +1,5 @@
 import { useSearchParams, Link } from 'react-router-dom';
-import { ArrowRight, Layers3 } from 'lucide-react';
+import { Layers3 } from 'lucide-react';
 import { useCourse } from '../../entities/course/api/provider';
 import { materialLabels } from '../../entities/course/model/presets';
 import { Badge, Empty, ErrorMessage, Loading, Notice, Panel } from '../../shared/ui/ui';
@@ -36,10 +36,9 @@ export function MaterialsPage() {
   const materials = snapshot.materials.filter(
     (m) => (!moduleId || m.module_id === moduleId) && (!type || m.type === type),
   );
-  const suffix = view.is_latest ? '' : `?version=${snapshot.course_version}`;
   return (
     <>
-      <header className="page-heading heading-action">
+      <header className="page-heading">
         <div>
           <h1>Материалы программы</h1>
           <p>
@@ -48,10 +47,6 @@ export function MaterialsPage() {
               ' В демо это текстовые черновики; скачивание презентаций в .pptx недоступно.'}
           </p>
         </div>
-        <Link className="button" to={`/courses/${snapshot.course_id}/audit${suffix}`}>
-          Проверка программы
-          <ArrowRight size={16} />
-        </Link>
       </header>
       <JobPanel job={view.job} version={view.latest_version} readonly={!view.is_latest} />
       {active && snapshot.materials.length > 0 && (

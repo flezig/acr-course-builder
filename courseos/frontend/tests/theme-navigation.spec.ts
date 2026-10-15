@@ -47,8 +47,8 @@ test('navigation fits laptop and phone heights; theme survives reload and naviga
   await expect(page.getByRole('button', { name: 'Включить светлую тему' })).toBeVisible();
   for (const name of [
     'Карта результатов',
-    'Материалы и выгрузки',
     'Проверка программы',
+    'Материалы и выгрузки',
     'Сравнение версий',
   ]) {
     await page.getByRole('link', { name, exact: true }).click();

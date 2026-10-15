@@ -424,6 +424,10 @@ main {
   justify-content: space-between;
   gap: 20px;
 }
+.heading-buttons {
+  display: flex;
+  gap: 8px;
+}
 .heading-action h1 {
   font-size: 29px;
 }
