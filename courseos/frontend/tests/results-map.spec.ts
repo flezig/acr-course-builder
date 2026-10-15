@@ -223,7 +223,7 @@ test('Пробелы сохраняют контекст; общая оценк�
   await expect(dialog).not.toBeVisible();
   await expect(page.locator('.outcome-list-item')).toHaveCount(1);
   await expect(page.locator('.outcome-list-item').first()).toContainText(
-    'Нужно второе оценочное средство другого типа',
+    'Нужно второе оценочное средство',
   );
   await expect(page.getByRole('button', { name: 'Добавить проверку' })).toBeVisible();
   await page.getByRole('button', { name: 'Сбросить фильтры' }).click();

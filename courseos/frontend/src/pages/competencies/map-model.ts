@@ -1,4 +1,4 @@
-import { outcomeAssessmentTypeCount } from '../../entities/course/model/findings';
+import { outcomeAssessmentCount } from '../../entities/course/model/findings';
 import type { Skeleton } from '../../entities/course/model/schema';
 import { assessmentLabels, kindLabels } from '../../entities/course/model/presets';
 export type MapNode = {
@@ -68,12 +68,12 @@ export function buildMap(s: Skeleton) {
     const topic = s.topics.some((t) => t.outcome_ids.includes(o.id));
     const practice = s.activities.some((t) => t.outcome_ids.includes(o.id));
     const learning = topic && practice;
-    const assessmentTypes = outcomeAssessmentTypeCount(s, o.id);
+    const assessmentCount = outcomeAssessmentCount(s, o.id);
     const assessmentGap =
-      assessmentTypes === 0
+      assessmentCount === 0
         ? 'Нет оценивания'
-        : assessmentTypes < 2
-          ? 'Нужно второе оценочное средство другого типа'
+        : assessmentCount < 2
+          ? 'Нужно второе оценочное средство'
           : '';
     const requirement = requirementIds.includes(o.requirement_id);
     const warnings = [

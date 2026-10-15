@@ -13,7 +13,7 @@ test('Одно средство оставляет пробел в оценив�
   expect(
     nodes
       .filter((n) => n.column === 1)
-      .every((n) => n.status === 'Нет практики · Нужно второе оценочное средство другого типа'),
+      .every((n) => n.status === 'Нет практики · Нужно второе оценочное средство'),
   ).toBe(true);
   expect(nodes.filter((n) => n.column === 3)).toHaveLength(1);
   expect(
@@ -76,11 +76,14 @@ test('Короткие подписи сохраняют исходные фор
   expect(s).toEqual(before);
 });
 
-test.each([false, true])('Карта считает разные типы средств: одинаковый тип — %s', (sameType) => {
-  const s = skeleton();
-  const first = s.assessments[0];
-  s.assessments = [first, { ...first, id: 'second', type: sameType ? first.type : 'practical' }];
-  const node = buildMap(s).nodes.find((n) => n.sourceId === s.outcomes[0].id)!;
-  expect(node.gap).toBe(sameType);
-  expect(node.assessmentGap).toBe(sameType ? 'Нужно второе оценочное средство другого типа' : '');
-});
+test.each([false, true])(
+  'Карта засчитывает второе средство любого типа: одинаковый тип — %s',
+  (sameType) => {
+    const s = skeleton();
+    const first = s.assessments[0];
+    s.assessments = [first, { ...first, id: 'second', type: sameType ? first.type : 'practical' }];
+    const node = buildMap(s).nodes.find((n) => n.sourceId === s.outcomes[0].id)!;
+    expect(node.gap).toBe(false);
+    expect(node.assessmentGap).toBe('');
+  },
+);
