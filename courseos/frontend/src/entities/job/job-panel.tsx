@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import type { Job } from '../course';
-import { useApi, useCommand } from '../course';
+import { useCommand } from '../course';
 import { Badge, ErrorMessage, statuses } from '../../shared/ui/ui';
 export function JobPanel({
   job,
@@ -14,13 +13,7 @@ export function JobPanel({
   compact?: boolean;
 }) {
   const command = useCommand();
-  const { api } = useApi();
-  const [open, setOpen] = useState(false);
   const active = ['running', 'queued'].includes(job.status);
-  const elapsed = (
-    (Date.parse(job.completed_at || job.updated_at) - Date.parse(job.started_at)) /
-    1000
-  ).toFixed(1);
   return (
     <div className={`job-panel${compact ? ' job-compact' : ''}`}>
       <div className="job-line">
@@ -42,24 +35,10 @@ export function JobPanel({
           </Badge>
         )}
         <strong>{job.next_action}</strong>
-        <button className="link-button" onClick={() => setOpen(!open)} aria-expanded={open}>
-          Журнал {open ? '↑' : '↓'}
-        </button>
       </div>
-      {open && (
+      {(job.error || (!readonly && (active || ['failed', 'cancelled'].includes(job.status)))) && (
         <div className="job-detail">
           {compact && <p>Состояние операции: {statuses[job.status]}</p>}
-          <p>
-            {api.mode === 'demo' ? 'Демонстрационная операция' : 'Операция сервера'} · время событий{' '}
-            {elapsed} с · попытка {job.attempt}
-          </p>
-          <p>{job.usage.source}. Лимиты кейса 3/20 минут здесь не измерялись.</p>
-          <code>job_id: {job.id}</code>
-          <ol>
-            {job.steps.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
           {job.error && <p>{job.error}</p>}
           {!readonly && active && (
             <button
