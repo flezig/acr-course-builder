@@ -40,21 +40,32 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
   const [showDetail, setShowDetail] = useState(false);
   const coverage = useMemo(() => rationaleCoverage(s), [s]);
   const signature = useMemo(() => rationaleSignature(s), [s]);
-  const items = useMemo(
-    () =>
+  const items = useMemo(() => {
+    const summaries = new Map(
       skeletonElements(s).map((element) => {
         const records = currentRationales(s, element.id, signature);
+        return [element.id, { records, summary: rationaleSummary(s, element, records, signature) }];
+      }),
+    );
+    // Критерий показан в описании своей проверки. Если по нему остались вопросы,
+    // они видны в статусе проверки, чтобы не потеряться.
+    return skeletonElements(s)
+      .filter((element) => !element.id.startsWith('criterion:'))
+      .map((element) => {
+        const own = summaries.get(element.id)!;
+        const criterion = summaries.get(`criterion:${element.id}`);
+        const { records, summary } =
+          criterion?.summary.needsReview && !own.summary.needsReview ? criterion : own;
         return {
           element,
           records,
           name: elementName(s, element),
           decision: elementDecision(s, element),
           group: rationaleGroup(s, element.id),
-          summary: rationaleSummary(s, element, records, signature),
+          summary,
         };
-      }),
-    [s, signature],
-  );
+      });
+  }, [s, signature]);
   const search = query.trim().toLocaleLowerCase('ru');
   const filtered = items.filter(
     (item) =>

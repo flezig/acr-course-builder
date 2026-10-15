@@ -112,6 +112,9 @@ export function elementDecision(s: Skeleton, e: SkeletonElement): string {
   const conflict = s.conflicts.find((c) => c.id === e.id);
   if (conflict)
     return `${conflict.expected}. ${conflict.actual}. ${conflict.calculation}${conflict.decision ? ` Выбран вариант: ${conflict.options.find((o) => o.id === conflict.decision?.option_id)?.title || 'решение сохранено'}.` : ''}`;
+  const assessment = s.assessments.find((a) => a.id === e.id);
+  if (assessment)
+    return `${readableRationaleText(s, assessment.action)}. Критерий оценки: ${readableRationaleText(s, assessment.criterion)}`;
   return readableRationaleText(s, e.decision) || 'Пока не указано.';
 }
 
