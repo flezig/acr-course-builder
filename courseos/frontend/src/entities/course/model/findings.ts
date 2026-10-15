@@ -1,3 +1,7 @@
+import {
+  isProfessionalStandardReference,
+  professionalStandardEvidence,
+} from './professional-standards';
 import Decimal from 'decimal.js';
 import type { Audit, Requirements, Skeleton } from './schema';
 import { isOnHourStep, isInternship, selfStudyAllowed } from './hours-plan';
@@ -154,13 +158,15 @@ export function agentFindings(skeleton: Skeleton): Issue[] {
         severity: 'warning',
         check_type: 'llm',
         element_id: 'legal',
-        message: 'Профстандарт не подтверждён: код не указан',
-        evidence:
-          'В запросе и приложениях нет текста профстандарта в этой области. Код не заполнен, чтобы не выдумывать его.',
+        message: requirements.references.some(isProfessionalStandardReference)
+          ? 'Профстандарт приложен: соответствие курса требует проверки'
+          : 'Профстандарт не подтверждён: код не указан',
+        evidence: professionalStandardEvidence(requirements),
         expected: 'Действующий профстандарт с проверенным кодом и трудовыми функциями',
         actual: 'Требует подтверждения',
-        suggested_fix:
-          'Приложите текст профстандарта из реестра Минтруда — агент свяжет результаты с трудовыми функциями. До этого поле кода остаётся пустым.',
+        suggested_fix: requirements.references.some(isProfessionalStandardReference)
+          ? 'Проверьте действующую редакцию по официальному источнику и сопоставьте результаты курса с конкретными трудовыми функциями. Наличие текста не подтверждает соответствие программы.'
+          : 'Приложите текст профстандарта из реестра Минтруда и сопоставьте результаты с трудовыми функциями. До этого поле кода остаётся пустым.',
         dismissible: true,
         blocking: true,
       });

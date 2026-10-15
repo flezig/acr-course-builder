@@ -1,3 +1,4 @@
+import { professionalStandardEvidence } from './professional-standards';
 import Decimal from 'decimal.js';
 import { initializeRationales } from './rationale';
 import { addMethodologyRationales } from './methodology';
@@ -862,7 +863,7 @@ export function makeSections(snapshot: Snapshot): Snapshot['sections'] {
               title.includes('Интернет')
             ? `${snapshot.sources.map((s) => `${s.name}: ${s.status}; ${s.claim}`).join('\n') || 'Основные, дополнительные и интернет-источники предстоит предоставить и проверить.'}\nСуществование и поддержка утверждений не подтверждены автоматически.`
             : title.includes('Основания') || title.includes('функции')
-              ? 'Основания и коды профстандарта: не подтверждены. Расхождение №499/№266 из брифа требует согласования. Коды оставлены пустыми.'
+              ? `${professionalStandardEvidence(r)} Расхождение №499/№266 из брифа требует согласования.`
               : title.includes('Выдаваем')
                 ? 'Удостоверение о повышении квалификации; выдача по решению организации.'
                 : title.includes('удовлетворён')

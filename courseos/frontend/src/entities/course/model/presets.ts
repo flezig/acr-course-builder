@@ -1,3 +1,4 @@
+import { professionalStandardReferences } from './professional-standards';
 import type { Requirements } from './schema';
 export const emptyRequirements: Requirements = {
   request: '',
@@ -80,6 +81,7 @@ export const presets: {
       request:
         'ИИ для учителей школ Ингушетии. 36 часов, очно-заочно с ДОТ. Без программирования. Планы уроков, задания, проверочные работы; риски и данные детей. Портфолио из трёх материалов. Только доступные в России сервисы.',
       title: 'Искусственный интеллект в работе учителя',
+      references: professionalStandardReferences('teachers'),
       template_id: 'acr_professional',
       audience: 'Учителя школ Ингушетии',
       entry_level: 'Без навыков программирования',
@@ -99,6 +101,7 @@ export const presets: {
       request:
         'Анализ данных на Python для сотрудников банков с опытом Excel. 72 часа, очно-заочно, четыре недели. Python, pandas, визуализация, SQL, статистика. Проект на обезличенных данных; слайды всех лекций pandas.',
       title: 'Анализ данных на Python',
+      references: professionalStandardReferences('bank'),
       template_id: 'acr_professional',
       audience: 'Сотрудники региональных отделений банков',
       entry_level: 'Опыт работы в Excel',
@@ -127,6 +130,7 @@ export const presets: {
       request:
         'Сделайте курс по кибербезопасности для студентов колледжа, примерно на месяц, чтобы после него ребята могли пойти работать в эту сферу.',
       title: 'Кибербезопасность для колледжа',
+      references: professionalStandardReferences('security'),
       audience: 'Студенты колледжа',
       goal: 'Освоить начальные действия на учебном стенде; трудоустройство не гарантируется',
       constraints: 'Учесть параллельное получение СПО; профстандарт ИБ требует подтверждения.',
@@ -149,7 +153,7 @@ export const presets: {
       assessment: 'Защита отчёта о стажировке',
       constraints:
         '254 часа СРС + 2 аттестации. Лекции, практика и лабораторные — 0. Максимум 4 часа в день.',
-      references: [internshipSample],
+      references: [internshipSample, ...professionalStandardReferences('devops')],
       calendar: {
         description:
           'Около двух месяцев — уточните даты. Для demo предлагаются 8 недель с ежедневной работой.',

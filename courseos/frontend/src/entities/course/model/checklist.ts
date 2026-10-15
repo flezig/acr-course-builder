@@ -1,3 +1,4 @@
+import { professionalStandardEvidence } from './professional-standards';
 import Decimal from 'decimal.js';
 import { outcomeAssessmentTypeCount } from './findings';
 import type { Audit, Snapshot } from './schema';
@@ -162,7 +163,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
         ? 'Для общеразвивающей программы привязка к профстандарту не требуется.'
         : standardConfirmed
           ? 'Код профстандарта указан и подтверждён источником.'
-          : 'Не проверено: текст профстандарта не приложен, код оставлен пустым с пометкой.',
+          : professionalStandardEvidence(skeleton.requirements),
       target: issueTarget(snapshot.audit, 'professional-standard', plan),
     },
     {
@@ -253,7 +254,7 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
           [
             'Профстандарт в области данных: название и код существуют',
             standardStatus(snapshot),
-            'Не проверено: в запросе нет текста профстандарта; код не выдуман и оставлен пустым.',
+            professionalStandardEvidence(skeleton.requirements),
             toIssue('professional-standard'),
           ],
           [
@@ -372,7 +373,7 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
               [
                 'Компетенции связаны с трудовыми функциями профстандарта «Педагог», коды верны',
                 standardStatus(snapshot),
-                'Не проверено: текст профстандарта не приложен, коды не заполнены.',
+                professionalStandardEvidence(skeleton.requirements),
                 toIssue('professional-standard'),
               ],
               [

@@ -1,3 +1,4 @@
+import { isProfessionalStandardReference } from '../model/professional-standards';
 import { skeletonRationaleMarkdown } from '../model/rationale';
 import Decimal from 'decimal.js';
 import { invalidateRationales } from '../model/rationale';
@@ -476,6 +477,15 @@ export class DemoCourseApi implements CourseApi {
             if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
             const skeleton = refreshExplanations(skeletonSchema.parse(envelope.payload));
             skeleton.requirements.goal = skeleton.goal;
+            const previousStandards = base.skeleton.requirements.references.filter(
+              isProfessionalStandardReference,
+            );
+            const nextStandards = skeleton.requirements.references.filter(
+              isProfessionalStandardReference,
+            );
+            if (canonicalJson(previousStandards) !== canonicalJson(nextStandards)) {
+              for (const outcome of skeleton.outcomes) outcome.professional_standard_code = null;
+            }
             if (
               new Decimal(skeleton.requirements.total_hours).lt(16) ||
               new Decimal(skeleton.requirements.total_hours).gt(500)

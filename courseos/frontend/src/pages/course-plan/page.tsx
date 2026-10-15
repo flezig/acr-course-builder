@@ -1,3 +1,5 @@
+import { ProfessionalStandardEditor } from './professional-standard-editor';
+import { professionalStandardEvidence } from '../../entities/course/model/professional-standards';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -427,9 +429,11 @@ export function PlanPage() {
                     </p>
                   ) : (
                     <p className="pending-field">
-                      Требует подтверждения: текст профстандарта не приложен, название и код не
-                      заполнены, чтобы не выдумывать их.
+                      {professionalStandardEvidence(skeleton.requirements)}
                     </p>
+                  )}
+                  {canEdit && (
+                    <ProfessionalStandardEditor key={snapshot.course_version} snapshot={snapshot} />
                   )}
                 </section>
               )}
