@@ -166,17 +166,24 @@
   cursor: pointer;
 }
 
-.gh-accept {
+/* Селектор с .ai-page-dialog перебивает общий button:hover, который красит фон в белый. */
+.ai-page-dialog .gh-accept,
+.ai-page-dialog .gh-accept:hover {
+  border-color: transparent;
   background: var(--gh-green);
+  color: #fff;
 }
 
-.gh-reject {
+.ai-page-dialog .gh-reject,
+.ai-page-dialog .gh-reject:hover {
+  border-color: transparent;
   background: var(--gh-red);
+  color: #fff;
 }
 
-.gh-accept:hover,
-.gh-reject:hover {
-  filter: brightness(1.08);
+.ai-page-dialog .gh-accept:hover,
+.ai-page-dialog .gh-reject:hover {
+  filter: brightness(1.1);
 }
 
 .gh-verdict {
