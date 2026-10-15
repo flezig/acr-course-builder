@@ -38,7 +38,7 @@ async function approveAndWait(page: Page) {
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page
     .getByRole('checkbox', {
-      name: 'Я проверил цель, результаты, часы, оценивание и основания. Утверждаю эту ревизию.',
+      name: 'Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту ревизию.',
     })
     .check();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();

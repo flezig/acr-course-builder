@@ -123,7 +123,7 @@ test('Block editing restores a draft, saves only the selected block and requires
     page.getByRole('button', { name: 'Утвердить программу', exact: true }),
   ).toBeDisabled();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page.getByRole('checkbox', { name: /Я проверил цель/ }).check();
+  await page.getByRole('checkbox', { name: /Цель, результаты, часы/ }).check();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
   await expect(page.locator('.verdict')).toContainText('Программа утверждена');
   await tab(page, 'О программе');
@@ -216,7 +216,7 @@ test('Programme states preserve approval, archive restrictions and materials acc
   await page.getByRole('button', { name: 'Редактировать программу', exact: true }).click();
   await tab(page, 'Решения и утверждение');
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page.getByRole('checkbox', { name: /Я проверил цель/ }).check();
+  await page.getByRole('checkbox', { name: /Цель, результаты, часы/ }).check();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Утвердить программу', exact: true }),

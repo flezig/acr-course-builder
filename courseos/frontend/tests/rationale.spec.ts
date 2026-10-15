@@ -51,7 +51,7 @@ test('Основания в интерфейсе, JSON и MD относятся 
   const old = await contents(await oldDownload);
   expect(old).toContain(stored.skeleton_hash);
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page.getByRole('checkbox', { name: /Я проверил цель/ }).check();
+  await page.getByRole('checkbox', { name: /Цель, результаты, часы/ }).check();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Проверить материалы', exact: true })).toBeVisible({
     timeout: 15000,

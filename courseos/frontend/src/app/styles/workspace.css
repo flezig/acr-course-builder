@@ -1254,23 +1254,48 @@ footer {
 .review-issue .button {
   margin-top: 8px;
 }
-.approval-blocked {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--theme-amber-ink, #8c661f);
-}
-.approval-panel > p {
-  font-size: 14px;
-}
 .approval-panel .checkbox {
   margin: 18px 0;
   max-width: 750px;
 }
+.approval-hint {
+  display: block;
+  width: fit-content;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+a.approval-hint {
+  color: var(--theme-amber-ink, #8c661f);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.approval-panel .approval-report {
+  display: flex;
+  width: fit-content;
+  margin-top: 24px;
+}
 .approval-panel > details {
   margin-top: 20px;
   font-size: 12px;
+}
+.approval-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  list-style: none;
+  font-weight: 400;
+}
+.approval-details > summary::-webkit-details-marker {
+  display: none;
+}
+.approval-details > summary svg {
+  flex-shrink: 0;
+  transition: transform 150ms ease;
+}
+.approval-details[open] > summary svg {
+  transform: rotate(180deg);
 }
 .operation-log {
   font-size: 12px;

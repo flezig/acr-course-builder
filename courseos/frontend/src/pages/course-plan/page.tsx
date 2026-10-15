@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, Pencil, ChevronDown, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Pencil, ChevronDown, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
 import { programVerdict, questionCount } from '../../entities/course/model/rules';
 import { kindLabels } from '../../entities/course/model/presets';
@@ -544,25 +544,19 @@ export function PlanPage() {
               onDecided={setSaved}
               approval={
                 <>
-                  <Panel title="Утверждение программы" className="approval-panel">
-                    <p>
-                      Утверждается ревизия <b>{snapshot.skeleton_version}</b> с её основаниями и
-                      решениями.
-                    </p>
-                    {verdict.open > 0 && verdict.first ? (
-                      <p className="approval-blocked">
-                        <AlertCircle size={16} />
-                        Утверждение недоступно: {verdict.first.message}.
-                        <Link to={`#issue-${verdict.first.id}`}>К первому вопросу</Link>
-                      </p>
-                    ) : !snapshot.approval_applicable ? (
+                  <Panel
+                    title={`Утверждение ревизии ${snapshot.skeleton_version}`}
+                    className="approval-panel"
+                  >
+                    {!snapshot.approval_applicable ? (
                       <label className="checkbox">
                         <input
                           type="checkbox"
                           checked={approveConfirmed}
+                          disabled={verdict.open > 0}
                           onChange={(event) => setApproveConfirmed(event.target.checked)}
                         />
-                        Я проверил цель, результаты, часы, оценивание и основания. Утверждаю эту
+                        Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту
                         ревизию.
                       </label>
                     ) : (
@@ -596,6 +590,21 @@ export function PlanPage() {
                       {command.isPending ? 'Сохраняем утверждение…' : 'Утвердить программу'}
                       <ArrowRight size={17} />
                     </button>
+                    {verdict.open > 0 && verdict.first ? (
+                      <Link
+                        className="approval-hint"
+                        to={{ search: location.search, hash: `#issue-${verdict.first.id}` }}
+                      >
+                        Сначала закройте {verdict.open}{' '}
+                        {new Intl.PluralRules('ru').select(verdict.open) === 'one'
+                          ? 'блокирующий вопрос'
+                          : new Intl.PluralRules('ru').select(verdict.open) === 'few'
+                            ? 'блокирующих вопроса'
+                            : 'блокирующих вопросов'}
+                      </Link>
+                    ) : !snapshot.approval_applicable && !approveConfirmed ? (
+                      <p className="approval-hint">Отметьте подтверждение проверки</p>
+                    ) : null}
                     {snapshot.approval_applicable && snapshot.materials.length > 0 && (
                       <Link className="button secondary" to={href('materials')}>
                         Проверить материалы <ArrowRight size={16} />
@@ -603,11 +612,15 @@ export function PlanPage() {
                     )}
                     {editing && <small>Сначала сохраните или закройте редактор.</small>}
                     <ErrorMessage error={command.error} />
-                    <Link className="text-link" to={href('audit')}>
+                    <Link className="button secondary approval-report" to={href('audit')}>
+                      <FileText size={16} aria-hidden="true" />
                       Отчёт проверки программы
                     </Link>
-                    <details>
-                      <summary>Сведения о ревизии и утверждении</summary>
+                    <details className="approval-details">
+                      <summary>
+                        Сведения о ревизии и утверждении
+                        <ChevronDown size={16} aria-hidden="true" />
+                      </summary>
                       <code>
                         course_id: {snapshot.course_id}
                         <br />

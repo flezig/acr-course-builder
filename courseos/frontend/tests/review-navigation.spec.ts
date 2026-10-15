@@ -105,7 +105,7 @@ test('No remarks, explicit approval, rationale filters and archived restrictions
   await page.getByLabel('Найти пояснение').fill('План');
   await expect(page.locator('.rationale-decision-list button').first()).toBeVisible();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page.getByRole('checkbox', { name: /Я проверил цель/ }).check();
+  await page.getByRole('checkbox', { name: /Цель, результаты, часы/ }).check();
   await expect(page.locator('.verdict')).toContainText('Можно утверждать');
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
   await expect(page.locator('.verdict')).toContainText('Программа утверждена');
