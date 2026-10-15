@@ -75,3 +75,53 @@
 :root[data-theme='dark'] .rationale-source-note {
   color: var(--theme-amber-ink);
 }
+
+/* Светлая тема в духе GigaCowork: холодный градиент, стеклянные карточки, капсульные кнопки. */
+:root:not([data-theme='dark']) {
+  --theme-foreground: #1d2330;
+  --theme-muted: #5b6475;
+  --theme-border: rgba(29, 35, 48, 0.1);
+  --theme-subtle: #eef3ff;
+  --theme-accent: #2f6bff;
+  --page-gradient: linear-gradient(135deg, #f7f9ff 0%, #e4edff 45%, #d6e4ff 75%, #d9f3f7 100%);
+  --glass-shadow: 0 20px 60px rgba(40, 80, 160, 0.12);
+}
+:root:not([data-theme='dark']) .app-shell,
+:root:not([data-theme='dark']) .main-shell {
+  background: var(--page-gradient) fixed;
+}
+:root:not([data-theme='dark']) .app-shell .sidebar {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  border-right-color: rgba(255, 255, 255, 0.8);
+}
+:root:not([data-theme='dark']) .panel {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 32px;
+  box-shadow: var(--glass-shadow);
+}
+:root:not([data-theme='dark']) :is(button, .button) {
+  border-radius: 999px;
+}
+:root:not([data-theme='dark']) :is(button.primary, .button.primary) {
+  background: #1a1f2e;
+  border-color: #1a1f2e;
+}
+:root:not([data-theme='dark']) :is(textarea, input, select) {
+  border-radius: 20px;
+}
+:root:not([data-theme='dark']) a:not(.button) {
+  color: var(--theme-accent);
+}
+/* Карточки примеров тоже кнопки, но многострочные: капсула для них ломает форму. */
+:root:not([data-theme='dark']) .example-grid .example {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 24px rgba(40, 80, 160, 0.08);
+}
+:root:not([data-theme='dark']) .example-grid .example:hover {
+  background: #ffffff;
+}
