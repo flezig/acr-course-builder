@@ -1540,15 +1540,6 @@ summary small {
 .audit-issue a {
   font-size: 13px;
 }
-footer {
-  font-size: 11px;
-  color: var(--theme-muted, #8b8b8b);
-  padding: 22px 35px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  gap: 15px;
-}
 .skip-link {
   position: fixed;
   top: 0;
@@ -1786,9 +1777,6 @@ textarea::placeholder {
 }
 .metric-grid strong {
   color: var(--theme-foreground, #353535);
-}
-footer {
-  color: var(--theme-muted, #707070);
 }
 
 @media (min-width: 1600px) {
@@ -2061,14 +2049,6 @@ footer {
   .skip-link {
     left: 10px;
   }
-  footer {
-    display: block;
-    padding: 20px 16px;
-  }
-  footer span {
-    display: block;
-    margin-top: 5px;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -2243,14 +2223,6 @@ h1 {
   }
   .skip-link {
     left: 10px;
-  }
-  footer {
-    display: block;
-    padding: 20px 16px;
-  }
-  footer span {
-    display: block;
-    margin-top: 5px;
   }
 }
 

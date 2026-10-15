@@ -577,9 +577,6 @@ a.text-link,
 .audit-issue {
   scroll-margin-top: 24px;
 }
-footer {
-  color: var(--muted);
-}
 @media (max-width: 1200px) and (min-width: 801px) {
   .topbar,
   .plan-shell .topbar {

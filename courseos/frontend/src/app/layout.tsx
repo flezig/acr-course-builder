@@ -388,10 +388,6 @@ function LayoutContent() {
           <Outlet key={api.mode} />
         </main>
         <AiPageEdit />
-        <footer>
-          CourseOS · Черновики для содержательной проверки и решения методиста{' '}
-          <span>Локальный frontend · 0.1.0</span>
-        </footer>
       </div>
     </div>
   );
