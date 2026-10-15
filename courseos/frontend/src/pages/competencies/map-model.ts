@@ -1,5 +1,5 @@
 import type { Skeleton } from '../../entities/course/model/schema';
-import { kindLabels, materialLabels } from '../../entities/course/model/presets';
+import { assessmentLabels, kindLabels } from '../../entities/course/model/presets';
 export type MapNode = {
   id: string;
   sourceId: string;
@@ -108,9 +108,7 @@ export function buildMap(s: Skeleton) {
         description: 'content' in item ? item.content : title,
         type:
           'type' in item
-            ? item.type === 'test'
-              ? 'Тест'
-              : materialLabels[item.type]
+            ? assessmentLabels[item.type]
             : prefix === 'topic'
               ? 'Тема'
               : 'Практика',

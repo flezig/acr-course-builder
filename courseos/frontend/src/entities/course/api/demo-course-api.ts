@@ -25,6 +25,8 @@ import {
   refreshExplanations,
 } from '../model/factory';
 import { contentHash, canonicalJson } from '../../../shared/lib/decimal';
+import { proposedAssessment, proposedCalendar } from '../model/findings';
+import { assessmentLabels } from '../model/presets';
 import { ApiError } from '../../../shared/api/http';
 import { withManifest, type CommandEnvelope, type CommandResult, type CourseApi } from './contract';
 const storageKey = 'courseos-demo-v1';
@@ -147,6 +149,7 @@ async function newSnapshot(
       expert_status: 'not_reviewed',
     },
     observations: structuredClone(previous?.observations || []),
+    decisions: structuredClone(previous?.decisions || []),
     approvals: course.approvals,
     approval_applicable: false,
     changes: previous?.changes || [],
@@ -276,6 +279,74 @@ async function advance(courseId: string, course: StoredCourse) {
     course.job.next_action = 'Проверьте материалы и неподтверждённые источники';
     course.job.completed_at = now();
   }
+}
+// Решение по календарю: подтверждение, продление, сокращение объёма или новый лимит.
+// Используется и из календаря, и из очереди решений, когда агент предлагает календарь сам.
+async function resolveCalendar(
+  id: string,
+  course: StoredCourse,
+  base: Snapshot,
+  option: 'confirm' | 'extend' | 'reduce' | 'raise',
+  calendar: Requirements['calendar'],
+) {
+  const skeleton = structuredClone(base.skeleton);
+  const before = canonicalJson(skeleton.requirements.calendar);
+  skeleton.requirements.calendar = calendar;
+  let calc = calendarCalculation(skeleton.requirements);
+  if (option !== 'confirm' && new Decimal(calc.deficit).eq(0))
+    throw new ApiError(422, 'Часов достаточно: изменение для устранения нехватки не требуется.');
+  if (option === 'extend') {
+    while (calc.needed !== null && calc.days < calc.needed) {
+      skeleton.requirements.calendar.calendar_days++;
+      calc = calendarCalculation(skeleton.requirements);
+    }
+  }
+  if (option === 'raise') {
+    if (!calc.minimumLimit) throw new ApiError(422, 'Укажите доступные учебные дни.');
+    skeleton.requirements.calendar.daily_limit = calc.minimumLimit;
+    skeleton.requirements.constraints += `\nРешение методиста: исходный дневной лимит изменён на ${calc.minimumLimit} ч/день.`;
+  }
+  if (option === 'reduce') {
+    if (new Decimal(calc.capacity).lt(16))
+      throw new ApiError(422, 'Вместимость меньше минимальных 16 часов.');
+    skeleton.requirements.total_hours = calc.capacity;
+    skeleton.requirements.constraints += `\nРешение методиста: вместо исходного объёма принят ${calc.capacity} ч; глубина результатов пересматривается до базовых действий по образцу.`;
+  }
+  skeleton.requirements.calendar.description = `${skeleton.requirements.calendar.calendar_days} календарных / ${calendarCalculation(skeleton.requirements).days} учебных дней, до ${skeleton.requirements.calendar.daily_limit} ч/день; ${skeleton.requirements.calendar.weekdays_only ? 'по будням' : 'ежедневно'}. Подтверждено методистом.`;
+  const revised =
+    option === 'reduce'
+      ? makeSkeleton(skeleton.requirements, skeleton)
+      : refreshExplanations(skeleton);
+  revised.conflicts = revised.conflicts.filter((c) => c.id !== 'calendar-decision');
+  revised.conflicts.push({
+    id: 'calendar-decision',
+    requirement_ids: ['calendar', 'total_hours'],
+    status: 'resolved',
+    expected: 'Решение методиста сохранено',
+    actual: revised.requirements.calendar.description,
+    calculation: `Новая вместимость: ${calendarCalculation(revised.requirements).capacity} ч`,
+    options: [],
+    decision: {
+      option_id: option,
+      actor: 'demo-methodist',
+      at: now(),
+      before,
+      after: canonicalJson(revised.requirements),
+    },
+  });
+  refreshExplanations(revised);
+  course.requirements = revised.requirements;
+  course.snapshots.push(
+    await newSnapshot(
+      id,
+      course,
+      revised,
+      base.materials.map((m) => ({ ...m, stale: true })),
+      base,
+    ),
+  );
+  course.job.status = 'awaiting_approval';
+  course.job.next_action = 'Решение сохранено. Отдельно утвердите каркас после повторного расчёта.';
 }
 export class DemoCourseApi implements CourseApi {
   readonly mode = 'demo';
@@ -427,68 +498,79 @@ export class DemoCourseApi implements CourseApi {
           }
           case 'resolve_calendar': {
             if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
-            const skeleton = structuredClone(base.skeleton);
-            const before = canonicalJson(skeleton.requirements.calendar);
-            skeleton.requirements.calendar = envelope.payload.calendar;
-            let calc = calendarCalculation(skeleton.requirements);
-            if (envelope.payload.option !== 'confirm' && new Decimal(calc.deficit).eq(0))
+            await resolveCalendar(
+              id,
+              course,
+              base,
+              envelope.payload.option,
+              envelope.payload.calendar,
+            );
+            break;
+          }
+          case 'apply_finding': {
+            if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
+            const issue = auditSnapshot(base).issues.find(
+              (i) => i.id === envelope.payload.issue_id,
+            );
+            if (!issue?.fix)
               throw new ApiError(
                 422,
-                'Часов достаточно: изменение для устранения нехватки не требуется.',
+                'Для этой находки нет предложения агента. Откройте место в программе.',
               );
-            if (envelope.payload.option === 'extend') {
-              while (calc.needed !== null && calc.days < calc.needed) {
-                skeleton.requirements.calendar.calendar_days++;
-                calc = calendarCalculation(skeleton.requirements);
-              }
+            if (issue.fix === 'confirm_calendar') {
+              const calendar = proposedCalendar(base.skeleton.requirements);
+              if (!calendar) throw new ApiError(422, 'Укажите дату начала и срок обучения.');
+              await resolveCalendar(id, course, base, 'confirm', calendar);
+              break;
             }
-            if (envelope.payload.option === 'raise') {
-              if (!calc.minimumLimit) throw new ApiError(422, 'Укажите доступные учебные дни.');
-              skeleton.requirements.calendar.daily_limit = calc.minimumLimit;
-              skeleton.requirements.constraints += `\nРешение методиста: исходный дневной лимит изменён на ${calc.minimumLimit} ч/день.`;
-            }
-            if (envelope.payload.option === 'reduce') {
-              if (new Decimal(calc.capacity).lt(16))
-                throw new ApiError(422, 'Вместимость меньше минимальных 16 часов.');
-              skeleton.requirements.total_hours = calc.capacity;
-              skeleton.requirements.constraints += `\nРешение методиста: вместо исходного объёма принят ${calc.capacity} ч; глубина результатов пересматривается до базовых действий по образцу.`;
-            }
-            skeleton.requirements.calendar.description = `${skeleton.requirements.calendar.calendar_days} календарных / ${calendarCalculation(skeleton.requirements).days} учебных дней, до ${skeleton.requirements.calendar.daily_limit} ч/день; ${skeleton.requirements.calendar.weekdays_only ? 'по будням' : 'ежедневно'}. Подтверждено методистом.`;
-            const revised =
-              envelope.payload.option === 'reduce'
-                ? makeSkeleton(skeleton.requirements, skeleton)
-                : refreshExplanations(skeleton);
-            revised.conflicts = revised.conflicts.filter((c) => c.id !== 'calendar-decision');
-            revised.conflicts.push({
-              id: 'calendar-decision',
-              requirement_ids: ['calendar', 'total_hours'],
-              status: 'resolved',
-              expected: 'Решение методиста сохранено',
-              actual: revised.requirements.calendar.description,
-              calculation: `Новая вместимость: ${calendarCalculation(revised.requirements).capacity} ч`,
-              options: [],
-              decision: {
-                option_id: envelope.payload.option,
-                actor: 'demo-methodist',
-                at: now(),
-                before,
-                after: canonicalJson(revised.requirements),
-              },
-            });
-            refreshExplanations(revised);
-            course.requirements = revised.requirements;
+            const skeleton = structuredClone(base.skeleton);
+            const assessment = proposedAssessment(skeleton, issue.element_id);
+            if (!assessment)
+              throw new ApiError(422, 'Нет темы, в которую можно добавить средство.');
+            skeleton.assessments.push(assessment);
+            const topic = skeleton.topics.find((t) => t.id === assessment.topic_id)!;
+            const label = assessmentLabels[assessment.type];
+            topic.control = ['', '—'].includes(topic.control)
+              ? label
+              : `${topic.control} + ${label.toLowerCase()}`;
+            refreshExplanations(skeleton);
             course.snapshots.push(
               await newSnapshot(
                 id,
                 course,
-                revised,
+                skeleton,
                 base.materials.map((m) => ({ ...m, stale: true })),
                 base,
               ),
             );
+            course.requirements = skeleton.requirements;
+            course.job = makeJob(id, 'apply_finding', envelope.request_id);
             course.job.status = 'awaiting_approval';
-            course.job.next_action =
-              'Решение сохранено. Отдельно утвердите каркас после повторного расчёта.';
+            course.job.next_action = 'Предложение агента применено. Проверьте новую ревизию.';
+            break;
+          }
+          case 'dismiss_finding': {
+            if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
+            const reason = envelope.payload.reason.trim();
+            if (reason.length < 3)
+              throw new ApiError(422, 'Укажите причину, по которой находка остаётся как есть.');
+            const issue = auditSnapshot(base).issues.find(
+              (i) => i.id === envelope.payload.issue_id,
+            );
+            if (!issue?.dismissible)
+              throw new ApiError(422, 'Эту проблему нельзя оставить как есть: её нужно исправить.');
+            const snapshot = await newSnapshot(
+              id,
+              course,
+              structuredClone(base.skeleton),
+              structuredClone(base.materials),
+              base,
+            );
+            snapshot.decisions = [
+              ...snapshot.decisions.filter((d) => d.issue_id !== issue.id),
+              { issue_id: issue.id, reason, actor: 'demo-methodist', at: now() },
+            ];
+            course.snapshots.push(finalize(snapshot));
             break;
           }
           case 'approve': {

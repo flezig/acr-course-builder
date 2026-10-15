@@ -1,6 +1,7 @@
 import type { Rationale, Skeleton } from '../../entities/course/model/schema';
 import { rationaleIsSupported, type SkeletonElement } from '../../entities/course/model/rationale';
 import { hourLabels, sumHours } from '../../shared/lib/decimal';
+import { assessmentLabels } from '../../entities/course/model/presets';
 
 export const rationaleGroups = [
   { id: 'intent', title: 'Цель и участники' },
@@ -28,13 +29,6 @@ export const statusLabels: Record<Rationale['status'], string> = {
   expert_checked: 'Проверено специалистом',
   pilot_checked: 'Проверено на пробном обучении',
   stale: 'Нужно проверить заново',
-};
-export const assessmentLabels = {
-  test: 'Тест',
-  project: 'Проект',
-  portfolio: 'Портфолио',
-  exam: 'Экзамен',
-  mentor_interview: 'Беседа с наставником',
 };
 const hours = (value: string) => `${value.replace('.', ',')} уч. ч.`;
 

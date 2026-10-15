@@ -23,6 +23,8 @@ export type CourseCommand =
   | { action: 'audit'; payload: Record<string, never> }
   | { action: 'retry' | 'cancel'; payload: { job_id: string } }
   | { action: 'manual_material'; payload: { material_id: string; content: string } }
+  | { action: 'apply_finding'; payload: { issue_id: string } }
+  | { action: 'dismiss_finding'; payload: { issue_id: string; reason: string } }
   | {
       action: 'resolve_calendar';
       payload: {

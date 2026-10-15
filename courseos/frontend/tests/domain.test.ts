@@ -66,6 +66,29 @@ async function fullPython() {
   vi.advanceTimersByTime(2500);
   return (await api.get(snapshot.course_id)).snapshot!;
 }
+// Решения методиста перед утверждением: предложения агента применяются, остальные
+// находки остаются как есть с причиной. Возвращает снимок после всех решений.
+async function settleDecisions(courseId: string) {
+  for (;;) {
+    const snapshot = (await api.get(courseId)).snapshot!;
+    const issue = snapshot.audit.issues.find((i) => i.blocking && (i.fix || i.dismissible));
+    if (!issue) return snapshot;
+    const envelope = {
+      course_id: courseId,
+      expected_version: snapshot.course_version,
+      request_id: crypto.randomUUID(),
+    };
+    await api.command(
+      issue.fix
+        ? { ...envelope, action: 'apply_finding', payload: { issue_id: issue.id } }
+        : {
+            ...envelope,
+            action: 'dismiss_finding',
+            payload: { issue_id: issue.id, reason: 'Проверено методистом вручную' },
+          },
+    );
+  }
+}
 async function saveSkeleton(snapshot: Snapshot, skeleton: Skeleton) {
   await api.command({
     action: 'save_skeleton',
@@ -181,7 +204,7 @@ describe('Согласование, задачи и версии demo', () => {
     expect(updated.skeleton_hash).not.toBe(initial.skeleton_hash);
     expect(updated.approval_applicable).toBe(false);
     expect(updated.materials.every((m) => m.stale)).toBe(true);
-    expect(updated.skeleton.explanations[0].conclusion).toContain('Взрослые');
+    expect(updated.skeleton.explanations[0].evidence[0].text).toContain('Взрослые');
   });
   it('ошибка часов и результат без оценивания блокируют утверждение', async () => {
     const initial = await startPython();
@@ -228,7 +251,7 @@ describe('Согласование, задачи и версии demo', () => {
       JSON.parse(await (await api.exportJson(result.course_id, snapshot.course_version)).text())
         .skeleton.conflicts[0].decision.actor,
     ).toBe('demo-methodist');
-    await approve(snapshot);
+    await approve(await settleDecisions(result.course_id));
     expect((await api.get(result.course_id)).job.status).toBe('running');
   });
   it('повтор request_id идемпотентен, другой payload отвергается', async () => {
@@ -388,8 +411,7 @@ describe('Согласование, задачи и версии demo', () => {
         request_id: crypto.randomUUID(),
       });
       vi.advanceTimersByTime(500);
-      const initial = (await api.get(result.course_id)).snapshot!;
-      await approve(initial);
+      await approve(await settleDecisions(result.course_id));
       vi.advanceTimersByTime(2500);
       const final = (await api.get(result.course_id)).snapshot!;
       expect(sumHours(Object.values(hourTotals(final.skeleton)))).toBe(requirements.total_hours);

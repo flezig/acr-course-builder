@@ -3,7 +3,26 @@ import { initializeRationales } from './rationale';
 import { addMethodologyRationales } from './methodology';
 import type { Requirements, Skeleton, Material, Snapshot } from './schema';
 import { calendarCalculation, calendarSummary, hourTotals } from './rules';
-import { contentHash, sumHours } from '../../../shared/lib/decimal';
+import { contentHash, formatHours, sumHours } from '../../../shared/lib/decimal';
+import { assessmentLabels } from './presets';
+import { distributeModuleHours, isInternship, selfStudyAllowed } from './hours-plan';
+import {
+  devopsTopics,
+  finalHoursReason,
+  genericTopics,
+  pythonTopics,
+  securityTopics,
+  teacherTopics,
+  type ScenarioKind,
+  type ScenarioTopic,
+} from './scenarios';
+import {
+  bankModuleAssessments,
+  bankOutcomes,
+  bankProjectActions,
+  bankTools,
+  bankTopics,
+} from './bank-scenario';
 export const generalSections = [
   'Титульный лист',
   'Пояснительная записка',
@@ -63,254 +82,175 @@ export function missingQuestions(requirements: Requirements) {
     )
     .map(([field, label]) => ({ field, label }));
 }
-export function scenarioKind(
-  requirements: Requirements,
-): 'devops' | 'bank' | 'teachers' | 'security' | 'python' | 'generic' {
+export function scenarioKind(requirements: Requirements): ScenarioKind {
   const title = requirements.title.toLowerCase();
-  if (title.includes('devops') || requirements.delivery.toLowerCase().includes('стажиров'))
-    return 'devops';
+  if (title.includes('devops') || isInternship(requirements)) return 'devops';
   if (requirements.audience.toLowerCase().includes('банк')) return 'bank';
   if (requirements.audience.toLowerCase().includes('учител')) return 'teachers';
   if (title.includes('кибер') || title.includes('безопасност')) return 'security';
   if (title.includes('python') && requirements.template_id === 'acr_general') return 'python';
   return 'generic';
 }
+function scenarioTopics(kind: ScenarioKind, requirements: Requirements): ScenarioTopic[] {
+  return {
+    devops: devopsTopics,
+    bank: bankTopics,
+    teachers: teacherTopics,
+    security: securityTopics,
+    python: pythonTopics,
+    generic: genericTopics(requirements),
+  }[kind];
+}
+// Итоговая аттестация — 2 ч во всех сценариях: в DevOps это требование запроса, в Python —
+// восьмое занятие, в остальных — оценка, которая помечена как непроверенная.
+const finalHours = new Decimal(2);
 export function makeSkeleton(requirements: Requirements, previous?: Skeleton): Skeleton {
   const kind = scenarioKind(requirements);
-  const names =
-    kind === 'devops'
-      ? [
-          'Linux и командная строка',
-          'Сети и диагностика',
-          'Контейнеризация',
-          'CI/CD',
-          'Мониторинг',
-          'Инфраструктура как код',
-        ]
-      : kind === 'bank'
-        ? [
-            'Основы Python после Excel',
-            'pandas: очистка и фильтрация',
-            'Визуализация банковских данных',
-            'SQL: выгрузка данных',
-            'Основы статистики',
-          ]
-        : kind === 'teachers'
-          ? [
-              'Риски, этика и данные детей',
-              'Запрос и проверка ответа ИИ',
-              'План урока',
-              'Задания для учеников',
-              'Проверочная работа',
-            ]
-          : kind === 'security'
-            ? [
-                'Сети и модель угроз',
-                'Linux и права доступа',
-                'Журналы и диагностика',
-                'Защита учебного стенда',
-                'Разбор инцидента',
-              ]
-            : kind === 'python'
-              ? [
-                  'Знакомство с Python',
-                  'Переменные и типы',
-                  'Условия и выбор',
-                  'Циклы и повторение',
-                  'Строки и ввод',
-                  'Функции и разбиение задачи',
-                  'Сборка проекта',
-                ]
-              : Array.from(
-                  {
-                    length: Math.max(
-                      3,
-                      Math.min(32, Math.ceil(Number(requirements.total_hours) / 16)),
-                    ),
-                  },
-                  (_, index) =>
-                    `${index + 1}. ${['Основы', 'Разбор примера', 'Применение', 'Диагностика', 'Практикум', 'Самостоятельная задача'][index % 6]}: ${requirements.title}`,
-                );
+  const design = scenarioTopics(kind, requirements);
+  const names = design.map((topic) => topic.title);
   const outcomes: Skeleton['outcomes'] =
-    kind === 'python'
-      ? [
-          {
-            id: 'outcome-1',
-            kind: 'knowledge',
-            description: 'Объясняет переменные и хранение состояния игры',
-            prerequisite: 'Уверенное чтение и ввод текста',
-            depth: 'Один небольшой сценарий',
-            requirement_id: 'request',
-            professional_standard_code: null,
-          },
-          {
-            id: 'outcome-2',
-            kind: 'skill',
-            description: 'Применяет условия для выбора действий',
-            prerequisite: 'Переменные и сравнения',
-            depth: 'Две ветки условия',
-            requirement_id: 'request',
-            professional_standard_code: null,
-          },
-          {
-            id: 'outcome-3',
-            kind: 'proficiency',
-            description: 'Создаёт цикл с корректным завершением',
-            prerequisite: 'Условия и изменение переменной',
-            depth: 'Один цикл в учебной программе',
-            requirement_id: 'request',
-            professional_standard_code: null,
-          },
-        ]
-      : names.map((name, index) => ({
-          id: `outcome-${index + 1}`,
-          kind: (['knowledge', 'skill', 'proficiency'] as const)[index % 3],
-          description: `Выполняет учебную задачу «${name}» и объясняет решение`,
-          prerequisite: requirements.entry_level + '; предметные предпосылки требуют уточнения',
-          depth: 'Базовое действие по образцу; требуется предметная проверка',
-          requirement_id: 'request',
-          professional_standard_code: null,
-        }));
-  // Assessment work is designed before content and time. Two methods are a case constraint.
-  const finalType = kind === 'teachers' ? 'portfolio' : kind === 'security' ? 'exam' : 'project';
-  const assessments: Skeleton['assessments'] = outcomes.flatMap((outcome, index) => [
-    {
-      id: `assessment-${index + 1}-a`,
-      topic_id: `topic-${kind === 'python' ? [2, 3, 4][index] : index + 1}`,
-      outcome_ids: [outcome.id],
-      type: kind === 'devops' ? 'mentor_interview' : 'test',
-      action:
-        kind === 'python'
-          ? [
-              'Прослеживает значение переменной',
-              'Выбирает выполненную ветку',
-              'Определяет число повторений',
-            ][index]
-          : `Объясняет решение по теме ${names[index]}`,
-      criterion:
-        kind === 'python'
-          ? [
-              'Для двух присваиваний верно называет итоговое значение и объясняет изменение',
-              'Для истинного и ложного условия верно указывает выбранную ветку',
-              'На трассировке указывает число ходов и причину завершения',
-            ][index]
-          : 'Воспроизводит пример и объясняет проверку ошибки; предметный порог требует уточнения',
-    },
-    {
-      id: `assessment-${index + 1}-b`,
-      topic_id: 'topic-final',
-      outcome_ids: [outcome.id],
-      type: finalType,
-      action:
-        kind === 'python'
-          ? [
-              'Хранит состояние в переменных',
-              'Реализует два варианта выбора',
-              'Повторяет ход до условия выхода',
-            ][index]
-          : `Демонстрирует действие: ${outcome.description}`,
-      criterion:
-        kind === 'python'
-          ? [
-              'В новом фрагменте состояние сохраняется и меняется после хода; объясняет два изменения',
-              'Обе ветки выполняются на двух разных вводах; объясняет условие',
-              'Цикл делает несколько ходов и завершается по команде выхода; объясняет изменение состояния',
-            ][index]
-          : 'Действие воспроизводится самостоятельно; результат объяснён; предметная рубрика требует проверки',
-    },
-  ]);
-  // Explicit case requirement in DevOps; estimates elsewhere, never a universal 2h rule.
-  const finalHours =
-    kind === 'devops'
-      ? new Decimal(2)
+    kind === 'bank'
+      ? structuredClone(bankOutcomes)
       : kind === 'python'
-        ? new Decimal(outcomes.length).times('.5').plus('.5')
-        : new Decimal(assessments.filter((a) => a.topic_id === 'topic-final').length).times('.5');
-  const remaining = new Decimal(requirements.total_hours).minus(finalHours);
-  const base = names.map((_, i) =>
-    kind === 'python' ? new Decimal([2, 2, 2, 2.5, 1.5, 2, 2][i]) : new Decimal(2 + (i % 3) * 0.75),
-  );
-  const baseTotal = new Decimal(sumHours(base.map((v) => v.toString())));
-  const budgets: NonNullable<Skeleton['time_budgets']> = [];
-  const topics: Skeleton['topics'] = names.map((title, index) => {
-    const already = sumHours(
-      budgets.map((b) =>
-        sumHours([b.explanation, b.supported_practice, b.independent, b.feedback, b.assessment]),
-      ),
-    );
-    const total =
-      index === names.length - 1
-        ? remaining.minus(already)
-        : remaining.times(base[index]).div(baseTotal).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-    // Disjoint actions. Scale provisional action estimates to the requested envelope;
-    // this is arithmetic accommodation, not evidence that the envelope is sufficient.
-    const explanation = new Decimal(kind === 'python' && index === 0 ? '1' : '.5');
-    const supported = kind === 'python' ? new Decimal('.5') : new Decimal('.75');
-    const scale = total.div(base[index]);
-    const e = explanation.times(scale).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-    const p = supported.times(scale).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-    const f = new Decimal('.25').times(scale).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-    const formative = new Decimal('.125').times(scale).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-    const independentTime = total.minus(e).minus(p).minus(f).minus(formative);
-    budgets.push({
-      topic_id: `topic-${index + 1}`,
-      explanation: e.toString(),
-      supported_practice: p.toString(),
-      independent: independentTime.toString(),
-      feedback: f.toString(),
-      assessment: formative.toString(),
-      basis: 'assumption',
-      note: 'Непересекающиеся действия; разбор ошибок выделен отдельно, текущий контроль включён в практику/СРС. Предварительные оценки приведены к заданному объёму; замеров и подтверждения достаточности нет.',
-    });
-    const lecture = kind === 'devops' ? new Decimal(0) : e;
-    const self =
-      kind === 'devops'
-        ? total
-        : requirements.delivery.includes('заоч')
-          ? independentTime
-          : new Decimal(0);
-    return {
-      id: `topic-${index + 1}`,
-      module_id: `module-${kind === 'python' ? (index < 4 ? 1 : 2) : index + 1}`,
-      title,
-      content: `Объяснение ${title.toLowerCase()}, выполнение учебной задачи, обратная связь и проверка результата.`,
-      planned_total: total.toString(),
-      hours: {
-        lecture: lecture.toString(),
-        practice: total.minus(lecture).minus(self).toString(),
-        lab: '0',
-        self_study: self.toString(),
-        assessment: '0',
-      },
-      prerequisite_ids:
-        kind === 'python'
-          ? [
-              [],
-              ['topic-1'],
-              ['topic-2'],
-              ['topic-2', 'topic-3'],
-              ['topic-2'],
-              ['topic-2'],
-              ['topic-3', 'topic-4', 'topic-5', 'topic-6'],
-            ][index]
-          : [],
-      outcome_ids:
-        kind === 'python'
-          ? index < 2
-            ? ['outcome-1']
-            : index === 2
-              ? ['outcome-2']
-              : ['outcome-3']
-          : [`outcome-${index + 1}`],
-      delivery:
-        kind === 'devops'
-          ? 'Самостоятельная под наставником'
-          : requirements.delivery.includes('заоч')
-            ? 'Очно + дистанционная самостоятельная работа'
-            : requirements.delivery,
-      control: kind === 'devops' ? 'Собеседование + отчёт' : 'Тест + практическая защита',
-    };
-  });
+        ? [
+            {
+              id: 'outcome-1',
+              kind: 'knowledge',
+              description: 'Объясняет переменные и хранение состояния игры',
+              prerequisite: 'Уверенное чтение и ввод текста',
+              depth: 'Один небольшой сценарий',
+              requirement_id: 'request',
+              professional_standard_code: null,
+            },
+            {
+              id: 'outcome-2',
+              kind: 'skill',
+              description: 'Применяет условия для выбора действий',
+              prerequisite: 'Переменные и сравнения',
+              depth: 'Две ветки условия',
+              requirement_id: 'request',
+              professional_standard_code: null,
+            },
+            {
+              id: 'outcome-3',
+              kind: 'proficiency',
+              description: 'Создаёт цикл с корректным завершением',
+              prerequisite: 'Условия и изменение переменной',
+              depth: 'Один цикл в учебной программе',
+              requirement_id: 'request',
+              professional_standard_code: null,
+            },
+          ]
+        : names.map((name, index) => ({
+            id: `outcome-${index + 1}`,
+            kind: (['knowledge', 'skill', 'proficiency'] as const)[index % 3],
+            description: `Выполняет учебную задачу «${name}» и объясняет решение`,
+            prerequisite: requirements.entry_level + '; предметные предпосылки требуют уточнения',
+            depth: 'Базовое действие по образцу; требуется предметная проверка',
+            requirement_id: 'request',
+            professional_standard_code: null,
+          }));
+  // Оценивание проектируется до содержания и часов. Два разных средства — условие кейса.
+  const finalType = kind === 'teachers' ? 'portfolio' : kind === 'security' ? 'exam' : 'project';
+  const assessments: Skeleton['assessments'] =
+    kind === 'bank'
+      ? outcomes.flatMap((outcome, index) => {
+          const current = bankModuleAssessments[index];
+          return [
+            ...(current
+              ? [
+                  {
+                    id: `assessment-${index + 1}-a`,
+                    topic_id: `topic-${current.topic}`,
+                    outcome_ids: [outcome.id],
+                    type: current.type,
+                    action: current.action,
+                    criterion: current.criterion,
+                  },
+                ]
+              : []),
+            {
+              id: `assessment-${index + 1}-b`,
+              topic_id: 'topic-final',
+              outcome_ids: [outcome.id],
+              type: 'project' as const,
+              action: bankProjectActions[index],
+              criterion: outcome.criteria!.join('; '),
+            },
+          ];
+        })
+      : outcomes.flatMap((outcome, index) => [
+          {
+            id: `assessment-${index + 1}-a`,
+            topic_id: `topic-${kind === 'python' ? [2, 3, 4][index] : index + 1}`,
+            outcome_ids: [outcome.id],
+            type: kind === 'devops' ? 'mentor_interview' : 'test',
+            action:
+              kind === 'python'
+                ? [
+                    'Прослеживает значение переменной',
+                    'Выбирает выполненную ветку',
+                    'Определяет число повторений',
+                  ][index]
+                : `Объясняет решение по теме ${names[index]}`,
+            criterion:
+              kind === 'python'
+                ? [
+                    'Для двух присваиваний верно называет итоговое значение и объясняет изменение',
+                    'Для истинного и ложного условия верно указывает выбранную ветку',
+                    'На трассировке указывает число ходов и причину завершения',
+                  ][index]
+                : 'Воспроизводит пример и объясняет проверку ошибки; предметный порог требует уточнения',
+          },
+          {
+            id: `assessment-${index + 1}-b`,
+            topic_id: 'topic-final',
+            outcome_ids: [outcome.id],
+            type: finalType,
+            action:
+              kind === 'python'
+                ? [
+                    'Хранит состояние в переменных',
+                    'Реализует два варианта выбора',
+                    'Повторяет ход до условия выхода',
+                  ][index]
+                : `Демонстрирует действие: ${outcome.description}`,
+            criterion:
+              kind === 'python'
+                ? [
+                    'В новом фрагменте состояние сохраняется и меняется после хода; объясняет два изменения',
+                    'Обе ветки выполняются на двух разных вводах; объясняет условие',
+                    'Цикл делает несколько ходов и завершается по команде выхода; объясняет изменение состояния',
+                  ][index]
+                : 'Действие воспроизводится самостоятельно; результат объяснён; предметная рубрика требует проверки',
+          },
+        ]);
+  const moduleHours = distributeModuleHours(requirements, design, finalHours);
+  const blended = selfStudyAllowed(requirements) && !isInternship(requirements);
+  const topics: Skeleton['topics'] = design.map((item, index) => ({
+    id: `topic-${index + 1}`,
+    module_id: `module-${item.module}`,
+    title: item.title,
+    content: item.content,
+    planned_total: moduleHours[index].total.toString(),
+    hours: {
+      lecture: moduleHours[index].lecture.toString(),
+      practice: moduleHours[index].practice.toString(),
+      lab: '0',
+      self_study: moduleHours[index].self_study.toString(),
+      assessment: '0',
+    },
+    prerequisite_ids: item.prerequisites.map((number) => `topic-${number}`),
+    outcome_ids: item.outcomes
+      .filter((number) => number <= outcomes.length)
+      .map((number) => `outcome-${number}`),
+    delivery: isInternship(requirements)
+      ? 'Самостоятельная работа под наставником'
+      : blended
+        ? 'Занятия очно, самостоятельная работа дистанционно'
+        : requirements.delivery,
+    control: item.control,
+  }));
   topics.push({
     id: 'topic-final',
     module_id: 'module-final',
@@ -324,24 +264,23 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
       self_study: '0',
       assessment: finalHours.toString(),
     },
-    prerequisite_ids: kind === 'python' ? ['topic-7'] : [],
+    prerequisite_ids: [`topic-${design.length}`],
     outcome_ids: outcomes.map((o) => o.id),
-    delivery: requirements.delivery,
+    delivery: isInternship(requirements) ? 'Защита у наставника' : 'Очно',
     control: requirements.assessment,
   });
-  budgets.push({
-    topic_id: 'topic-final',
-    explanation: '0',
-    supported_practice: '0',
-    independent: '0',
+  // Состав учебных действий повторяет виды работы темы: отдельной дробной «раскладки»
+  // по объяснению, практике и обратной связи больше нет, а причина решения хранится в note.
+  const budgets: NonNullable<Skeleton['time_budgets']> = topics.map((topic, index) => ({
+    topic_id: topic.id,
+    explanation: topic.hours.lecture,
+    supported_practice: sumHours([topic.hours.practice, topic.hours.lab]),
+    independent: topic.hours.self_study,
     feedback: '0',
-    assessment: finalHours.toString(),
+    assessment: topic.hours.assessment,
     basis: kind === 'devops' ? 'request' : 'assumption',
-    note:
-      kind === 'devops'
-        ? 'Запрос: 2 ч аттестации; 254 ч СРС.'
-        : 'Предварительная оценка: по 0.5 ч на демонстрацию и проверку каждого результата; для Python ещё 0.5 ч на общую защиту. Объём на группу/слушателя и длительности требуют эксперта и пилота.',
-  });
+    note: topic.id === 'topic-final' ? finalHoursReason[kind] : moduleHours[index].reason,
+  }));
   const activities = topics
     .filter((t) => t.id !== 'topic-final')
     .map((topic) => ({
@@ -364,7 +303,9 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
                 } as Record<string, string>
               )[topic.id]
             }. Затем выполнить с поддержкой, решить новый вариант самостоятельно и отдельно разобрать ошибки.`
-          : `Разбор примера и самостоятельное выполнение: ${topic.title}; предметные шаги уточняет наставник.`,
+          : kind === 'bank'
+            ? `Разбор примера на данных отделения, затем семинар: ${topic.content.split('Семинар: ')[1] || 'работа над проектом с консультацией'}`
+            : `Разбор примера и самостоятельное выполнение: ${topic.title}; предметные шаги уточняет наставник.`,
     }));
   const skeleton: Skeleton = {
     schema_version: '1.0',
@@ -372,33 +313,30 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
     requirements,
     template_version: 'acr-2026-v1',
     goal: requirements.goal || `Освоить базовые действия по теме «${requirements.title}»`,
-    tasks: [
-      'Разобрать понятия на примере',
-      'Отработать действия с обратной связью',
-      'Продемонстрировать результат и объяснить решение',
-    ],
+    tasks:
+      kind === 'bank'
+        ? [
+            'Перевести привычные расчёты Excel в воспроизводимые скрипты Python',
+            'Научить выгружать и очищать данные по клиентам и кредитам без помощи аналитика',
+            'Научить проверять, значимы ли различия показателей, и объяснять вывод руководителю',
+          ]
+        : [
+            'Разобрать понятия на примере',
+            'Отработать действия с обратной связью',
+            'Продемонстрировать результат и объяснить решение',
+          ],
     outcomes,
     topics,
     activities,
     assessments,
     explanations: [],
     time_budgets: budgets,
-    dependency_reasons: topics.flatMap((t) =>
-      t.prerequisite_ids.map((from) => ({
-        from_id: from,
-        to_id: t.id,
-        action:
-          kind === 'python'
-            ? {
-                'topic-1': 'Запускает и меняет учебный скрипт, чтобы проверить присваивание',
-                'topic-2': 'Читает и изменяет значение переменной для следующего задания',
-                'topic-3': 'Проверяет условие выбора/завершения в следующем задании',
-                'topic-4': 'Реализует повторение ходов до выхода в проекте',
-                'topic-5': 'Читает строковую команду игрока в проекте',
-                'topic-6': 'Вызывает выделенную функцию хода при сборке проекта',
-                'topic-7': 'Собирает и запускает игру перед самостоятельной защитой',
-              }[from] || ''
-            : '',
+    ...(kind === 'bank' ? { tools: structuredClone(bankTools) } : {}),
+    dependency_reasons: design.flatMap((item, index) =>
+      item.prerequisites.map((from) => ({
+        from_id: `topic-${from}`,
+        to_id: `topic-${index + 1}`,
+        action: item.dependency || '',
       })),
     ),
     conflicts: previous?.conflicts.filter((c) => c.decision).map((c) => structuredClone(c)) || [],
@@ -476,49 +414,92 @@ export function refreshExplanations(skeleton: Skeleton): Skeleton {
       decision: null,
     });
   const ids = skeleton.outcomes.map((o) => o.id);
-
   const evidence = (type: 'request' | 'calculation' | 'assumption', text: string) => ({
     type,
     text,
     source_id: null,
   });
+  // Достижимость показывается цепочкой «результат → задание → критерий → практика в теме».
+  // Сами часы достижимость не доказывают, поэтому без задания и критерия результат «не проверен».
+  const reachability = skeleton.outcomes.map((outcome, index) => {
+    const tasks = skeleton.assessments.filter(
+      (a) => a.outcome_ids.includes(outcome.id) && a.topic_id !== 'topic-final',
+    );
+    // В стажировке вся практика — самостоятельная работа под наставником.
+    const practice = skeleton.topics
+      .filter((t) => t.id !== 'topic-final' && t.outcome_ids.includes(outcome.id))
+      .reduce(
+        (sum, t) =>
+          sum
+            .plus(t.hours.practice)
+            .plus(t.hours.lab)
+            .plus(isInternship(requirements) ? t.hours.self_study : 0),
+        new Decimal(0),
+      );
+    const linked = tasks.length > 0 && tasks.every((a) => a.criterion.trim()) && practice.gt(0);
+    return {
+      linked,
+      line: linked
+        ? `Результат ${index + 1}: ${tasks.map((a) => `${assessmentLabels[a.type].toLowerCase()} «${a.action}», критерий — ${a.criterion}`).join('; ')}; практики в темах результата — ${formatHours(practice.toString())} ч.`
+        : `Результат ${index + 1}: не проверено — ${!tasks.length ? 'нет задания текущего контроля, проверяется только на итоговой аттестации' : 'в темах результата нет практики'}. Нужно задание с критерием в теме, где результат осваивается.`,
+    };
+  });
+  const reasons = (skeleton.dependency_reasons || []).filter((d) => d.action.trim());
+  const notes = (skeleton.time_budgets || []).filter((b) => b.topic_id !== 'topic-final');
+  const unverifiedHours = notes.filter((b) => b.note.includes('не проверено'));
+  const coveredTwice = skeleton.outcomes.filter(
+    (o) =>
+      new Set(skeleton.assessments.filter((a) => a.outcome_ids.includes(o.id)).map((a) => a.type))
+        .size >= 2,
+  );
   skeleton.explanations = [
     {
       id: 'why-reachability',
       category: 'reachability',
       title: 'Достижимы ли результаты?',
-      conclusion: `Для аудитории «${requirements.audience}» предусмотрено ${totals.practice} ч практики и ${totals.self_study} ч самостоятельной работы.`,
-      detail: `Входной уровень: ${requirements.entry_level}. ${skeleton.outcomes.map((o) => `${o.description}: предпосылка — ${o.prerequisite}; глубина — ${o.depth}`).join('\n')} ${scenarioKind(requirements) === 'security' ? '72 часа дают начальные навыки на учебном стенде, но не гарантируют готовности к работе специалистом.' : 'Допущение: освоение возможно с подсказками и обратной связью. Достаточность времени оценивает эксперт.'}`,
+      conclusion: reachability.every((r) => r.linked)
+        ? `У каждого из ${reachability.length} результатов есть задание с критерием и практика в теме, где он осваивается.`
+        : `Связь «задание → критерий → практика» есть у ${reachability.filter((r) => r.linked).length} из ${reachability.length} результатов; остальные не проверены.`,
+      detail: [
+        `Входной уровень: ${requirements.entry_level || 'не указан'}.`,
+        ...reachability.map((r) => r.line),
+        scenarioKind(requirements) === 'security'
+          ? '72 часа дают начальные навыки на учебном стенде, но не готовность к работе специалистом.'
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
       related_ids: ids,
       evidence: [
         evidence(
           'request',
-          `Аудитория, входной уровень и ${requirements.total_hours} часов подтверждаются параметрами запроса`,
+          `Аудитория и входной уровень взяты из запроса: ${requirements.audience}`,
         ),
-        evidence('assumption', 'Педагогическая достижимость не проверена экспертом'),
+        evidence('assumption', 'Достаточность практики для этой аудитории не проверена на пилоте'),
       ],
-      status: 'needs_review',
-      missing: 'Предметная оценка глубины и необходимой практики',
+      status: reachability.every((r) => r.linked) ? 'needs_review' : 'blocked',
+      missing: 'Предметная оценка глубины результатов и пилот',
     },
     {
       id: 'why-sequence',
       category: 'sequence',
       title: 'Почему такой порядок тем?',
-      conclusion: skeleton.topics
-        .slice(0, 4)
-        .map((t) => t.title)
-        .join(' → '),
-      detail: skeleton.topics
-        .map(
-          (t) =>
-            `${t.id}: ${t.prerequisite_ids.length ? t.prerequisite_ids.map((from) => `${from}: ${skeleton.dependency_reasons?.find((d) => d.from_id === from && d.to_id === t.id)?.action || 'Основание не найдено; требуется проверка'}`).join('; ') : 'Зависимости не установлены; проверить входные навыки и предпосылки'}`,
-        )
-        .join('\n'),
+      conclusion: reasons.length
+        ? (reasons.find((d) => d.action.startsWith('SQL после')) || reasons[0]).action
+        : 'Не проверено: зависимости между темами не заданы, порядок нельзя обосновать.',
+      detail: reasons.length
+        ? reasons
+            .map(
+              (d) =>
+                `${skeleton.topics.find((t) => t.id === d.from_id)?.title} → ${skeleton.topics.find((t) => t.id === d.to_id)?.title}: ${d.action}`,
+            )
+            .join('\n')
+        : 'Укажите для каждой темы, какой навык предыдущей темы в ней нужен.',
       related_ids: skeleton.topics.map((t) => t.id),
       evidence: [
         evidence(
           'assumption',
-          'Записанные зависимости указывают требуемые действия. Для общего сценария граф не выдумывается; предметные предпосылки ещё нужно выяснить',
+          'Зависимости навыков выведены из содержания тем; предметный эксперт их не проверял',
         ),
       ],
       status: 'needs_review',
@@ -527,53 +508,53 @@ export function refreshExplanations(skeleton: Skeleton): Skeleton {
     {
       id: 'why-hours',
       category: 'hours',
-      title: 'Как распределены часы?',
-      conclusion: `${totals.lecture} + ${totals.practice} + ${totals.lab} + ${totals.self_study} + ${totals.assessment} = ${actual} ч`,
-      detail: `Лекции → практика → лабораторные → самостоятельная → аттестация. Для темы время на объяснение записано в лекциях; освоение, отдельный разбор ошибок и текущий контроль — в практике/СРС; итоговая аттестация — отдельной строкой. Состав действий сохранён в time_budgets. Эти доли — методическое предположение. Аттестация входит один раз.`,
+      title: 'Почему часы распределены так?',
+      conclusion: unverifiedHours.length
+        ? `${unverifiedHours.length} из ${notes.length} решений по часам — оценка без обоснования, не проверено.`
+        : heaviestModuleNote(skeleton) || 'Причины не записаны.',
+      detail: notes
+        .map((b) => `${skeleton.topics.find((t) => t.id === b.topic_id)?.title}: ${b.note}`)
+        .join('\n'),
       related_ids: skeleton.topics.map((t) => t.id),
       evidence: [
         evidence(
           'calculation',
-          `${actual} ${new Decimal(actual).eq(requirements.total_hours) ? '=' : '≠'} ${requirements.total_hours}; точные строковые Decimal`,
-        ),
-        evidence(
-          'assumption',
-          'Время на обратную связь включено в активность; длительность академического часа не предполагалась',
+          new Decimal(actual).eq(requirements.total_hours || 0)
+            ? 'Сумма тем и аттестации равна объёму запроса, все часы кратны 0,5'
+            : 'Сумма тем и аттестации не равна объёму запроса',
         ),
       ],
-      status: new Decimal(actual).eq(requirements.total_hours) ? 'verified' : 'blocked',
-      missing: 'Экспертная оценка достаточности распределения',
+      status: new Decimal(actual).eq(requirements.total_hours || 0)
+        ? unverifiedHours.length
+          ? 'needs_review'
+          : 'verified'
+        : 'blocked',
+      missing: 'Экспертная оценка достаточности часов',
     },
     {
       id: 'why-assessment',
       category: 'assessment',
       title: 'Как проверяется каждый результат?',
-      conclusion:
-        'Каждый результат: активность, два разных средства, наблюдаемое действие и критерий.',
+      conclusion: `${coveredTwice.length} из ${skeleton.outcomes.length} результатов проверяются двумя разными средствами — так требует чек-лист кейса.`,
       detail: skeleton.outcomes
         .map(
-          (o) =>
-            `${o.id} — ${skeleton.assessments
-              .filter((a) => a.outcome_ids.includes(o.id))
-              .map((a) => `${a.type}: ${a.action}; критерий: ${a.criterion}`)
-              .join('; ')}`,
+          (o, index) =>
+            `Результат ${index + 1}: ${
+              skeleton.assessments
+                .filter((a) => a.outcome_ids.includes(o.id))
+                .map((a) => `${assessmentLabels[a.type]} — ${a.criterion}`)
+                .join('; ') || 'средств нет'
+            }`,
         )
         .join('\n'),
       related_ids: [...ids, ...skeleton.assessments.map((a) => a.id)],
       evidence: [
         evidence(
-          'calculation',
-          'Два разных средства — условие кейса, не универсальное педагогическое правило. Количество типов проверяется кодом; содержательная валидность требует эксперта',
+          'request',
+          'Требование кейса: каждый результат проверяется хотя бы двумя оценочными средствами',
         ),
       ],
-      status: skeleton.outcomes.every(
-        (o) =>
-          new Set(
-            skeleton.assessments.filter((a) => a.outcome_ids.includes(o.id)).map((a) => a.type),
-          ).size >= 2,
-      )
-        ? 'verified'
-        : 'blocked',
+      status: coveredTwice.length === skeleton.outcomes.length ? 'verified' : 'blocked',
       missing: 'Смысловое соответствие критериев подтверждает эксперт',
     },
     {
@@ -593,6 +574,18 @@ export function refreshExplanations(skeleton: Skeleton): Skeleton {
     },
   ];
   return skeleton;
+}
+// Для вывода берётся причина самого весомого модуля, при равенстве — самая частая:
+// она объясняет большую часть объёма.
+function heaviestModuleNote(skeleton: Skeleton) {
+  const notes = (skeleton.time_budgets || []).filter((b) => b.topic_id !== 'topic-final');
+  const total = (id: string) =>
+    new Decimal(skeleton.topics.find((t) => t.id === id)?.planned_total || 0);
+  const frequency = (note: string) => notes.filter((b) => b.note === note).length;
+  return [...notes].sort(
+    (a, b) =>
+      total(b.topic_id).comparedTo(total(a.topic_id)) || frequency(b.note) - frequency(a.note),
+  )[0]?.note;
 }
 const pythonQuestions = [
   [

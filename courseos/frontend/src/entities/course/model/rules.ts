@@ -9,6 +9,7 @@ import {
 } from './rationale';
 import type { Audit, Requirements, Skeleton, Snapshot } from './schema';
 import { hourKinds, sumHours } from '../../../shared/lib/decimal';
+import { agentFindings, calendarProposalText, coverageIssue } from './findings';
 export function calendarCalculation(requirements: Requirements) {
   const calendar = requirements.calendar;
   const start = new Date(`${calendar.start || '2026-10-14'}T00:00:00Z`);
@@ -25,7 +26,8 @@ export function calendarCalculation(requirements: Requirements) {
     needed: limit.gt(0) ? total.div(limit).ceil().toNumber() : null,
     capacity: capacity.toString(),
     deficit: Decimal.max(total.minus(capacity), 0).toString(),
-    minimumLimit: days ? total.div(days).toFixed(6, Decimal.ROUND_UP) : null,
+    // Лимит округляется вверх до 0,5 ч: так же записаны часы в образцах АЦР.
+    minimumLimit: days ? total.div(days).div('0.5').ceil().times('0.5').toString() : null,
   };
 }
 export function calendarSummary(requirements: Requirements) {
@@ -95,34 +97,35 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
           .map((item) => item.type),
       ).size < 2,
   );
-  gaps.forEach((outcome) =>
-    issues.push({
-      id: `audit-${outcome.id}`,
-      severity: 'error',
-      check_type: 'rule',
-      element_id: outcome.id,
-      message: `Результат «${outcome.description}» не имеет двух разных оценочных средств`,
-      expected: 'Тема, активность и два разных средства',
-      actual: 'Неполное покрытие',
-      suggested_fix: 'Добавьте средство и наблюдаемый критерий в редакторе программы.',
-      blocking: true,
-    }),
-  );
+  gaps.forEach((outcome) => issues.push(coverageIssue(skeleton, outcome)));
   skeleton.conflicts
     .filter((conflict) => conflict.status === 'open')
-    .forEach((conflict) =>
+    .forEach((conflict) => {
+      const proposal =
+        conflict.id === 'calendar-unknown' ? calendarProposalText(skeleton.requirements) : null;
       issues.push({
         id: conflict.id,
         severity: 'error',
         check_type: 'rule',
         element_id: 'calendar',
-        message: conflict.expected,
+        message:
+          conflict.id === 'calendar-unknown'
+            ? 'Календарь не задан: нет подтверждённых учебных дней и дневной нагрузки'
+            : conflict.id === 'calendar-capacity'
+              ? 'Объём не помещается в календарь при дневном лимите запроса'
+              : conflict.expected,
+        evidence: [conflict.actual, conflict.calculation].filter(Boolean).join('. '),
         expected: conflict.expected,
         actual: conflict.actual,
-        suggested_fix: 'Уточните календарь и сохраните решение методиста.',
+        suggested_fix:
+          proposal ||
+          (conflict.options.length
+            ? `${conflict.options[0].title}: ${conflict.options[0].consequence}`
+            : 'Укажите учебные дни и нагрузку в календаре и сохраните решение.'),
+        fix: proposal ? 'confirm_calendar' : undefined,
         blocking: true,
-      }),
-    );
+      });
+    });
   const badKeys = snapshot.materials.flatMap((material) =>
     material.questions
       .filter(
@@ -162,18 +165,7 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
         blocking: false,
       }),
     );
-  if (skeleton.requirements.template_id === 'acr_professional')
-    issues.push({
-      id: 'legal-review',
-      severity: 'warning',
-      check_type: 'human',
-      element_id: 'legal',
-      message: 'Нормативная опора и коды профстандарта не подтверждены',
-      expected: 'Первичный документ и проверенная применимость',
-      actual: 'Не проверено; расхождение №499/№266 описано в брифе',
-      suggested_fix: 'Согласуйте нормативную основу с кейсодателем; коды не заполнены.',
-      blocking: false,
-    });
+  issues.push(...agentFindings(skeleton));
   const materialComplete =
     snapshot.materials.length > 0 &&
     snapshot.materials.every(
@@ -424,15 +416,83 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
       actual: 'Техническая регистрация выполнена; содержательная проверка не проведена',
     },
   ];
+  // Решение «оставить как есть» снимает блокировку, но находка остаётся в отчёте с причиной.
+  for (const decision of snapshot.decisions || []) {
+    const issue = issues.find((item) => item.id === decision.issue_id && item.dismissible);
+    if (!issue) continue;
+    issue.decision = { reason: decision.reason, actor: decision.actor, at: decision.at };
+    issue.blocking = false;
+  }
   return {
     course_version: snapshot.course_version,
     at: new Date().toISOString(),
     checks,
-    issues,
+    issues: decisionQueue(issues),
     technical_ready: materialComplete && !issues.some((issue) => issue.blocking),
     expert_status: 'not_reviewed',
   };
 }
+// Порядок очереди: сначала то, что нельзя оставить как есть, затем находки, требующие решения,
+// затем сведения. Решённые находки — в конце.
+export function decisionQueue(issues: Audit['issues']) {
+  const rank = (issue: Audit['issues'][number]) =>
+    issue.decision ? 3 : issue.blocking ? (issue.dismissible ? 1 : 0) : 2;
+  return [...issues].sort((a, b) => rank(a) - rank(b));
+}
+
+export type ProgramVerdict = {
+  kind: 'approved' | 'ready' | 'decide' | 'blocked';
+  title: string;
+  // Первая нерешённая находка: к ней ведёт главная кнопка вердикта.
+  first: Audit['issues'][number] | null;
+  open: number;
+  info: number;
+};
+
+// Единственное место, где из отчёта проверки выводится состояние программы.
+// Все экраны показывают этот вердикт, а не считают статус сами.
+export function programVerdict(snapshot: Snapshot): ProgramVerdict {
+  const open = snapshot.audit.issues.filter((issue) => !issue.decision && issue.blocking);
+  const info = snapshot.audit.issues.filter((issue) => !issue.decision && !issue.blocking);
+  if (snapshot.approval_applicable)
+    return {
+      kind: 'approved',
+      title: 'Программа утверждена',
+      first: null,
+      open: 0,
+      info: info.length,
+    };
+  if (!open.length)
+    return {
+      kind: 'ready',
+      title: 'Можно утверждать',
+      first: info[0] || null,
+      open: 0,
+      info: info.length,
+    };
+  const first = open[0];
+  return first.dismissible
+    ? {
+        kind: 'decide',
+        title: `Нужно решить ${questionCount(open.length)}`,
+        first,
+        open: open.length,
+        info: info.length,
+      }
+    : {
+        kind: 'blocked',
+        title: `Блокирует: ${first.message}`,
+        first,
+        open: open.length,
+        info: info.length,
+      };
+}
+
+export function questionCount(count: number) {
+  const form = new Intl.PluralRules('ru').select(count);
+  return `${count} ${form === 'one' ? 'вопрос' : form === 'few' ? 'вопроса' : 'вопросов'}`;
+}
+
 export function approvalMatches(snapshot: Snapshot): boolean {
   return (
     snapshot.approvals.some(

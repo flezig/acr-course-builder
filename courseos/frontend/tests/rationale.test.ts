@@ -76,6 +76,29 @@ async function approve(s: Snapshot) {
   vi.advanceTimersByTime(2500);
   return (await api.get(s.course_id)).snapshot!;
 }
+// Решения методиста перед утверждением: предложения агента применяются, остальные
+// находки остаются как есть с причиной. Возвращает снимок после всех решений.
+async function settleDecisions(courseId: string) {
+  for (;;) {
+    const snapshot = (await api.get(courseId)).snapshot!;
+    const issue = snapshot.audit.issues.find((i) => i.blocking && (i.fix || i.dismissible));
+    if (!issue) return snapshot;
+    const envelope = {
+      course_id: courseId,
+      expected_version: snapshot.course_version,
+      request_id: crypto.randomUUID(),
+    };
+    await api.command(
+      issue.fix
+        ? { ...envelope, action: 'apply_finding', payload: { issue_id: issue.id } }
+        : {
+            ...envelope,
+            action: 'dismiss_finding',
+            payload: { issue_id: issue.id, reason: 'Проверено методистом вручную' },
+          },
+    );
+  }
+}
 describe('Основания и границы подтверждения', () => {
   it.each(presets.map((example) => example.id))(
     'выгрузка примера %s начинается с описания курса и сохраняет исходные данные',
@@ -155,7 +178,8 @@ describe('Основания и границы подтверждения', () =
     const snap = await start();
     expect(sumHours(Object.values(hourTotals(snap.skeleton)))).toBe('16');
     expect(auditSnapshot(snap).checks.find((x) => x.id === 'pedagogy')?.status).toBe('not_run');
-    expect(new Set(snap.skeleton.topics.map((t) => t.planned_total)).size).toBeGreaterThan(2);
+    // Восемь занятий по 2 часа: семь тем и защита проекта.
+    expect(snap.skeleton.topics.map((t) => t.planned_total)).toEqual(Array(8).fill('2'));
     expect(snap.skeleton.topics[4].prerequisite_ids).not.toContain('topic-4');
     snap.skeleton.topics[0].prerequisite_ids.push('topic-2');
     expect(auditSnapshot(snap).issues.find((x) => x.id === 'invalid-structure')?.blocking).toBe(
@@ -209,11 +233,18 @@ describe('Основания и границы подтверждения', () =
     expect(snapshotSchema.parse(legacy).skeleton.rationales).toBeUndefined();
     expect(skeletonRationaleMarkdown(legacy)).toContain('Основание не найдено; требуется проверка');
   });
-  it('общий сценарий не получает выдуманную линейную цепочку и фиксированные 2 ч', () => {
+  it('общий сценарий не получает выдуманную цепочку, а оценка часов помечена непроверенной', () => {
     const r = preset('bank');
+    r.audience = 'Специалисты отдела закупок';
+    r.title = 'Работа с договорами';
     const s = makeSkeleton(r);
-    expect(s.topics.every((t) => !t.prerequisite_ids.length)).toBe(true);
-    expect(s.topics.at(-1)!.hours.assessment).toBe('2.5');
+    expect(
+      s.topics.filter((t) => t.id !== 'topic-final').every((t) => !t.prerequisite_ids.length),
+    ).toBe(true);
+    expect(s.time_budgets!.every((b) => b.note.includes('не проверено'))).toBe(true);
+    expect(s.explanations.find((e) => e.id === 'why-sequence')!.conclusion).toContain(
+      'Не проверено',
+    );
   });
   it('HTTP MD требует именно выбранную версию и не вызывает demo при ошибке', async () => {
     const snap = await start();
@@ -283,7 +314,7 @@ it('полный Python и DevOps; отчёт, JSON, сохранённая ве
   const extended = (await api.get(confirmed.course_id)).snapshot!;
   expect(calendarCalculation(extended.skeleton.requirements).deficit).toBe('0');
   expect(extended.approval_applicable).toBe(false);
-  const finalDevops = await approve(extended);
+  const finalDevops = await approve(await settleDecisions(extended.course_id));
   expect(hourTotals(finalDevops.skeleton)).toMatchObject({
     self_study: '254',
     assessment: '2',

@@ -15,14 +15,21 @@ const optionalDecimalSchema = z
     'Введите неотрицательное число, например 16 или 16,5',
   )
   .transform((value) => (value ? normalizeDecimal(value) : ''));
-export const courseHoursSchema = decimalSchema.refine(
-  (value) => new Decimal(value).gte(16) && new Decimal(value).lte(500),
-  'Объём — от 16 до 500 часов',
-);
-const optionalHoursSchema = optionalDecimalSchema.refine(
-  (value) => !value || (new Decimal(value).gte(16) && new Decimal(value).lte(500)),
-  'Объём — от 16 до 500 часов',
-);
+// В образцах АЦР нет часов мельче 0,5: иначе учебный план нельзя разложить без дробных хвостов.
+const hourStepMessage = 'Объём указывается с шагом 0,5 ч, например 72 или 16,5';
+const onHourStep = (value: string) => new Decimal(value).mod('0.5').eq(0);
+export const courseHoursSchema = decimalSchema
+  .refine(
+    (value) => new Decimal(value).gte(16) && new Decimal(value).lte(500),
+    'Объём — от 16 до 500 часов',
+  )
+  .refine(onHourStep, hourStepMessage);
+const optionalHoursSchema = optionalDecimalSchema
+  .refine(
+    (value) => !value || (new Decimal(value).gte(16) && new Decimal(value).lte(500)),
+    'Объём — от 16 до 500 часов',
+  )
+  .refine((value) => !value || onHourStep(value), hourStepMessage);
 export const requirementsSchema = z.object({
   request: z.string(),
   title: z.string(),
@@ -122,7 +129,7 @@ const assessmentSchema = z.object({
   id: z.string(),
   topic_id: z.string(),
   outcome_ids: z.array(z.string()),
-  type: z.enum(['test', 'project', 'portfolio', 'exam', 'mentor_interview']),
+  type: z.enum(['test', 'practical', 'project', 'portfolio', 'exam', 'mentor_interview']),
   action: z.string(),
   criterion: z.string(),
 });
@@ -233,6 +240,18 @@ export const skeletonSchema = z.object({
   rationales: z.array(rationaleSchema).optional(),
   rationale_sources: requirementsSchema.shape.references.optional(),
   time_budgets: z.array(timeBudgetSchema).optional(),
+  tools: z
+    .array(
+      z.object({
+        name: z.string(),
+        purpose: z.string(),
+        version: z.string(),
+        source: z.string(),
+        checked_at: z.string(),
+        status: z.enum(['confirmed', 'unconfirmed']),
+      }),
+    )
+    .optional(),
   dependency_reasons: z
     .array(z.object({ from_id: z.string(), to_id: z.string(), action: z.string() }))
     .optional(),
@@ -299,6 +318,12 @@ export const issueSchema = z.object({
   actual: z.string(),
   suggested_fix: z.string(),
   blocking: z.boolean(),
+  // Поля очереди решений: доказательство с цифрами и местом, действие агента
+  // и признак того, что методист может оставить находку как есть с указанием причины.
+  evidence: z.string().optional(),
+  fix: z.enum(['add_assessment', 'confirm_calendar']).optional(),
+  dismissible: z.boolean().optional(),
+  decision: z.object({ reason: z.string(), actor: z.string(), at: z.string() }).optional(),
 });
 export const auditSchema = z.object({
   course_version: z.number(),
@@ -345,6 +370,11 @@ export const snapshotSchema = z.object({
   material_links: z.array(z.object({ assessment_id: z.string(), material_id: z.string() })),
   audit: auditSchema,
   observations: z.array(issueSchema).default([]),
+  decisions: z
+    .array(
+      z.object({ issue_id: z.string(), reason: z.string(), actor: z.string(), at: z.string() }),
+    )
+    .default([]),
   approvals: z.array(approvalSchema),
   approval_applicable: z.boolean(),
   approval_at_creation: z.boolean().optional(),

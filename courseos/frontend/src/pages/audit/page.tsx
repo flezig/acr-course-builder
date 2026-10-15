@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw, ArrowLeft } from 'lucide-react';
 import { skeletonElements } from '../../entities/course/model/rationale';
-import { materialLabels } from '../../entities/course/model/presets';
+import { assessmentLabels } from '../../entities/course/model/presets';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
 import {
   Form,
@@ -62,7 +62,7 @@ export function AuditPage() {
       snapshot.sources.find((item) => item.id === id)?.name ||
       snapshot.skeleton.explanations.find((item) => item.id === id)?.title ||
       (assessment &&
-        (id === assessment.id ? materialLabels[assessment.type] : 'Критерий проверки')) ||
+        (id === assessment.id ? assessmentLabels[assessment.type] : 'Критерий проверки')) ||
       elements.find((item) => item.id === id)?.title ||
       'Связанный раздел'
     );
