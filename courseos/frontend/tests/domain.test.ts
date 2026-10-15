@@ -11,7 +11,7 @@ import {
   type Snapshot,
 } from '../src/entities/course/model/schema';
 import { HttpCourseApi } from '../src/entities/course/api/http-course-api';
-import { generalRequirements } from '../src/entities/course/model/checklist';
+import { generalRequirements, requestChecklist } from '../src/entities/course/model/checklist';
 import { buildCoverage } from '../src/pages/competencies/coverage-model';
 import { buildMap } from '../src/pages/competencies/map-model';
 class MemoryStorage {
@@ -839,5 +839,43 @@ describe('Статусы отчёта проверки', () => {
     const item = generalRequirements(snapshot).find((item) => item.id === 'standard-exists')!;
     expect(item.status).toBe('passed');
     expect(item.evidence).toContain(finding.decision.reason);
+  });
+});
+
+describe('Отсутствующие данные и ручные проверки', () => {
+  it('не подтверждает реквизиты до создания разделов', async () => {
+    const snapshot = await startPython();
+    snapshot.sections = [];
+    expect(
+      generalRequirements(snapshot).find((item) => item.id === 'requisites-empty')?.status,
+    ).toBe('not_checked');
+    expect(generalRequirements(snapshot).some((item) => item.id === 'hours-topics-module')).toBe(
+      false,
+    );
+  });
+  it('называет источники без статуса', async () => {
+    const snapshot = await startPython();
+    snapshot.sources = [{ ...preset('bank').references[0], status: '' as Snapshot['sources'][number]['status'] }];
+    const item = generalRequirements(snapshot).find((item) => item.id === 'sources-marked')!;
+    expect(item.status).toBe('problem');
+    expect(item.evidence).toContain(snapshot.sources[0].name);
+    expect(item.evidence).not.toContain('у каждого');
+  });
+  it('не выдаёт историю уточнений и начальный уровень за проверенные', async () => {
+    const result = await api.command({
+      action: 'start',
+      payload: { ...preset('security'), template_id: 'acr_professional', total_hours: '72', entry_level: 'Основы сетей', delivery: 'Очно', assessment: 'Экзамен' },
+      request_id: crypto.randomUUID(),
+    });
+    vi.advanceTimersByTime(500);
+    const snapshot = (await api.get(result.course_id)).snapshot!;
+    expect(
+      requestChecklist(snapshot)
+        .slice(0, 4)
+        .every((item) => item.status === 'not_checked'),
+    ).toBe(true);
+    expect(
+      requestChecklist(snapshot).find((item) => item.title.startsWith('Результаты —'))?.status,
+    ).toBe('not_checked');
   });
 });

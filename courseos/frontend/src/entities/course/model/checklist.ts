@@ -31,7 +31,6 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
   const requirements = skeleton.requirements;
   const totals = hourTotals(skeleton);
   const plan = { screen: 'plan' as const, hash: 'curriculum' };
-  const modules = [...new Set(skeleton.topics.map((t) => t.module_id))];
   const brokenRows = skeleton.topics.filter(
     (topic) => !new Decimal(sumHours(Object.values(topic.hours))).eq(topic.planned_total),
   );
@@ -60,13 +59,6 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
   const json = snapshot.export_manifest.find((file) => file.format === 'json');
   const demoDocxUnavailable = snapshot.mode === 'demo' && docx?.status === 'unavailable';
   return withFindingStatus(snapshot, [
-    {
-      id: 'hours-topics-module',
-      title: 'Сумма тем равна модулю',
-      status: 'passed',
-      evidence: `${modules.length} строк учебного плана: итог каждого модуля посчитан по его темам.`,
-      target: plan,
-    },
     {
       id: 'hours-kinds-row',
       title: 'ЛК + ПР + ЛБ + СРС равны строке',
@@ -150,9 +142,11 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
       id: 'sources-marked',
       title: 'Неподтверждённые источники помечены',
       status: unmarked.length ? 'problem' : 'passed',
-      evidence: snapshot.sources.length
-        ? `${snapshot.sources.length} источников, у каждого указан статус проверки.`
-        : 'Источники не приложены; утверждения помечены как неподтверждённые.',
+      evidence: unmarked.length
+        ? `Не указан статус: ${unmarked.map((source) => source.name).join('; ')}.`
+        : snapshot.sources.length
+          ? `${snapshot.sources.length} источников, у каждого указан статус проверки.`
+          : 'Источники не приложены; утверждения помечены как неподтверждённые.',
       target: { screen: 'map', hash: 'sources' },
     },
     {
@@ -169,10 +163,14 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
     {
       id: 'requisites-empty',
       title: 'Реквизиты приказа, ФИО и подписи пустые',
-      status: requisites.every((section) => section.content.includes('____'))
-        ? 'passed'
-        : 'problem',
-      evidence: 'Поля приказа, даты, подписи и ФИО оставлены пустыми: их заполняет человек.',
+      status: !requisites.length
+        ? 'not_checked'
+        : requisites.every((section) => section.content.includes('____'))
+          ? 'passed'
+          : 'problem',
+      evidence: !requisites.length
+        ? 'Разделы с реквизитами ещё не созданы — проверить поля нельзя.'
+        : 'Методист сверяет поля приказа, даты, подписи и ФИО; автоматическая проверка ищет пустые поля «____».',
       target: { screen: 'materials', hash: requisites[0]?.id ?? '' },
     },
     {
@@ -407,23 +405,23 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
             ? [
                 [
                   'Агент сначала задал уточняющие вопросы',
-                  'passed',
-                  'Каркас не строится, пока методист не ответит на недостающие вопросы.',
+                  'not_checked',
+                  'Истории уточнений в снапшоте нет. Методист сверяет переписку до построения каркаса.',
                 ],
                 [
                   'Спросил тип программы и объём в часах',
-                  'passed',
-                  'Вопросы «Какой тип программы нужен?» и «Какой объём в часах?».',
+                  'not_checked',
+                  'Истории уточнений в снапшоте нет. Методист сверяет вопросы о типе программы и объёме с перепиской.',
                 ],
                 [
                   'Уточнил входной уровень, форму обучения и итоговую аттестацию',
-                  'passed',
-                  'Три отдельных вопроса.',
+                  'not_checked',
+                  'Истории уточнений в снапшоте нет. Методист проверяет вопросы об уровне, форме и аттестации по переписке.',
                 ],
                 [
                   'Не больше пяти вопросов без технического жаргона',
-                  'passed',
-                  '5 вопросов на языке методиста.',
+                  'not_checked',
+                  'Истории уточнений в снапшоте нет. Методист считает вопросы и оценивает понятность формулировок в переписке.',
                 ],
                 [
                   'Шаблон ПК и ровно 72 ч',
@@ -445,8 +443,8 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
                 ],
                 [
                   'Результаты — начальный уровень, без обещания подготовки специалиста',
-                  'passed',
-                  skeleton.goal,
+                  'not_checked',
+                  `Методист сопоставляет результаты с начальным уровнем и проверяет отсутствие обещания готовности к работе. Цель: ${skeleton.goal}`,
                 ],
                 [
                   'Разница между «пойти работать в сферу» и результатами показана методисту',
@@ -526,9 +524,9 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
                   ],
                   [
                     'Требования к отчёту и критерии защиты описаны',
-                    !materials ? 'not_checked' : 'passed',
+                    'not_checked',
                     materials
-                      ? 'Отчёт о стажировке и критерии защиты в материалах.'
+                      ? 'Методист проверяет полноту требований к отчёту и критериев защиты в материалах.'
                       : 'Описание отчёта создаётся после утверждения программы.',
                     { screen: 'materials', hash: '' },
                   ],
@@ -561,8 +559,8 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
                   ],
                   [
                     `Форма обучения «${requirements.delivery}» отражена в часах`,
-                    'passed',
-                    `Очно ${hours(contact.plus(assessment))}, дистанционно ${hours(selfStudy)}.`,
+                    'not_checked',
+                    `Методист сверяет распределение часов с формой обучения «${requirements.delivery}»: очно ${hours(contact.plus(assessment))}, дистанционно ${hours(selfStudy)}.`,
                   ],
                   [
                     `Итоговая аттестация «${requirements.assessment}» — отдельной строкой`,

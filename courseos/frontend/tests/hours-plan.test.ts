@@ -325,7 +325,6 @@ describe('Проверка программы — зеркало чек-лист
     vi.advanceTimersByTime(500);
     const snapshot = (await api.get(result.course_id)).snapshot!;
     expect(generalRequirements(snapshot).map((item) => item.title)).toEqual([
-      'Сумма тем равна модулю',
       'ЛК + ПР + ЛБ + СРС равны строке',
       'Итог с итоговой аттестацией равен объёму',
       'Шаг часов 0,5 ч, как в образцах',
