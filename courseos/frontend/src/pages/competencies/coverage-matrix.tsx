@@ -262,20 +262,19 @@ export function CoverageMatrix({
                     className="coverage-detail"
                   >
                     <td colSpan={5}>
-                      <p>
-                        <strong>Результат:</strong> {outcome.description}
-                      </p>
-                      <h3>Результат → тема → задание → критерий</h3>
+                      <p className="coverage-outcome-text">{outcome.description}</p>
+                      <h3>Как проверяется</h3>
                       {!assessments.length && (
-                        <p>
-                          {topics.map((topic) => topic.title).join(', ') || 'Нет связанных тем'} →
-                          Нет проверочного задания → Критерий задания отсутствует
+                        <p className="gap-count">
+                          Нет проверочного задания. Темы:{' '}
+                          {topics.map((topic) => topic.title).join(', ') || 'не связаны'}.
                         </p>
                       )}
                       {assessments.map((assessment) => {
                         const topic = snapshot.skeleton.topics.find(
                           (topic) => topic.id === assessment.topic_id,
                         );
+                        const criterion = assessment.criterion.trim();
                         return (
                           <section
                             key={assessment.id}
@@ -283,35 +282,41 @@ export function CoverageMatrix({
                             className="coverage-chain"
                             tabIndex={-1}
                           >
-                            <p>
-                              {outcome.title || compactMapTitle(outcome.description)} →{' '}
-                              {topic ? (
-                                <Link to={`${planHref}#${topic.id}`}>{topic.title}</Link>
-                              ) : (
-                                'Тема задания отсутствует'
-                              )}{' '}
-                              →{' '}
+                            <div className="coverage-chain-head">
+                              <span className="coverage-chain-type">
+                                {assessmentLabels[assessment.type]}
+                              </span>
                               <strong>
                                 {assessment.action || 'Формулировка задания не указана'}
-                              </strong>{' '}
-                              ({assessmentLabels[assessment.type]}) →{' '}
-                              {assessment.criterion.trim() || 'Не указаны критерии'}
-                            </p>
+                              </strong>
+                              {editable && (
+                                <button onClick={() => edit(assessment.id)}>Открыть задание</button>
+                              )}
+                            </div>
+                            <dl>
+                              <dt>Тема</dt>
+                              <dd>
+                                {topic ? (
+                                  <Link to={`${planHref}#${topic.id}`}>{topic.title}</Link>
+                                ) : (
+                                  'Не указана'
+                                )}
+                              </dd>
+                              <dt>Критерий</dt>
+                              <dd className={criterion ? undefined : 'gap-count'}>
+                                {criterion || 'Не указан'}
+                              </dd>
+                            </dl>
                             {topic && !topic.outcome_ids.includes(outcome.id) && (
                               <p className="gap-count">
                                 Тема задания не связана с этим результатом.
                               </p>
                             )}
                             {assessment.outcome_ids.length > 1 && (
-                              <p className="gap-count">
-                                Общее задание для нескольких результатов. Часть задания и критерий
-                                для выбранного результата отдельно не указаны. Критерий выше
-                                относится ко всему заданию. Для детализации нужны новые поля модели
-                                и поддержка сохранения.
+                              <p className="coverage-chain-note">
+                                Задание общее для нескольких результатов — критерий относится ко
+                                всему заданию.
                               </p>
-                            )}
-                            {editable && (
-                              <button onClick={() => edit(assessment.id)}>Открыть задание</button>
                             )}
                           </section>
                         );
@@ -329,11 +334,7 @@ export function CoverageMatrix({
                           </Link>
                         </div>
                       )}
-                      {!editable && (
-                        <p>
-                          Ревизия доступна только для просмотра. Задания и критерии показаны выше.
-                        </p>
-                      )}
+                      {!editable && <p>Ревизия доступна только для просмотра.</p>}
                     </td>
                   </tr>
                 </Fragment>

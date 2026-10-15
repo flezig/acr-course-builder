@@ -112,10 +112,56 @@
   padding: 20px;
   background: var(--surface);
 }
+.coverage-outcome-text {
+  margin: 0 0 16px;
+  max-width: 72ch;
+}
+.coverage-detail h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
 .coverage-chain {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg, #fff);
   scroll-margin-top: 100px;
+}
+.coverage-chain-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.coverage-chain-head strong {
+  flex: 1 1 240px;
+}
+.coverage-chain-type {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+}
+.coverage-chain dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 8px 0 0;
+}
+.coverage-chain dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.coverage-chain dd {
+  margin: 0;
+}
+.coverage-chain-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 @media (max-width: 700px) {
   .coverage-summary {
