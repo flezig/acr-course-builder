@@ -162,11 +162,11 @@ test('A coverage remark opens the assessment field and a methodist remark opens 
   await tab(page, 'Решения и утверждение');
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page.getByRole('link', { name: 'Отчёт проверки программы', exact: true }).click();
-  await page.getByRole('link', { name: 'Замечание методиста', exact: true }).click();
+  await page.getByRole('link', { name: 'Замечания методиста', exact: true }).click();
   await page
     .getByLabel('Конкретное замечание', { exact: true })
     .fill('Уточните основание достижимости для этой аудитории.');
-  await page.getByRole('checkbox', { name: /Ставит под сомнение/ }).check();
+  await page.getByRole('checkbox', { name: 'Блокирует утверждение программы' }).check();
   await page.getByRole('button', { name: 'Записать замечание', exact: true }).click();
   await page.getByRole('link', { name: 'Каркас и учебный план', exact: true }).click();
   await expect(page.locator('.verdict')).toContainText(

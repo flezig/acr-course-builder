@@ -114,7 +114,7 @@ test('Observation form rejects whitespace next to the field', async ({ page }) =
   await pythonCourse(page);
   await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await page.getByRole('link', { name: 'Проверка программы', exact: true }).click();
-  await page.getByRole('link', { name: 'Замечание методиста', exact: true }).click();
+  await page.getByRole('link', { name: 'Замечания методиста', exact: true }).click();
   const message = page.getByLabel('Конкретное замечание', { exact: true });
   await message.fill('   ');
   await page.getByRole('button', { name: 'Записать замечание', exact: true }).click();

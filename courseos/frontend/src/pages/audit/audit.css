@@ -32,6 +32,26 @@
 .audit-section[hidden] {
   display: none;
 }
+.observation-list {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.observation-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.observation-list p {
+  flex: 1 1 260px;
+  margin: 0;
+}
 
 @media (max-width: 600px) {
   .audit-nav {

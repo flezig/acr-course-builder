@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw, ArrowLeft } from 'lucide-react';
@@ -53,7 +53,6 @@ export function AuditPage() {
     mode: 'onChange',
     defaultValues: { message: '', element_id: 'why-reachability', blocking: false },
   });
-  const [corrections, setCorrections] = useState<Record<string, string>>({});
   if (query.isPending) return <Loading />;
   if (!query.data) return <ErrorMessage error={query.error} />;
   const view = query.data;
@@ -113,7 +112,7 @@ export function AuditPage() {
               'Технические проверки',
               checks.filter((check) => check.status === 'failed').length,
             ],
-            ['audit-observation', 'Замечание методиста', snapshot.observations.length],
+            ['audit-observation', 'Замечания методиста', snapshot.observations.length],
           ] as const
         ).map(([id, title, count]) => (
           <Link
@@ -262,12 +261,12 @@ export function AuditPage() {
       <section
         id="audit-observation"
         className="audit-section"
-        aria-label="Замечание методиста"
+        aria-label="Замечания методиста"
         hidden={tab !== 'audit-observation'}
       >
         <Panel
-          title="Замечание методиста"
-          subtitle="Наблюдение хранится отдельно от утверждённого содержимого. Блокирующее замечание остановит продолжение, даже если утверждённая версия не менялась."
+          title="Замечания методиста"
+          subtitle="То, что автопроверка не может оценить сама. Замечание не меняет программу; блокирующее не даст её утвердить, пока основание не исправят в каркасе."
         >
           <Form
             errors={form.formState.errors}
@@ -285,16 +284,13 @@ export function AuditPage() {
               }
             })}
           >
-            <Field label="Связанный элемент">
+            {/* Только обоснования каркаса: исправление замечания пересчитывает основания,
+                а для материалов такого пути нет. */}
+            <Field label="К какому обоснованию">
               <select {...form.register('element_id')}>
                 {snapshot.skeleton.explanations.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.title}
-                  </option>
-                ))}
-                {snapshot.materials.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.title}
                   </option>
                 ))}
               </select>
@@ -303,60 +299,27 @@ export function AuditPage() {
               <textarea {...form.register('message')} rows={3} required />
             </Field>
             <label className="checkbox">
-              <input type="checkbox" {...form.register('blocking')} /> Ставит под сомнение основание
-              каркаса и блокирует продолжение
+              <input type="checkbox" {...form.register('blocking')} /> Блокирует утверждение
+              программы
             </label>
             <button type="submit" disabled={!view.is_latest || command.isPending}>
               Записать замечание
             </button>
           </Form>
           {snapshot.observations.length > 0 && (
-            <div>
+            <ul className="observation-list">
               {snapshot.observations.map((issue) => (
-                <div key={issue.id}>
+                <li key={issue.id}>
                   <p>{issue.message}</p>
                   <Badge tone={issue.blocking ? 'red' : 'neutral'}>
-                    {issue.blocking ? 'Блокирует утверждение' : 'Проверяет методист'}
+                    {issue.blocking ? 'Блокирует утверждение' : 'Не блокирует'}
                   </Badge>
-                  <Field label={`Исправление основания: ${issue.message} (создаёт новую ревизию)`}>
-                    <textarea
-                      value={corrections[issue.id] || ''}
-                      onChange={(event) =>
-                        setCorrections((previous) => ({
-                          ...previous,
-                          [issue.id]: event.target.value,
-                        }))
-                      }
-                      rows={3}
-                    />
-                  </Field>
-                  <button
-                    disabled={
-                      !view.is_latest || !corrections[issue.id]?.trim() || command.isPending
-                    }
-                    onClick={() =>
-                      command.mutate(
-                        {
-                          action: 'resolve_observation',
-                          expected_version: snapshot.course_version,
-                          payload: { issue_id: issue.id, correction: corrections[issue.id] },
-                        },
-                        {
-                          onSuccess: () =>
-                            setCorrections((previous) => {
-                              const remaining = { ...previous };
-                              delete remaining[issue.id];
-                              return remaining;
-                            }),
-                        },
-                      )
-                    }
-                  >
-                    Сохранить исправление этого основания
-                  </button>
-                </div>
+                  <Link to={`/courses/${snapshot.course_id}/plan${suffix}#${issue.element_id}`}>
+                    Исправить в каркасе
+                  </Link>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </Panel>
       </section>

@@ -59,9 +59,7 @@ test('ссылка очереди на неизвестный элемент о�
   await expect(page.locator(`[id="${href!.split('#')[1]}"]`)).toBeInViewport();
 });
 
-test('исправления двух замечаний независимы, блокирующее замечание входит в сводку', async ({
-  page,
-}) => {
+test('блокирующие замечания методиста входят в сводку чек-листа', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Анализ данных на Python/ }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
@@ -79,23 +77,6 @@ test('исправления двух замечаний независимы, �
       page.locator('#audit-observation').getByText(message, { exact: true }),
     ).toBeVisible();
   }
-  const first = page.getByLabel(
-    'Исправление основания: Первое основание требует исправления (создаёт новую ревизию)',
-    { exact: true },
-  );
-  const second = page.getByLabel(
-    'Исправление основания: Второе основание требует исправления (создаёт новую ревизию)',
-    { exact: true },
-  );
-  await first.fill('Уточнено первое основание');
-  await second.fill('Черновик второго исправления');
-  await first
-    .locator('..')
-    .locator('..')
-    .getByRole('button', { name: 'Сохранить исправление этого основания' })
-    .click();
-  await expect(first).toHaveCount(0);
-  await expect(second).toHaveValue('Черновик второго исправления');
   await page.getByRole('link', { name: 'Чек-лист', exact: true }).click();
   await expect(
     page.locator('.checklist-item').filter({ hasText: 'Второе основание требует исправления' }),
