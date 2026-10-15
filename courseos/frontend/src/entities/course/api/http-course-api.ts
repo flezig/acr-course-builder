@@ -6,9 +6,10 @@ import {
   jobSchema,
   changePlanSchema,
   requirementsSchema,
+  skeletonSchema,
 } from '../model/schema';
 import { HttpTransport, ApiError } from '../../../shared/api/http';
-import type { CommandEnvelope, CourseApi, PageEditRequest } from './contract';
+import type { CommandEnvelope, CourseApi, ScopeEditRequest } from './contract';
 const resultSchema = z.object({
   course_id: z.string(),
   job: jobSchema,
@@ -104,13 +105,10 @@ export class HttpCourseApi implements CourseApi {
       { method: 'POST', body },
     );
   }
-  proposePageEdit(input: PageEditRequest) {
+  proposeScopeEdit(input: ScopeEditRequest) {
     return this.transport.request(
-      '/ai/page-edit',
-      z.object({
-        changes: z.array(z.object({ field_id: z.string(), value: z.string() })),
-        note: z.string(),
-      }),
+      `/courses/${encodeURIComponent(input.course_id)}/ai-edit`,
+      z.object({ skeleton: skeletonSchema, note: z.string() }),
       { method: 'POST', body: JSON.stringify(input) },
     );
   }

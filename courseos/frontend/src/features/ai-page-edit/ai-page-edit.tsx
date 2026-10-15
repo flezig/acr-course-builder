@@ -1,132 +1,144 @@
-import { useEffect, useRef, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Sparkles, X } from 'lucide-react';
-import { useApi } from '../../entities/course/api/provider';
-import type { PageEditProposal } from '../../entities/course/api/contract';
+import { useApi, useCommand, useCourse } from '../../entities/course/api/provider';
+import type { EditScope, ScopeEditProposal } from '../../entities/course/api/contract';
+import type { Skeleton } from '../../entities/course/model/schema';
 import { ErrorMessage, Notice } from '../../shared/ui/ui';
 import './ai-page-edit.css';
 
-type EditableControl = HTMLInputElement | HTMLTextAreaElement;
-interface PageField {
-  id: string;
-  label: string;
-  value: string;
-  control: EditableControl;
+const scopeTitles: Record<EditScope, string> = {
+  intent: 'О программе',
+  curriculum: 'Учебный план',
+  calendar: 'Календарь',
+  outcomes: 'Карта результатов',
+};
+
+// Повторяет выбор вкладки из pages/course-plan/page.tsx: ИИ правит ровно то,
+// что методист сейчас видит. Вкладки без редактируемой программы не дают кнопку.
+function editScope(pathname: string, hash: string): EditScope | null {
+  if (pathname.endsWith('/map')) return 'outcomes';
+  if (!pathname.endsWith('/plan')) return null;
+  const target = decodeURIComponent(hash.slice(1)).replace(/^fix-/, '').split('~')[0];
+  if (target === 'review' || target === 'approve' || target.startsWith('issue-')) return null;
+  if (target === 'calendar') return 'calendar';
+  if (
+    !target ||
+    target === 'curriculum' ||
+    target.startsWith('coverage') ||
+    target.startsWith('topic-')
+  )
+    return 'curriculum';
+  return 'intent';
 }
 
-// Помощник подключён один раз в макете и находит поля в DOM, поэтому любая
-// форма, открытая на редактирование, доступна ему без изменений в её коде.
-// Поле можно исключить атрибутом data-ai-edit="off".
-function collectFields(): PageField[] {
-  const controls = document.querySelectorAll<EditableControl>(
-    'main textarea, main input:not([type]), main input[type="text"], main input[type="number"]',
-  );
-  return Array.from(controls)
-    .filter(
-      (control) =>
-        !control.disabled &&
-        !control.readOnly &&
-        control.dataset.aiEdit !== 'off' &&
-        control.offsetParent !== null,
-    )
-    .map((control, index) => ({
-      id: `field-${index + 1}`,
-      label: fieldLabel(control),
-      value: control.value,
-      control,
-    }));
+const sectionLabels: Record<string, string> = {
+  goal: 'Цель',
+  tasks: 'Задача',
+  outcomes: 'Результат',
+  topics: 'Тема',
+  activities: 'Активность',
+  assessments: 'Оценивание',
+  requirements: 'Параметры',
+  audience: 'аудитория',
+  entry_level: 'входной уровень',
+  calendar: 'календарь',
+  title: 'название',
+  content: 'содержание',
+  description: 'описание',
+};
+
+/** Изменённые тексты каркаса с понятными подписями вроде «Результат 2 · описание». */
+function changedTexts(before: unknown, after: unknown, path: (string | number)[] = []) {
+  if (typeof after === 'string' || typeof before === 'string')
+    return before === after
+      ? []
+      : [{ label: textLabel(path), before: String(before ?? ''), after: String(after ?? '') }];
+  if (!after || typeof after !== 'object') return [];
+  const changes: { label: string; before: string; after: string }[] = [];
+  for (const [key, value] of Object.entries(after)) {
+    const previous = (before as Record<string, unknown> | undefined)?.[key];
+    changes.push(...changedTexts(previous, value, [...path, Array.isArray(after) ? +key : key]));
+  }
+  return changes;
 }
 
-function fieldLabel(control: EditableControl) {
-  const label =
-    control.labels?.[0]?.textContent ||
-    control.getAttribute('aria-label') ||
-    control.closest('.field')?.querySelector('.field-label')?.textContent ||
-    control.placeholder;
-  return label?.trim() || control.name || 'Поле формы';
-}
-
-// Через нативный setter значение доходит и до react-hook-form, и до
-// контролируемых полей: React отслеживает событие input, а не присваивание value.
-function writeValue(control: EditableControl, value: string) {
-  const prototype =
-    control instanceof HTMLTextAreaElement
-      ? HTMLTextAreaElement.prototype
-      : HTMLInputElement.prototype;
-  Object.getOwnPropertyDescriptor(prototype, 'value')!.set!.call(control, value);
-  control.dispatchEvent(new Event('input', { bubbles: true }));
-  control.dispatchEvent(new Event('change', { bubbles: true }));
+function textLabel(path: (string | number)[]) {
+  const parts: string[] = [];
+  for (const part of path) {
+    if (typeof part === 'number') parts[parts.length - 1] += ` ${part + 1}`;
+    else parts.push(sectionLabels[part] || part);
+  }
+  return parts.join(' · ');
 }
 
 export function AiPageEdit() {
   const { api } = useApi();
-  const { courseId } = useParams();
   const location = useLocation();
+  const course = useCourse();
+  const command = useCommand();
   const [open, setOpen] = useState(false);
   const [request, setRequest] = useState('');
-  const [fields, setFields] = useState<PageField[]>([]);
-  const [proposal, setProposal] = useState<PageEditProposal | null>(null);
-  const [rejected, setRejected] = useState<Set<string>>(new Set());
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [proposal, setProposal] = useState<ScopeEditProposal | null>(null);
+  const [saved, setSaved] = useState('');
+  const scope = editScope(location.pathname, location.hash);
+  const snapshot = course.data?.snapshot;
   const propose = useMutation({
-    mutationFn: (pageFields: PageField[]) =>
-      api.proposePageEdit({
-        course_id: courseId || null,
-        page: location.pathname + location.hash,
+    mutationFn: (input: { scope: EditScope; skeleton: Skeleton; version: number }) =>
+      api.proposeScopeEdit({
+        course_id: snapshot!.course_id,
+        course_version: input.version,
+        scope: input.scope,
         request,
-        fields: pageFields.map(({ id, label, value }) => ({ id, label, value })),
+        skeleton: input.skeleton,
       }),
-    onSuccess: (result) => {
-      setProposal(result);
-      setRejected(new Set());
-    },
+    onSuccess: setProposal,
   });
 
-  useEffect(() => setOpen(false), [location.pathname]);
+  useEffect(() => {
+    setProposal(null);
+    setSaved('');
+    propose.reset();
+    // Смена вкладки меняет область правки, старое предложение к ней не относится.
+  }, [scope, location.pathname]);
+
+  if (!scope || !snapshot) return null;
+  const readonly =
+    !course.data?.is_latest || ['queued', 'running'].includes(course.data.job.status);
 
   function close() {
     setOpen(false);
     setProposal(null);
+    setSaved('');
     propose.reset();
-    triggerRef.current?.focus();
+    command.reset();
   }
 
-  function submit() {
-    const pageFields = collectFields();
-    setFields(pageFields);
-    if (pageFields.length && request.trim()) propose.mutate(pageFields);
-  }
-
-  function apply() {
-    for (const change of proposal!.changes) {
-      const field = fields.find((item) => item.id === change.field_id);
-      if (field?.control.isConnected && !rejected.has(change.field_id))
-        writeValue(field.control, change.value);
+  async function apply() {
+    try {
+      await command.mutateAsync({
+        action: 'save_skeleton',
+        expected_version: snapshot!.course_version,
+        payload: proposal!.skeleton,
+      });
+      setProposal(null);
+      setRequest('');
+      setSaved('Изменения сохранены. Проверки пересчитаны.');
+    } catch {
+      /* Предложение остаётся на экране, ошибка показана ниже. */
     }
-    setRequest('');
-    close();
   }
 
   if (!open)
     return (
-      <button
-        ref={triggerRef}
-        type="button"
-        className="ai-page-trigger"
-        onClick={() => {
-          setFields(collectFields());
-          setOpen(true);
-        }}
-      >
+      <button type="button" className="ai-page-trigger" onClick={() => setOpen(true)}>
         <Sparkles size={16} />
         Изменить с ИИ
       </button>
     );
 
-  const changes = proposal?.changes.filter((change) =>
-    fields.some((field) => field.id === change.field_id),
-  );
+  const changes = proposal ? changedTexts(snapshot.skeleton, proposal.skeleton) : [];
   return (
     <div
       className="ai-page-dialog"
@@ -136,93 +148,82 @@ export function AiPageEdit() {
     >
       <div className="ai-page-heading">
         <Sparkles size={16} />
-        <strong>Изменить с помощью ИИ</strong>
+        <strong>ИИ · {scopeTitles[scope]}</strong>
         <button type="button" className="ai-page-close" aria-label="Закрыть" onClick={close}>
           <X size={16} />
         </button>
       </div>
+      {saved && <Notice tone="success">{saved}</Notice>}
+      {readonly && (
+        <Notice tone="warning">Править можно только актуальную версию программы.</Notice>
+      )}
       {!proposal ? (
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            submit();
+            if (request.trim())
+              propose.mutate({
+                scope,
+                skeleton: snapshot.skeleton,
+                version: snapshot.course_version,
+              });
           }}
         >
-          {fields.length ? (
-            <small className="muted">
-              ИИ видит открытые для редактирования поля: {fields.length}.
-            </small>
-          ) : (
-            <Notice tone="warning">
-              Сейчас нет открытых полей. Нажмите «Изменить» у нужного раздела, затем опишите правку.
-            </Notice>
-          )}
           <textarea
             autoFocus
             rows={4}
             value={request}
-            placeholder="Например: переформулируй результаты обучения через наблюдаемые действия"
+            disabled={readonly}
+            placeholder={`Что поменять во вкладке «${scopeTitles[scope]}»?`}
             onChange={(event) => setRequest(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && (event.metaKey || event.ctrlKey))
                 event.currentTarget.form?.requestSubmit();
             }}
           />
-          <button className="primary" type="submit" disabled={!request.trim() || propose.isPending}>
+          <button
+            className="primary"
+            type="submit"
+            disabled={readonly || !request.trim() || propose.isPending}
+          >
             {propose.isPending ? 'ИИ готовит правки…' : 'Предложить правки'}
           </button>
         </form>
       ) : (
         <div className="ai-page-proposal">
           {proposal.note && <small className="muted">{proposal.note}</small>}
-          {!changes?.length && <Notice>ИИ не предложил изменений.</Notice>}
-          {changes?.map((change) => {
-            const field = fields.find((item) => item.id === change.field_id)!;
-            return (
-              <label className="ai-page-change" key={change.field_id}>
-                <span className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={!rejected.has(change.field_id)}
-                    onChange={(event) => {
-                      const next = new Set(rejected);
-                      if (event.target.checked) next.delete(change.field_id);
-                      else next.add(change.field_id);
-                      setRejected(next);
-                    }}
-                  />
-                  <strong>{field.label}</strong>
-                </span>
-                <div className="diff-grid">
-                  <div>
-                    <span>БЫЛО</span>
-                    <pre>{field.value || '—'}</pre>
-                  </div>
-                  <div>
-                    <span>ПРЕДЛАГАЕТСЯ</span>
-                    <pre>{change.value || '—'}</pre>
-                  </div>
+          {!changes.length && <Notice>ИИ не предложил изменений в текстах.</Notice>}
+          {changes.map((change) => (
+            <div className="ai-page-change" key={change.label}>
+              <strong>{change.label}</strong>
+              <div className="diff-grid">
+                <div>
+                  <span>БЫЛО</span>
+                  <pre>{change.before || '—'}</pre>
                 </div>
-              </label>
-            );
-          })}
+                <div>
+                  <span>СТАНЕТ</span>
+                  <pre>{change.after || '—'}</pre>
+                </div>
+              </div>
+            </div>
+          ))}
           <div className="actions">
             <button
               className="primary"
               type="button"
-              disabled={!changes?.some((change) => !rejected.has(change.field_id))}
-              onClick={apply}
+              disabled={readonly || command.isPending}
+              onClick={() => void apply()}
             >
-              Подставить выбранное
+              {command.isPending ? 'Сохраняем…' : 'Применить и сохранить'}
             </button>
             <button type="button" onClick={() => setProposal(null)}>
               Уточнить запрос
             </button>
           </div>
-          <small className="muted">Значения попадут в формы; сохраняете их вы, как обычно.</small>
         </div>
       )}
-      <ErrorMessage error={propose.error} />
+      <ErrorMessage error={propose.error || command.error} />
     </div>
   );
 }

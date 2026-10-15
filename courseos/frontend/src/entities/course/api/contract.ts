@@ -42,18 +42,21 @@ export interface CommandResult {
   job: Job;
   change_plan: ChangePlan | null;
 }
+/** Часть программы, которую видит методист на открытой вкладке. */
+export type EditScope = 'intent' | 'curriculum' | 'calendar' | 'outcomes';
 /**
- * Общий свободный запрос методиста к ИИ. ИИ видит все поля, открытые
- * сейчас для редактирования, и предлагает новые значения только для нужных.
+ * Свободный запрос методиста к ИИ. ИИ получает весь каркас, но меняет
+ * только часть, относящуюся к открытой вкладке, и возвращает каркас целиком.
  */
-export interface PageEditRequest {
-  course_id: string | null;
-  page: string;
+export interface ScopeEditRequest {
+  course_id: string;
+  course_version: number;
+  scope: EditScope;
   request: string;
-  fields: { id: string; label: string; value: string }[];
+  skeleton: Skeleton;
 }
-export interface PageEditProposal {
-  changes: { field_id: string; value: string }[];
+export interface ScopeEditProposal {
+  skeleton: Skeleton;
   note: string;
 }
 export interface CourseApi {
@@ -69,7 +72,7 @@ export interface CourseApi {
   retrieveReference(courseId: string, url: string): Promise<Requirements['references'][number]>;
   uploadReference(courseId: string, file: File): Promise<Requirements['references'][number]>;
   reset(): Promise<void>;
-  proposePageEdit(input: PageEditRequest): Promise<PageEditProposal>;
+  proposeScopeEdit(input: ScopeEditRequest): Promise<ScopeEditProposal>;
 }
 export function withManifest(snapshot: Snapshot): Snapshot {
   snapshot.export_manifest = (['json', 'docx', 'pptx', 'lms'] as const).map((format) => ({

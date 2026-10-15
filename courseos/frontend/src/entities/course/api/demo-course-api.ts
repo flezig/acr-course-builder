@@ -34,7 +34,8 @@ import {
   type CommandEnvelope,
   type CommandResult,
   type CourseApi,
-  type PageEditRequest,
+  type EditScope,
+  type ScopeEditRequest,
 } from './contract';
 const storageKey = 'courseos-demo-v1';
 interface StoredCourse {
@@ -903,20 +904,43 @@ export class DemoCourseApi implements CourseApi {
     );
   }
   // В демо нет языковой модели: выполняем только однозначную замену фрагмента
-  // во всех полях, а на остальные запросы честно отвечаем, что нужен backend.
-  async proposePageEdit({ fields, request }: PageEditRequest) {
+  // в текстах открытой вкладки, а на остальные запросы честно отвечаем, что нужен backend.
+  async proposeScopeEdit({ skeleton, scope, request }: ScopeEditRequest) {
     const replace = request.match(/замени\S*\s+[«"](.+?)[»"]\s+на\s+[«"](.*?)[»"]/i);
     if (!replace)
       throw new ApiError(
         503,
-        'Свободные запросы к ИИ выполняет backend. В демо доступна команда «замени "А" на "Б"» — она применяется ко всем открытым полям.',
+        'Свободные запросы к ИИ выполняет backend. В демо доступна команда «замени "А" на "Б"».',
       );
     const [, from, to] = replace;
-    const changes = fields
-      .filter((field) => field.value.includes(from))
-      .map((field) => ({ field_id: field.id, value: field.value.split(from).join(to) }));
-    if (!changes.length) throw new ApiError(422, `Ни в одном открытом поле нет «${from}».`);
-    return { changes, note: `Заменено «${from}» на «${to}».` };
+    const draft = structuredClone(skeleton);
+    const swap = (text: string) => text.split(from).join(to);
+    const edits: Record<EditScope, () => void> = {
+      intent: () => {
+        draft.goal = swap(draft.goal);
+        draft.tasks = draft.tasks.map(swap);
+        draft.requirements.audience = swap(draft.requirements.audience);
+        draft.requirements.entry_level = swap(draft.requirements.entry_level);
+        for (const outcome of draft.outcomes) outcome.description = swap(outcome.description);
+      },
+      outcomes: () => {
+        for (const outcome of draft.outcomes) outcome.description = swap(outcome.description);
+      },
+      curriculum: () => {
+        for (const topic of draft.topics) {
+          topic.title = swap(topic.title);
+          topic.content = swap(topic.content);
+        }
+        for (const activity of draft.activities) activity.description = swap(activity.description);
+      },
+      calendar: () => {
+        draft.requirements.calendar.description = swap(draft.requirements.calendar.description);
+      },
+    };
+    edits[scope]();
+    if (canonicalJson(draft) === canonicalJson(skeleton))
+      throw new ApiError(422, `На этой вкладке нет текста «${from}».`);
+    return { skeleton: draft, note: `Заменено «${from}» на «${to}».` };
   }
   async reset() {
     await this.queue;
