@@ -335,7 +335,6 @@ export function ResultsMap({
     return (
       <button
         key={n.id}
-        title={n.originalTitle}
         className={`map-card ${n.gap ? 'has-gap' : ''} ${chain && !chain.has(n.id) ? 'dimmed' : ''} ${chain?.has(n.id) ? 'related' : ''} ${selectedId === n.id ? 'selected' : ''} ${normalizedSearch && matches(n) ? 'search-match' : ''}`}
         style={
           p ? { left: p.x, top: p.y, height: cardHeight(n), minHeight: cardHeight(n) } : undefined
