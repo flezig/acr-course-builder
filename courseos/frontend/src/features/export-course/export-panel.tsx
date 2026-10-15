@@ -57,7 +57,15 @@ export function ExportPanel({ snapshot }: { snapshot: Snapshot }) {
         {snapshot.export_manifest.map((file) => (
           <div className="export-card" key={file.format}>
             {file.format === 'json' ? <FileJson size={25} /> : <FileText size={25} />}
-            <strong>{file.format.toUpperCase()}</strong>
+            <strong>
+              {file.format === 'docx'
+                ? 'Программа по шаблону АЦР · DOCX'
+                : file.format === 'pptx'
+                  ? 'Слайды лекций · PPTX'
+                  : file.format === 'json'
+                    ? 'Полные данные курса · JSON'
+                    : 'Курс для учебной платформы · LMS'}
+            </strong>
             <Badge tone={file.status === 'ready' ? 'green' : 'neutral'}>
               {file.status === 'ready' ? 'Файл доступен' : 'Не создан'}
             </Badge>
