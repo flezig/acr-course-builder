@@ -1,0 +1,112 @@
+.sign-in-dialog {
+  width: min(560px, calc(100vw - 32px));
+  padding: 0;
+  border: 0;
+  border-radius: 28px;
+  background: transparent;
+  color: var(--ink);
+}
+.sign-in-dialog::backdrop {
+  background: rgba(16, 16, 16, 0.45);
+}
+.sign-in-card {
+  position: relative;
+  padding: 40px 32px 28px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #b8f0e6 0%, #c3e2f7 50%, #d3dcff 100%);
+}
+:root[data-theme='dark'] .sign-in-card {
+  background: linear-gradient(135deg, #12302b 0%, #15283a 50%, #1d2240 100%);
+}
+.sign-in-card h2 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+.sign-in-lead {
+  margin: 0 0 24px;
+  color: var(--muted);
+}
+.sign-in-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  min-height: 36px;
+  padding: 8px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+}
+.sign-in-form {
+  display: grid;
+  gap: 14px;
+}
+.sign-in-form input:not([type='checkbox']) {
+  width: 100%;
+  height: 64px;
+  padding: 0 24px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--theme-paper, #ffffff);
+  color: var(--ink);
+  font-size: 17px;
+}
+.sign-in-form input:not([type='checkbox']):focus {
+  outline: none;
+  border-color: var(--ink);
+}
+.sign-in-consent {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin: 6px 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.sign-in-consent input {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+}
+.sign-in-form a {
+  color: #7b7fe0;
+  text-decoration: none;
+}
+:root[data-theme='dark'] .sign-in-form a {
+  color: var(--theme-purple-ink);
+}
+.sign-in-submit {
+  justify-self: center;
+  min-height: 52px;
+  padding: 0 48px;
+  border: 0;
+  border-radius: 999px;
+  background: #18202d;
+  color: #ffffff;
+  font-size: 17px;
+}
+:root[data-theme='dark'] .sign-in-submit {
+  background: #ededed;
+  color: #101010;
+}
+.sign-in-status {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+}
+.sign-in-note {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+@media (max-width: 480px) {
+  .sign-in-card {
+    padding: 36px 16px 20px;
+  }
+  .sign-in-form input:not([type='checkbox']) {
+    height: 54px;
+    padding: 0 18px;
+  }
+}

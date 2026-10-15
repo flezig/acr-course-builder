@@ -30,6 +30,7 @@ import { useApi, useCourse, useCourses } from '../entities/course/api/provider';
 import { UnsavedProvider } from '../shared/lib/use-unsaved';
 import { Badge } from '../shared/ui/ui';
 import { DismissibleDetails } from '../shared/ui/dismissible-details';
+import { SignInDialog } from '../features/methodist-sign-in/sign-in-dialog';
 import { AiPageEdit } from '../features/ai-page-edit/ai-page-edit';
 import courseosLogo from '../shared/assets/courseos-logo.png';
 export function Layout() {
@@ -53,6 +54,7 @@ function LayoutContent() {
     () => localStorage.getItem('courseos-sidebar-collapsed') === 'true',
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() =>
     document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
   );
@@ -290,13 +292,18 @@ function LayoutContent() {
               Сбросить демоданные
             </button>
           )}
-          <div className="user-profile">
+          <button
+            className="user-profile"
+            aria-haspopup="dialog"
+            onClick={() => setSignInOpen(true)}
+          >
             <span>М</span>
             <div>
               <strong>Методист</strong>
-              <small>Проверка и принятие решений</small>
+              <small>Войти в аккаунт</small>
             </div>
-          </div>
+          </button>
+          <SignInDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
         </div>
       </aside>
       <div className="main-shell">
