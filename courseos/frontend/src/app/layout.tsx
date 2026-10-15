@@ -121,9 +121,12 @@ function LayoutContent() {
           const details = target.closest('details');
           if (details) details.open = true;
           const isPlanSection = ['intent', 'curriculum', 'calendar', 'review'].includes(target.id);
-          const isAuditSection = ['audit-checklist', 'audit-checks', 'audit-observation'].includes(
-            target.id,
-          );
+          const isAuditSection = [
+            'audit-checklist',
+            'audit-findings',
+            'audit-checks',
+            'audit-observation',
+          ].includes(target.id);
           if (
             (isPlanSection && location.pathname.endsWith('/plan')) ||
             (isAuditSection && location.pathname.endsWith('/audit'))
