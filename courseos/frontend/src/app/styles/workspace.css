@@ -9,7 +9,7 @@
   --page-gradient: none;
   --accent: var(--theme-foreground, #262626);
   font-family:
-    Inter,
+    'Golos Text Variable',
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',

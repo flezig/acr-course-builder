@@ -9,6 +9,7 @@ import { MapPage } from './pages/competencies/page';
 import { MaterialsPage } from './pages/materials/page';
 import { AuditPage } from './pages/audit/page';
 import { ComparisonPage } from './pages/comparison/page';
+import '@fontsource-variable/golos-text';
 import './app/styles/global.css';
 import './app/styles/workspace.css';
 import './app/styles/results-map.css';
