@@ -1102,6 +1102,9 @@ a.text-link,
   color: var(--muted);
   font-size: 13px;
 }
+.intent-tasks h3 {
+  color: var(--ink);
+}
 .plan-workspace .explanations .panel {
   padding: 20px;
   background: var(--theme-paper, #fff);
