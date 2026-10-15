@@ -1281,6 +1281,8 @@ summary small {
   margin-top: 14px;
 }
 .material-list button {
+  /* Иначе в колонке с max-height карточки сжимаются и двухстрочный заголовок вылезает наружу */
+  flex-shrink: 0;
   text-align: left;
   justify-content: flex-start;
   padding: 11px 7px;
