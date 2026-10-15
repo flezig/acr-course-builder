@@ -1723,6 +1723,19 @@ summary small {
   font-size: 15px;
   margin: 0 0 6px;
 }
+.compare-versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+.compare-versions label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
 .compare-skeleton-field {
   margin-bottom: 18px;
 }

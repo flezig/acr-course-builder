@@ -27,34 +27,80 @@ export function ComparisonPage() {
   const current = useCourse();
   const { api } = useApi();
   const { courseId = '' } = useParams();
-  const [search] = useSearchParams();
+  const [search, setSearch] = useSearchParams();
+  // По умолчанию сравниваем две последние версии: новая версия появляется при любой
+  // правке, а не только после согласованного плана, и методисту нужно видеть каждую.
+  const latestVersion = current.data?.latest_version || 1;
+  const versions = current.data?.versions ?? [];
+  const afterVersion = Number(search.get('after') || latestVersion);
   const beforeVersion = Number(
-    search.get('before') || current.data?.snapshot?.changes.at(-1)?.base_version || 1,
+    search.get('before') || versions.filter((v) => v < afterVersion).at(-1) || afterVersion,
   );
   const before = useQuery({
     queryKey: [api.mode, 'course', courseId, beforeVersion],
     queryFn: () => api.get(courseId, beforeVersion),
-    enabled: !!courseId,
+    enabled: !!courseId && !!current.data,
+  });
+  const afterQuery = useQuery({
+    queryKey: [api.mode, 'course', courseId, afterVersion],
+    queryFn: () => api.get(courseId, afterVersion),
+    enabled: !!courseId && !!current.data && afterVersion !== latestVersion,
   });
   if (current.isPending || before.isPending) return <Loading />;
   if (!current.data || !before.data) return <ErrorMessage error={current.error || before.error} />;
-  const after = current.data.snapshot;
+  const afterView = afterVersion === latestVersion ? current.data : afterQuery.data;
+  if (!afterView) return afterQuery.error ? <ErrorMessage error={afterQuery.error} /> : <Loading />;
+  const after = afterView.snapshot;
   const base = before.data.snapshot;
+  const chooseVersion = (side: 'before' | 'after', version: number) => {
+    const next = new URLSearchParams(search);
+    next.set(side, String(version));
+    setSearch(next, { replace: true });
+  };
+  const versionPicker = (
+    <div className="compare-versions">
+      <label>
+        Было
+        <select
+          value={beforeVersion}
+          onChange={(e) => chooseVersion('before', Number(e.target.value))}
+        >
+          {versions.map((v) => (
+            <option key={v} value={v}>
+              Версия {v}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Стало
+        <select
+          value={afterVersion}
+          onChange={(e) => chooseVersion('after', Number(e.target.value))}
+        >
+          {versions.map((v) => (
+            <option key={v} value={v}>
+              Версия {v}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
   if (!after || !base)
     return (
       <Empty title="Нет пары версий для сравнения">
+        {versionPicker}
         Сначала подготовьте материалы и примените согласованную правку.
       </Empty>
     );
   if (base.course_version === after.course_version)
     return (
       <Empty title={`Выбрана та же версия ${after.course_version}`}>
-        Сравнивать версию с самой собой бессмысленно.{' '}
-        {after.course_version > 1 && (
-          <Link to={`/courses/${courseId}/compare?before=${after.course_version - 1}`}>
-            Сравнить с версией {after.course_version - 1}
-          </Link>
-        )}
+        {versionPicker}
+        {versions.length > 1
+          ? 'Выберите другую версию для сравнения.'
+          : 'Пока есть только одна версия курса — изменения появятся после первой правки.'}
       </Empty>
     );
   const change = after.changes.find(
@@ -109,11 +155,13 @@ export function ComparisonPage() {
       <span className={equal ? 'ok' : 'broken'} aria-hidden>
         {equal ? '✓' : '!'}
       </span>
-      <strong>{actual?.title || item.id}</strong>
-      <small title={actual?.hash ? `SHA-256: ${actual.hash}` : undefined}>
-        {item.id}
-        {actual?.manual ? ' · ручная правка сохранена' : ''}
-        {!equal && ' · содержание расходится'}
+      <strong title={actual?.hash ? `SHA-256: ${actual.hash}` : undefined}>
+        {actual?.title || 'Удалённый элемент'}
+      </strong>
+      <small>
+        {[actual?.manual && 'ручная правка сохранена', !equal && 'содержание расходится']
+          .filter(Boolean)
+          .join(' · ')}
       </small>
       <span className="compare-links">
         <Link to={materialsLink(base.course_version, item.id)}>До ↗</Link>
@@ -133,13 +181,12 @@ export function ComparisonPage() {
             Версия {base.course_version} → {after.course_version}
           </h1>
           <p>
-            {change
-              ? `Причина: ${change.request}`
-              : 'Причина появления новой версии не записана — сравнение по сохранённым версиям.'}
+            {change ? `Причина: ${change.request}` : 'Сравнение сохранённых версий курса.'}
             {!hasChanges &&
               !auditChanged &&
               ` Содержание версии ${after.course_version} совпадает с версией ${base.course_version}.`}
           </p>
+          {versionPicker}
         </div>
         <div className="compare-cta">
           <Badge tone={after.approval_applicable ? 'green' : 'amber'}>{approvalLabel}</Badge>
@@ -229,7 +276,6 @@ export function ComparisonPage() {
                     {planned ? 'В согласованном плане' : 'Вне плана — проверьте основание'}
                   </Badge>
                 </h3>
-                <small>{material.id}</small>
                 <div className="line-diff">
                   {foldUnchanged(diffLines(materialText(old), materialText(material))).map(
                     (block, blockIndex) =>
@@ -265,7 +311,6 @@ export function ComparisonPage() {
                 Удалён материал: {material.title}
                 <Badge tone="red">Удалён</Badge>
               </h3>
-              <small>{material.id}</small>
               <div className="line-diff">
                 {material.content.split('\n').map((line, index) => (
                   <div className="removed" key={index}>
@@ -375,7 +420,7 @@ export function ComparisonPage() {
               </details>
             )}
             <p className="compare-note">
-              Проверка по ID и SHA-256 содержимого; хеш виден при наведении на ID.
+              Проверка по ID и SHA-256 содержимого; хеш виден при наведении на название.
             </p>
           </details>
         )}
