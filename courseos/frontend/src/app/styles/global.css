@@ -3911,7 +3911,7 @@ summary::-webkit-details-marker {
   --warning-ink: var(--theme-amber-ink, #806026);
   --warning-bg: var(--theme-amber-surface, #faf2dc);
   --error-ink: var(--theme-red-ink, #9b3838);
-  --error-bg: var(--theme-subtle, #fbeaea);
+  --error-bg: var(--theme-red-surface, #fbeaea);
 }
 *:focus-visible {
   outline-color: var(--theme-border-strong, #555555) !important;

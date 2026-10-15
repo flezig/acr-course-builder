@@ -59,6 +59,7 @@ export function DecisionQueue({
                 snapshot={snapshot}
                 focused={target === `issue-${issue.id}`}
                 readonly={readonly}
+                groupTitle={group.title}
                 place={issuePlace(issue.element_id)}
                 href={issueHref(issue.element_id, issue.id)}
                 onDecided={onDecided}
@@ -76,6 +77,7 @@ function DecisionItem({
   snapshot,
   focused,
   readonly,
+  groupTitle,
   place,
   href,
   onDecided,
@@ -84,6 +86,7 @@ function DecisionItem({
   snapshot: Snapshot;
   focused: boolean;
   readonly: boolean;
+  groupTitle: string;
   place: string;
   href: string;
   onDecided: (message: string) => void;
@@ -125,7 +128,8 @@ function DecisionItem({
         tabIndex={-1}
       >
         <div className="decision-heading">
-          <Badge tone={state.tone}>{state.label}</Badge>
+          {/* Статус, совпадающий с заголовком группы, ничего не добавляет. */}
+          {state.label !== groupTitle && <Badge tone={state.tone}>{state.label}</Badge>}
           <span className="issue-place">{place}</span>
         </div>
         <h4>{issue.message}</h4>
