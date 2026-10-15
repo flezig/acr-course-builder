@@ -14,13 +14,13 @@ test('Course OS: замечания, версии и адаптивность 14
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Замысел программы', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'О программе', exact: true })).toBeVisible();
   const planUrl = page.url();
-  const status = page.getByRole('region', { name: 'Состояние программы' });
+  const status = page.locator('.course-meta');
   await expect(status).toContainText('Нужны исправления');
   await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Утвердить каркас', exact: true })).toBeDisabled();
-  await page.getByRole('link', { name: 'Замысел', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Утвердить программу', exact: true })).toBeDisabled();
+  await page.getByRole('link', { name: 'О программе', exact: true }).click();
   const measurements = [];
   for (const width of [1440, 1280, 768, 390]) {
     await page.setViewportSize({ width, height: 1000 });
@@ -48,7 +48,7 @@ test('Course OS: замечания, версии и адаптивность 14
     measurements.push(geometry);
     expect(geometry.document).toBeLessThanOrEqual(width);
     await expect(page.getByLabel('Версия курса')).toBeVisible();
-    await expect(status.getByRole('link', { name: 'Открыть замечание' })).toBeVisible();
+    await expect(status.getByRole('link', { name: 'Нужны исправления' })).toBeVisible();
     if (width <= 800) {
       await page.getByRole('button', { name: 'Открыть навигацию' }).click();
       await expect(page.getByRole('dialog', { name: 'Навигация CourseOS' })).toBeVisible();
@@ -56,7 +56,7 @@ test('Course OS: замечания, версии и адаптивность 14
       await expect(page.getByRole('button', { name: 'Открыть навигацию' })).toBeFocused();
     }
   }
-  await status.getByRole('link', { name: 'Открыть замечание' }).click();
+  await status.getByRole('link', { name: 'Нужны исправления' }).click();
   const issueId = decodeURIComponent(new URL(page.url()).hash.slice(1));
   await expect(page.locator(`[id="${issueId}"]`)).toBeVisible();
   await expect(page.locator(`[id="${issueId}"]`)).toBeFocused();
@@ -65,18 +65,18 @@ test('Course OS: замечания, версии и адаптивность 14
   await page.getByText('Журнал операций', { exact: true }).click();
   await page.getByRole('button', { name: /Журнал/ }).click();
   await expect(page.locator('.job-detail')).toBeVisible();
-  await page.getByRole('link', { name: 'Замысел', exact: true }).click();
+  await page.getByRole('link', { name: 'О программе', exact: true }).click();
   await page.locator('.explanation summary').first().click();
   await expect(page.locator('.explanation').first()).toHaveAttribute('open', '');
-  await page.getByRole('button', { name: 'Редактировать каркас' }).click();
-  await expect(page.getByRole('heading', { name: 'Редактирование каркаса' })).toBeVisible();
+  await page.getByRole('button', { name: 'Редактировать программу' }).click();
+  await expect(page.getByRole('heading', { name: 'Редактирование программы' })).toBeVisible();
   await page.getByRole('button', { name: 'Закрыть редактор', exact: true }).click();
-  await page.getByRole('button', { name: 'Редактировать каркас' }).click();
+  await page.getByRole('button', { name: 'Редактировать программу' }).click();
   await page.getByRole('textbox', { name: 'Цель', exact: true }).fill('Уточнённая цель обучения');
   await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
-  await expect(page.getByRole('heading', { name: 'Редактирование каркаса' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Редактирование программы' })).toHaveCount(0);
   await page.getByLabel('Версия курса').selectOption('1');
-  await expect(page.getByRole('button', { name: 'Редактировать каркас' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Редактировать программу' })).toBeDisabled();
   await page.goto('/');
   await page
     .getByRole('button', {
@@ -88,7 +88,7 @@ test('Course OS: замечания, версии и адаптивность 14
   await page.getByLabel('Название / ИТ-тема').fill(longTitle);
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('heading', { name: longTitle, exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Замысел программы', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'О программе', exact: true })).toBeVisible();
   for (const width of [1440, 1280, 768, 390]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.evaluate(() => window.scrollTo(0, 0));

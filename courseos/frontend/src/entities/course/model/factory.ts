@@ -414,6 +414,18 @@ export function refreshExplanations(skeleton: Skeleton): Skeleton {
   const totals = hourTotals(skeleton);
   const actual = sumHours(Object.values(totals));
   skeleton.conflicts = skeleton.conflicts.filter((c) => c.decision);
+  if (!requirements.calendar.same_units)
+    skeleton.conflicts.push({
+      id: 'calendar-units',
+      requirement_ids: ['calendar', 'total_hours'],
+      status: 'open',
+      expected:
+        'Укажите продолжительность занятий в одной системе: академических или астрономических часах.',
+      actual: 'Единицы часов программы и дневной нагрузки не согласованы',
+      calculation: '',
+      options: [],
+      decision: null,
+    });
   const options = [
     {
       id: 'extend',
@@ -431,26 +443,28 @@ export function refreshExplanations(skeleton: Skeleton): Skeleton {
       consequence: `Не менее ${calculation.minimumLimit || 'уточнить'} ч/день. Это меняет исходное ограничение нагрузки; требуется явное решение.`,
     },
   ];
-  if (
-    !requirements.calendar.confirmed ||
-    !requirements.calendar.same_units ||
+  const calendarIncomplete =
     !requirements.calendar.daily_limit ||
     !requirements.calendar.start ||
     requirements.calendar.calendar_days < 1 ||
     Number.isNaN(Date.parse(requirements.calendar.start)) ||
-    new Decimal(requirements.calendar.daily_limit).lte(0)
-  )
+    new Decimal(requirements.calendar.daily_limit).lte(0);
+  if (calendarIncomplete || !requirements.calendar.confirmed)
     skeleton.conflicts.push({
       id: 'calendar-unknown',
       requirement_ids: ['calendar', 'total_hours'],
       status: 'open',
-      expected: 'Уточните календарь, учебные дни и одинаковые единицы часов',
-      actual: requirements.calendar.description || 'Срок не задан',
+      expected: calendarIncomplete
+        ? 'Укажите учебные дни и нагрузку в календаре.'
+        : 'Подтвердите учебные дни и нагрузку в календаре.',
+      actual: calendarIncomplete
+        ? requirements.calendar.description || 'Параметры календаря не заполнены или некорректны'
+        : 'Параметры календаря указаны, но не подтверждены',
       calculation: calendarSummary(requirements),
       options: [],
       decision: null,
     });
-  else if (new Decimal(calculation.deficit).gt(0))
+  else if (requirements.calendar.same_units && new Decimal(calculation.deficit).gt(0))
     skeleton.conflicts.push({
       id: 'calendar-capacity',
       requirement_ids: ['calendar', 'total_hours', 'daily_limit'],

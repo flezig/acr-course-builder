@@ -104,7 +104,7 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
       message: `Результат «${outcome.description}» не имеет двух разных оценочных средств`,
       expected: 'Тема, активность и два разных средства',
       actual: 'Неполное покрытие',
-      suggested_fix: 'Добавьте средство и наблюдаемый критерий в редакторе каркаса.',
+      suggested_fix: 'Добавьте средство и наблюдаемый критерий в редакторе программы.',
       blocking: true,
     }),
   );

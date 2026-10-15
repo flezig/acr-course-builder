@@ -17,7 +17,7 @@ test('navigation fits laptop and phone heights; theme survives reload and naviga
       'Искусственный интеллект в профессиональной деятельности учителя: проектирование образовательных материалов и проверка результатов обучения',
     );
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Замысел программы', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'О программе', exact: true })).toBeVisible();
   for (const [width, height] of [
     [1440, 900],
     [1280, 720],

@@ -86,7 +86,7 @@ export function SkeletonEditor({
   });
   return (
     <Panel
-      title="Редактирование каркаса"
+      title="Редактирование программы"
       subtitle="Изменение создаёт новую ревизию и пересчитывает объяснения. Старое утверждение перестаёт применяться."
     >
       {currentSnapshot.course_version !== snapshot.course_version && (

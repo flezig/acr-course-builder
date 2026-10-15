@@ -328,6 +328,6 @@ test('Пустая программа и архивная ревизия дос�
   await expect(
     page.getByRole('heading', { name: 'В программе пока нет результатов' }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Редактировать каркас', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Редактирование каркаса' })).toBeVisible();
+  await page.getByRole('button', { name: 'Редактировать программу', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Редактирование программы' })).toBeVisible();
 });

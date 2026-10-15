@@ -479,7 +479,7 @@ export function ResultsMap({
                 {filtering ? (
                   <button onClick={resetFilters}>Показать все результаты</button>
                 ) : (
-                  editable && <button onClick={() => setEditing(true)}>Редактировать каркас</button>
+                  editable && <button onClick={() => setEditing(true)}>Редактировать программу</button>
                 )}
               </div>
             ) : mode === 'overview' ? (
@@ -895,7 +895,7 @@ export function ResultsMap({
                 <Link2 size={14} />
                 Настроить связи
               </button>
-              <button onClick={() => setEditing(true)}>Редактировать каркас</button>
+              <button onClick={() => setEditing(true)}>Редактировать программу</button>
             </>
           )}
           <Link className="button" to={`${plan}#${selected.sourceId}`}>

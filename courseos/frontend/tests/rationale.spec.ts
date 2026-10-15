@@ -21,7 +21,9 @@ test('Основания в интерфейсе, JSON и MD относятся 
     id,
   );
   await expect(page.locator('#why-hours > summary')).toContainText(
-    stored.skeleton.explanations.find((e: { id: string }) => e.id === 'why-hours').conclusion,
+    stored.skeleton.explanations
+      .find((e: { id: string }) => e.id === 'why-hours')
+      .conclusion.replace(/(\d) ч(?=[\s.,]|$)/g, '$1 уч. ч.'),
   );
   await page.locator('#why-hours > summary').click();
   await page.locator('#why-hours .evidence-block').first().locator('summary').click();
@@ -46,7 +48,7 @@ test('Основания в интерфейсе, JSON и MD относятся 
   const old = await contents(await oldDownload);
   expect(old).toContain(stored.skeleton_hash);
   await page.getByRole('checkbox', { name: /Я проверил цель/ }).check();
-  await page.getByRole('button', { name: 'Утвердить каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Проверить материалы', exact: true })).toBeVisible({
     timeout: 15000,
   });
@@ -68,7 +70,9 @@ test('Основания в интерфейсе, JSON и MD относятся 
   await page.getByRole('button', { name: 'Сохранить изменения', exact: true }).click();
   await expect(page.locator('.save-feedback')).toBeVisible();
   await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Утвердить каркас', exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
+  ).toBeDisabled();
   await page.getByRole('button', { name: /^Цель и участники/ }).click();
   await page.getByLabel('Выберите решение', { exact: true }).selectOption('goal');
   await expect(page.locator('[id="basis-goal"]')).toContainText('Проверить заново');

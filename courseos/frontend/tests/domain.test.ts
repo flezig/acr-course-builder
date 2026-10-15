@@ -1,9 +1,15 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { DemoCourseApi } from '../src/entities/course/api/demo-course-api';
 import { presets } from '../src/entities/course/model/presets';
-import { makeSkeleton } from '../src/entities/course/model/factory';
+import { makeSkeleton, refreshExplanations } from '../src/entities/course/model/factory';
 import { hourTotals, auditSnapshot, calendarCalculation } from '../src/entities/course/model/rules';
-import { canonicalJson, contentHash, sumHours } from '../src/shared/lib/decimal';
+import {
+  canonicalJson,
+  contentHash,
+  sumHours,
+  formatHours,
+  formatSummaryHours,
+} from '../src/shared/lib/decimal';
 import {
   inputSchema,
   snapshotSchema,
@@ -719,3 +725,46 @@ it.each(['reduce', 'raise', 'extend'] as const)(
     expect(unchanged.skeleton.requirements.total_hours).toBe('16');
   },
 );
+
+describe('Часы и конкретные замечания программы', () => {
+  it.each([
+    ['56.135', '≈ 56,1'],
+    ['36.000', '36'],
+    ['16.5', '16,5'],
+    ['0.04', '≈ 0'],
+    ['9.99', '≈ 10'],
+    ['1234567890123456.1234', '≈ 1234567890123456,1'],
+  ])('компактно показывает %s без изменения точного числа', (value, display) => {
+    expect(formatSummaryHours(value)).toBe(display);
+    expect(formatHours(value)).toBe(value.replace(/\.0+$/, '').replace('.', ','));
+  });
+  it.each(['teachers', 'bank', 'python'])('сохраняет точное распределение и баланс %s', (id) => {
+    const skeleton = makeSkeleton(preset(id));
+    const before = JSON.stringify(skeleton);
+    const totals = hourTotals(skeleton);
+    Object.values(totals).forEach(formatSummaryHours);
+    expect(JSON.stringify(skeleton)).toBe(before);
+    expect(sumHours(Object.values(totals))).toBe(skeleton.requirements.total_hours);
+    for (const topic of skeleton.topics)
+      expect(sumHours(Object.values(topic.hours))).toBe(topic.planned_total);
+  });
+  it('сообщает только о фактически отсутствующих параметрах или несовместимых единицах', () => {
+    const skeleton = makeSkeleton(preset('python'));
+    expect(skeleton.conflicts).toHaveLength(0);
+    skeleton.requirements.calendar.confirmed = false;
+    refreshExplanations(skeleton);
+    expect(skeleton.conflicts.map((c) => c.expected)).toEqual([
+      'Подтвердите учебные дни и нагрузку в календаре.',
+    ]);
+    skeleton.requirements.calendar.confirmed = true;
+    skeleton.requirements.calendar.same_units = false;
+    refreshExplanations(skeleton);
+    expect(skeleton.conflicts.map((c) => c.id)).toEqual(['calendar-units']);
+    skeleton.requirements.calendar.same_units = true;
+    skeleton.requirements.calendar.start = '';
+    refreshExplanations(skeleton);
+    expect(skeleton.conflicts.map((c) => c.expected)).toEqual([
+      'Укажите учебные дни и нагрузку в календаре.',
+    ]);
+  });
+});

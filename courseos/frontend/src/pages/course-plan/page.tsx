@@ -10,7 +10,6 @@ import {
   ChevronDown,
   AlertCircle,
   CheckCircle2,
-  MessageSquare,
   Clock3,
 } from 'lucide-react';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
@@ -24,6 +23,8 @@ import {
   hourLabels,
   decimalEqual,
   subtractHours,
+  formatHours,
+  formatSummaryHours,
 } from '../../shared/lib/decimal';
 import {
   Badge,
@@ -51,8 +52,14 @@ function outcomeText(description: string) {
     ? conciseOutcomes[match[1]] || `Выполняет учебную задачу «${match[1]}»`
     : description;
 }
-const displayHours = (text: string) => text.replace(/(\d) ч(?=[\s.,]|$)/g, '$1 уч. ч.');
-const formatHours = (value: string) => value.replace('.', ',');
+const displayHours = (text: string) =>
+  text
+    .replace(/(\d)\.(\d+)(?=\s*(?:ч|уч\. ч|[+×=−;]|$))/g, '$1,$2')
+    .replace(/(\d) ч(?=[\s.,]|$)/g, '$1 уч. ч.');
+export function remarkCount(count: number) {
+  const form = new Intl.PluralRules('ru').select(count);
+  return `${count} ${form === 'one' ? 'замечание' : form === 'few' ? 'замечания' : 'замечаний'}`;
+}
 export function PlanPage() {
   const query = useCourse();
   const location = useLocation();
@@ -105,6 +112,10 @@ export function PlanPage() {
       const section = ['intent', 'curriculum', 'calendar', 'review'].includes(hash);
       if (section) return;
       element.scrollIntoView({ block: 'center' });
+      if (target.startsWith('issue-')) {
+        element.focus({ preventScroll: true });
+        return;
+      }
       const field =
         element.querySelector<HTMLElement>('textarea, input') ||
         element.querySelector<HTMLElement>('summary, button');
@@ -149,7 +160,7 @@ export function PlanPage() {
   const versionQuery = view.is_latest ? '' : `?version=${snapshot.course_version}`;
   const href = (page: string) => `/courses/${view.course_id}/${page}${versionQuery}`;
   const state = snapshot.approval_applicable
-    ? 'Каркас утверждён'
+    ? 'Программа утверждена'
     : blocking.length
       ? 'Нужны исправления'
       : 'Ожидает проверки методиста';
@@ -159,7 +170,7 @@ export function PlanPage() {
       : skeleton.topics.find((topic) => topic.id === id)?.title
         ? `Учебный план · ${skeleton.topics.find((topic) => topic.id === id)!.title}`
         : skeleton.outcomes.find((outcome) => outcome.id === id)?.description
-          ? `Замысел · ${outcomeText(skeleton.outcomes.find((outcome) => outcome.id === id)!.description)}`
+          ? `О программе · ${outcomeText(skeleton.outcomes.find((outcome) => outcome.id === id)!.description)}`
           : skeleton.explanations.find((explanation) => explanation.id === id)?.title ||
             'Проверка программы';
   const issueHref = (id: string, issueId: string) =>
@@ -200,19 +211,22 @@ export function PlanPage() {
     <div className="plan-workspace">
       <header className="page-heading course-heading">
         <div className="course-banner">
-          <div className="eyebrow">
-            ПРОЕКТИРОВАНИЕ ПРОГРАММЫ <span> / </span> КАРКАС И УЧЕБНЫЙ ПЛАН
-          </div>
+          <div className="eyebrow">Программа курса</div>
           <h1>{skeleton.requirements.title}</h1>
           <div className="course-meta">
             <span>{skeleton.requirements.audience}</span>
             <span>{skeleton.requirements.delivery}</span>
-            <Badge
-              tone={snapshot.approval_applicable ? 'green' : blocking.length ? 'amber' : 'neutral'}
-            >
-              {snapshot.approval_applicable ? <CheckCircle2 size={12} /> : <Clock3 size={12} />}
-              {state}
-            </Badge>
+            {blocking.length > 0 && !snapshot.approval_applicable ? (
+              <Link className="program-status badge amber" to={`#issue-${blocking[0].id}`}>
+                <Clock3 size={12} aria-hidden="true" />
+                {state}
+              </Link>
+            ) : (
+              <Badge tone={snapshot.approval_applicable ? 'green' : 'neutral'}>
+                {snapshot.approval_applicable ? <CheckCircle2 size={12} /> : <Clock3 size={12} />}
+                {state}
+              </Badge>
+            )}
           </div>
         </div>
         <button
@@ -224,59 +238,13 @@ export function PlanPage() {
           disabled={readonly || !!blockEditing}
         >
           <Pencil size={15} />
-          {editing ? 'Редактор открыт' : 'Редактировать каркас'}
+          {editing ? 'Редактор открыт' : 'Редактировать программу'}
         </button>
       </header>
-      <section
-        className={`plan-status ${blocking.length ? 'needs-attention' : ''}`}
-        aria-label="Состояние программы"
-      >
-        {blocking.length ? (
-          <MessageSquare size={19} className="status-icon" />
-        ) : (
-          <CheckCircle2 size={19} className="status-icon" />
-        )}
-        <div className="status-content">
-          <div className="plan-next" role="status">
-            <strong>{state}</strong>
-            {blocking.length > 0 && (
-              <small className="status-count">Замечаний к исправлению: {blocking.length}</small>
-            )}
-            <span>
-              {!view.is_latest
-                ? 'Открыта архивная версия'
-                : editing || blockEditing
-                  ? 'Сохраните изменения, чтобы пересчитать проверки'
-                  : blocking.length
-                    ? blocking[0].message
-                    : snapshot.approval_applicable
-                      ? 'Следующий шаг — проверка материалов'
-                      : 'Проверьте содержание и основания, затем утвердите каркас'}
-            </span>
-          </div>
-        </div>
-        <Link
-          className="button primary review-action"
-          to={
-            blocking.length
-              ? `#issue-${blocking[0].id}`
-              : snapshot.approval_applicable && snapshot.materials.length
-                ? href('materials')
-                : '#review'
-          }
-        >
-          {blocking.length
-            ? 'Открыть замечание'
-            : snapshot.approval_applicable && snapshot.materials.length
-              ? 'Проверить материалы'
-              : 'Перейти к утверждению'}
-          <ArrowRight size={16} />
-        </Link>
-      </section>
-      <nav className="plan-nav" aria-label="Разделы каркаса">
+      <nav className="plan-nav" aria-label="Разделы программы">
         {(
           [
-            ['intent', 'Замысел'],
+            ['intent', 'О программе'],
             ['curriculum', 'Учебный план'],
             ['calendar', 'Календарь'],
             ['review', 'Проверка и утверждение'],
@@ -286,11 +254,20 @@ export function PlanPage() {
             key={id}
             to={`#${id}`}
             aria-label={title}
+            aria-describedby={
+              id === 'review' && blocking.length > 0 ? 'review-remark-count' : undefined
+            }
             aria-current={tab === id ? 'page' : undefined}
           >
             {title}
             {id === 'review' && blocking.length > 0 && (
-              <span className="tab-count">{blocking.length}</span>
+              <span
+                id="review-remark-count"
+                className="tab-count"
+                aria-label={remarkCount(blocking.length)}
+              >
+                {blocking.length}
+              </span>
             )}
           </Link>
         ))}
@@ -299,23 +276,20 @@ export function PlanPage() {
         <div>
           <small>Объём программы</small>
           <strong>
-            {formatHours(skeleton.requirements.total_hours)}
+            {formatSummaryHours(skeleton.requirements.total_hours)}
             <span> уч. ч.</span>
           </strong>
         </div>
         <div>
           <small>Практика и самостоятельная работа</small>
           <strong>
-            {formatHours(sumHours([totals.practice, totals.lab, totals.self_study]))}
+            {formatSummaryHours(sumHours([totals.practice, totals.lab, totals.self_study]))}
             <span> уч. ч.</span>
           </strong>
         </div>
         <div>
           <small>Результаты обучения</small>
-          <strong>
-            {skeleton.outcomes.length}
-            <span> в программе</span>
-          </strong>
+          <strong>{skeleton.outcomes.length}</strong>
         </div>
       </div>
       {!view.is_latest && (
@@ -345,7 +319,7 @@ export function PlanPage() {
       <div className={`plan-layout ${tab !== 'intent' ? 'single-column' : ''}`}>
         <div>
           <div id="intent" hidden={tab !== 'intent'}>
-            <Panel title="Замысел программы" className="program-intent">
+            <Panel title="О программе" className="program-intent">
               <section className="intent-block" id="goal">
                 <div className="block-heading">
                   <h3>Цель обучения</h3>
@@ -492,6 +466,10 @@ export function PlanPage() {
                   <p>
                     Часы каждого вида работы суммируются по всем модулям. Доля рассчитана от полного
                     объёма программы, включая аттестацию.
+                  </p>
+                  <p>
+                    Практика, лабораторные и самостоятельная работа:{' '}
+                    {formatHours(sumHours([totals.practice, totals.lab, totals.self_study]))} уч. ч.
                   </p>
                   <dl className="calculation-breakdown">
                     {hourKinds.map((kind) => {
@@ -696,7 +674,7 @@ export function PlanPage() {
                 </article>
               ))}
             </Panel>
-            <Panel title="Утверждение каркаса" className="approval-panel">
+            <Panel title="Утверждение программы" className="approval-panel">
               <p>
                 Утверждается ревизия <b>{snapshot.skeleton_version}</b> с её основаниями и
                 решениями.
@@ -704,8 +682,7 @@ export function PlanPage() {
               {blocking.length > 0 ? (
                 <p className="approval-blocked">
                   <AlertCircle size={16} />
-                  Утверждение недоступно: сначала устраните блокирующие замечания ({blocking.length}
-                  ).
+                  Утверждение недоступно. Исправьте {remarkCount(blocking.length)}.
                 </p>
               ) : !snapshot.approval_applicable ? (
                 <label className="checkbox">
@@ -718,7 +695,7 @@ export function PlanPage() {
                 </label>
               ) : (
                 <Notice tone="success">
-                  Утверждение применимо. Материалы создаются по этому каркасу.
+                  Программа утверждена. Материалы создаются по этой программе.
                 </Notice>
               )}
               <button
@@ -744,9 +721,14 @@ export function PlanPage() {
                   })
                 }
               >
-                {command.isPending ? 'Сохраняем утверждение…' : 'Утвердить каркас'}
+                {command.isPending ? 'Сохраняем утверждение…' : 'Утвердить программу'}
                 <ArrowRight size={17} />
               </button>
+              {snapshot.approval_applicable && snapshot.materials.length > 0 && (
+                <Link className="button secondary" to={href('materials')}>
+                  Проверить материалы <ArrowRight size={16} />
+                </Link>
+              )}
               {editing && <small>Сначала сохраните или закройте редактор.</small>}
               <ErrorMessage error={command.error} />
               <Link className="text-link" to={href('audit')}>
@@ -804,7 +786,7 @@ export function PlanPage() {
                           : 'Автоматическая проверка'}
                       </small>
                       <h3>{explanation.title}</h3>
-                      <p>{explanation.conclusion}</p>
+                      <p>{displayHours(explanation.conclusion)}</p>
                       <Badge
                         tone={
                           explanation.status === 'blocked'
@@ -899,7 +881,7 @@ export function PlanPage() {
                             });
                             setCorrection('');
                             setSaved(
-                              'Исправление сохранено. Каркас ожидает отдельного утверждения.',
+                              'Исправление сохранено. Программа ожидает отдельного утверждения.',
                             );
                           } catch {
                             /* Keep correction available for retry. */

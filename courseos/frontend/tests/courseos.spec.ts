@@ -27,7 +27,7 @@ async function approveAndWait(page: Page) {
       name: 'Я проверил цель, результаты, часы, оценивание и основания. Утверждаю эту ревизию.',
     })
     .check();
-  await page.getByRole('button', { name: 'Утвердить каркас', exact: true }).click();
+  await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Проверить материалы', exact: true })).toBeVisible({
     timeout: 15000,
   });
@@ -56,12 +56,12 @@ test('Полный путь: уточнения, правка каркаса, а
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await expect(page.locator('.explanation')).toHaveCount(5);
   await expect(page.locator('.approval-panel > button.primary')).toBeDisabled();
-  await page.getByRole('button', { name: 'Редактировать каркас' }).click();
+  await page.getByRole('button', { name: 'Редактировать программу' }).click();
   await page
     .getByRole('textbox', { name: 'Цель', exact: true })
     .fill('Создать небольшую программу с переменными, условиями и циклом; объяснить решение.');
   await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
-  await expect(page.getByRole('heading', { name: 'Редактирование каркаса' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Редактирование программы' })).toHaveCount(0);
   await approveAndWait(page);
   await page
     .locator('#main')
@@ -239,7 +239,7 @@ test('Длинная новая программа500часов, прокрут�
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.screenshot({ path: path.join(reports, 'long-plan-1024.png') });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole('button', { name: 'Редактировать каркас' }).click();
+  await page.getByRole('button', { name: 'Редактировать программу' }).click();
   await page.getByLabel('topic-16 Практика', { exact: true }).fill('1');
   await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
   await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
@@ -247,7 +247,7 @@ test('Длинная новая программа500часов, прокрут�
   await expect(
     page.getByRole('heading', { name: 'Сумма часов тем не совпадает с объёмом курса' }),
   ).toBeVisible();
-  await page.getByRole('link', { name: 'Открыть topic-16 и исправить' }).click();
+  await page.locator('a[href$="/plan#topic-16"]').click();
   await expect(page.getByRole('link', { name: 'Учебный план', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
@@ -260,14 +260,14 @@ test('Конфликт двух вкладок сохраняет чернови
   context,
 }) => {
   const id = await createPython(page);
-  await page.getByRole('button', { name: 'Редактировать каркас' }).click();
+  await page.getByRole('button', { name: 'Редактировать программу' }).click();
   await page.getByRole('textbox', { name: 'Цель', exact: true }).fill('Мой несохранённый черновик первой вкладки');
   const other = await context.newPage();
   await other.goto(`/courses/${id}/plan`);
-  await other.getByRole('button', { name: 'Редактировать каркас' }).click();
+  await other.getByRole('button', { name: 'Редактировать программу' }).click();
   await other.getByRole('textbox', { name: 'Цель', exact: true }).fill('Изменение второй вкладки');
   await other.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
-  await expect(other.getByRole('heading', { name: 'Редактирование каркаса' })).toHaveCount(0);
+  await expect(other.getByRole('heading', { name: 'Редактирование программы' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Версия устарела' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Цель', exact: true })).toHaveValue(
@@ -275,7 +275,7 @@ test('Конфликт двух вкладок сохраняет чернови
   );
   page.once('dialog', (dialog) => dialog.dismiss());
   await page.getByRole('link', { name: 'Карта результатов', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Редактирование каркаса' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Редактирование программы' })).toBeVisible();
   await other.close();
 });
 

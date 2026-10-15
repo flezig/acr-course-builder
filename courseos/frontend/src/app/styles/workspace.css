@@ -360,38 +360,6 @@ a.text-link,
   background: var(--theme-subtle, #f0f1f8);
   border-color: var(--theme-blue-surface, #b9bed5);
 }
-.plan-status {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--theme-paper, #fff);
-}
-.plan-status.needs-attention {
-  background: var(--theme-subtle, #fffbf1);
-  border: 1px solid var(--theme-amber-surface, #efdfb6);
-}
-.status-icon {
-  margin-top: 3px;
-  color: var(--theme-amber-ink, #9b741e);
-}
-.plan-status:not(.needs-attention) .status-icon {
-  color: var(--accent);
-}
-.plan-next {
-  gap: 4px;
-}
-.plan-next strong {
-  font-size: 14px;
-  color: var(--theme-foreground, #38332b);
-}
-.plan-next span {
-  font-size: 13px;
-  color: var(--theme-muted, #646054);
-  line-height: 1.5;
-}
 .plan-workspace .job-compact {
   margin-top: 6px;
 }
@@ -409,21 +377,6 @@ a.text-link,
   padding: 0;
   font-size: 12px;
   font-weight: 600;
-}
-.status-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.plan-workspace .review-action {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--theme-paper, #ffffff);
-  font-weight: 550;
-  white-space: nowrap;
-  margin: 0;
 }
 .issue-link {
   font-size: 11px;
@@ -446,12 +399,14 @@ a.text-link,
   color: var(--muted);
 }
 .plan-workspace .plan-nav a[aria-current] {
+  background: transparent;
+  border-radius: 0;
   color: var(--accent);
   border-bottom-color: var(--accent);
   font-weight: 600;
 }
 .plan-workspace .plan-nav a:hover {
-  background: var(--theme-raised, #efefef);
+  background: transparent;
   color: var(--accent);
 }
 .plan-metrics {
@@ -765,25 +720,6 @@ footer {
   .plan-workspace .course-banner .eyebrow {
     font-size: 9px;
   }
-  .plan-status {
-    align-items: flex-start;
-    flex-wrap: wrap;
-    padding: 16px;
-    gap: 10px;
-  }
-  .status-content {
-    flex-basis: calc(100% - 32px);
-  }
-  .status-actions {
-    width: 100%;
-    align-items: stretch;
-    padding-top: 4px;
-    gap: 8px;
-  }
-  .plan-workspace .review-action {
-    width: 100%;
-    min-height: 44px;
-  }
   .issue-link {
     text-align: center;
     font-size: 12px;
@@ -865,23 +801,6 @@ footer {
     transition: none;
   }
 }
-/* Keep the programme itself above the fold at desktop sizes. */
-.plan-next {
-  display: block;
-}
-.plan-next strong {
-  display: inline;
-}
-.plan-next .status-count {
-  display: inline-block;
-  margin-left: 10px;
-  color: var(--theme-amber-ink, #806023);
-  font-size: 11px;
-}
-.plan-next > span {
-  display: block;
-  margin-top: 4px;
-}
 @media (min-width: 801px) {
   .topbar,
   .plan-shell .topbar {
@@ -897,10 +816,6 @@ footer {
   }
   .plan-workspace .course-banner p {
     margin-top: 8px;
-  }
-  .plan-status {
-    padding-top: 14px;
-    padding-bottom: 14px;
   }
   .plan-workspace .plan-nav {
     margin-top: 16px;
@@ -952,8 +867,9 @@ footer {
 }
 .plan-workspace .course-banner .eyebrow {
   font-size: 10px;
-  letter-spacing: 1px;
-  margin-bottom: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-bottom: 8px;
   color: var(--theme-muted, #6c7281);
 }
 .course-banner .eyebrow span {
@@ -1001,40 +917,6 @@ footer {
   min-height: 36px;
   padding: 8px 11px;
   font-size: 12px;
-}
-.plan-status,
-.plan-status.needs-attention {
-  padding: 12px 16px;
-  border-radius: 8px;
-  min-height: 70px;
-  gap: 12px;
-}
-.plan-status.needs-attention {
-  background: var(--theme-subtle, #fffbf3);
-  border-color: var(--theme-amber-surface, #eddfc3);
-}
-.status-icon {
-  flex-shrink: 0;
-  margin: 0;
-}
-.plan-next strong {
-  font-size: 13px;
-}
-.plan-next .status-count {
-  font-size: 12px;
-  margin-left: 12px;
-  color: var(--theme-amber-ink, #826128);
-}
-.plan-next > span {
-  font-size: 13px;
-  margin-top: 2px;
-  line-height: 1.5;
-}
-.plan-workspace .review-action {
-  min-height: 36px;
-  padding: 8px 13px;
-  font-size: 12px;
-  margin: 0;
 }
 .plan-workspace .plan-nav {
   gap: 28px;
@@ -1568,13 +1450,6 @@ footer {
   .plan-workspace .plan-nav a {
     font-size: 13px;
   }
-  .plan-status {
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-  .plan-workspace .review-action {
-    margin-left: 30px;
-  }
   .load-heading {
     align-items: flex-start;
     flex-direction: column;
@@ -1606,15 +1481,6 @@ footer {
     justify-content: center;
     padding: 10px 0;
     font-size: 12px;
-  }
-  .plan-next .status-count {
-    display: block;
-    margin-left: 0;
-    margin-top: 2px;
-  }
-  .plan-workspace .review-action {
-    width: 100%;
-    margin-left: 0;
   }
   .plan-metrics {
     display: grid;
@@ -1671,4 +1537,11 @@ footer {
   .intent-editor .form-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.course-meta .program-status {
+  text-decoration: none;
+}
+.course-meta .program-status:hover {
+  text-decoration: underline;
 }

@@ -212,7 +212,7 @@ export function ComparisonPage() {
             ? 'Открыть материалы'
             : after.approvals.length
               ? 'Утвердить новую ревизию'
-              : 'Утвердить каркас'}
+              : 'Утвердить программу'}
         </Link>
         <Link className="button" to={`/courses/${courseId}/audit`}>
           Повторный аудит

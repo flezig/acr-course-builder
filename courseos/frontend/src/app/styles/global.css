@@ -3831,14 +3831,6 @@ summary::-webkit-details-marker {
   padding: 6px 10px;
   font-size: 13px;
 }
-.plan-next {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.plan-next span {
-  color: var(--theme-muted, #747474);
-}
 #intent,
 #curriculum,
 #calendar,
@@ -4285,44 +4277,6 @@ button.primary,
   background: var(--theme-subtle, #f0f2f5);
   border-color: var(--theme-border-strong, #596575);
 }
-.plan-status {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--theme-border, #dfe2e6);
-  border-left: 3px solid var(--theme-border-strong, #939aa4);
-  background: var(--theme-paper, #fff);
-  border-radius: 5px;
-}
-.plan-status.needs-attention {
-  background: var(--theme-subtle, #fffbf0);
-  border-color: var(--theme-amber-surface, #e9dbb4);
-  border-left-color: var(--theme-amber-ink, #bd901b);
-}
-.status-icon {
-  color: var(--theme-amber-ink, #7c651e);
-  align-self: flex-start;
-  margin-top: 2px;
-}
-.status-content {
-  flex: 1;
-  min-width: 0;
-}
-.plan-next {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 13px;
-}
-.plan-next strong {
-  color: var(--theme-foreground, #262b32);
-  font-size: 14px;
-  font-weight: 650;
-}
-.plan-next span {
-  color: var(--theme-muted, #545b65);
-}
 .plan-workspace .job-compact {
   background: transparent;
   border: 0;
@@ -4349,16 +4303,6 @@ button.primary,
 .job-compact .job-detail {
   border-top: 1px solid var(--theme-amber-surface, #e4dfcf);
   margin-top: 10px;
-}
-.review-action {
-  white-space: nowrap;
-  flex-shrink: 0;
-  background: var(--theme-subtle, #f0f1f3);
-  color: var(--theme-foreground, #454a52);
-  border-color: var(--theme-border, #e1e3e7);
-}
-.review-action:hover {
-  background: var(--theme-raised, #e6e8ec);
 }
 .plan-workspace .plan-nav {
   gap: 24px;
@@ -4619,18 +4563,6 @@ button.primary,
   .plan-workspace h1 {
     font-size: 24px;
   }
-  .plan-status {
-    flex-wrap: wrap;
-    padding: 12px;
-    gap: 8px;
-  }
-  .status-content {
-    flex-basis: calc(100% - 32px);
-  }
-  .review-action {
-    margin-left: 28px;
-    white-space: normal;
-  }
   .plan-workspace .plan-nav {
     gap: 0 20px;
     position: static;
@@ -4669,10 +4601,6 @@ button.primary,
   }
   .plan-workspace .page-heading {
     margin-bottom: 16px;
-  }
-  .plan-status {
-    padding-top: 12px;
-    padding-bottom: 12px;
   }
   .plan-metrics {
     padding-top: 12px;

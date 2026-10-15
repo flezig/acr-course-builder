@@ -34,3 +34,12 @@ export async function contentHash(value: unknown): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
+
+export function formatHours(value: string): string {
+  return new Decimal(value).toString().replace('.', ',');
+}
+export function formatSummaryHours(value: string): string {
+  const exact = new Decimal(value);
+  const rounded = exact.toDecimalPlaces(1);
+  return `${exact.eq(rounded) ? '' : '≈ '}${formatHours(rounded.toString())}`;
+}
