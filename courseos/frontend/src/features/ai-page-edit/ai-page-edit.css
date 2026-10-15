@@ -94,3 +94,152 @@
     bottom: 16px;
   }
 }
+
+/* Сравнение в духе GitHub: заголовок «файла», строки −/+ и подсветка слов. */
+.ai-page-dialog {
+  --gh-del-bg: #ffebe9;
+  --gh-del-word: #ffcecb;
+  --gh-del-ink: #82071e;
+  --gh-add-bg: #e6ffec;
+  --gh-add-word: #abf2bc;
+  --gh-add-ink: #116329;
+  --gh-header-bg: #f6f8fa;
+  --gh-green: #1f883d;
+  --gh-red: #cf222e;
+}
+
+:root[data-theme='dark'] .ai-page-dialog {
+  --gh-del-bg: rgb(248 81 73 / 0.1);
+  --gh-del-word: rgb(248 81 73 / 0.4);
+  --gh-del-ink: #ffa198;
+  --gh-add-bg: rgb(46 160 67 / 0.15);
+  --gh-add-word: rgb(46 160 67 / 0.4);
+  --gh-add-ink: #7ee787;
+  --gh-header-bg: #161b22;
+  --gh-green: #238636;
+  --gh-red: #da3633;
+}
+
+.gh-file {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.gh-file.accept {
+  border-color: var(--gh-green);
+}
+
+.gh-file.reject {
+  border-color: var(--gh-red);
+  opacity: 0.75;
+}
+
+.gh-file-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--gh-header-bg);
+  font-size: 13px;
+}
+
+.gh-file-header strong {
+  flex: 1;
+  min-width: 120px;
+}
+
+.gh-accept,
+.gh-reject {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 0;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gh-accept {
+  background: var(--gh-green);
+}
+
+.gh-reject {
+  background: var(--gh-red);
+}
+
+.gh-accept:hover,
+.gh-reject:hover {
+  filter: brightness(1.08);
+}
+
+.gh-verdict {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.gh-verdict.accept {
+  color: var(--gh-green);
+}
+
+.gh-verdict.reject {
+  color: var(--gh-red);
+}
+
+.gh-undo {
+  min-height: 0;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.gh-diff {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.gh-line {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  padding: 2px 8px 2px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.gh-sign {
+  text-align: center;
+  user-select: none;
+}
+
+.gh-line.removed {
+  background: var(--gh-del-bg);
+  color: var(--gh-del-ink);
+}
+
+.gh-line.added {
+  background: var(--gh-add-bg);
+  color: var(--gh-add-ink);
+}
+
+.gh-line del,
+.gh-line ins {
+  border-radius: 3px;
+  text-decoration: none;
+}
+
+.gh-line del {
+  background: var(--gh-del-word);
+}
+
+.gh-line ins {
+  background: var(--gh-add-word);
+}

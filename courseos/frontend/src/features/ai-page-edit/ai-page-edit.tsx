@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { Sparkles, X } from 'lucide-react';
+import { Check, Sparkles, Undo2, X } from 'lucide-react';
 import { useApi, useCommand, useCourse } from '../../entities/course/api/provider';
 import type { EditScope, ScopeEditProposal } from '../../entities/course/api/contract';
 import type { Skeleton } from '../../entities/course/model/schema';
 import { ErrorMessage, Notice } from '../../shared/ui/ui';
+import { wordDiff } from './word-diff';
 import './ai-page-edit.css';
 
 const scopeTitles: Record<EditScope, string> = {
@@ -50,18 +51,75 @@ const sectionLabels: Record<string, string> = {
 };
 
 /** Изменённые тексты каркаса с понятными подписями вроде «Результат 2 · описание». */
-function changedTexts(before: unknown, after: unknown, path: (string | number)[] = []) {
+interface TextChange {
+  path: (string | number)[];
+  label: string;
+  before: string;
+  after: string;
+}
+function changedTexts(
+  before: unknown,
+  after: unknown,
+  path: (string | number)[] = [],
+): TextChange[] {
   if (typeof after === 'string' || typeof before === 'string')
     return before === after
       ? []
-      : [{ label: textLabel(path), before: String(before ?? ''), after: String(after ?? '') }];
+      : [
+          {
+            path,
+            label: textLabel(path),
+            before: String(before ?? ''),
+            after: String(after ?? ''),
+          },
+        ];
   if (!after || typeof after !== 'object') return [];
-  const changes: { label: string; before: string; after: string }[] = [];
+  const changes: TextChange[] = [];
   for (const [key, value] of Object.entries(after)) {
     const previous = (before as Record<string, unknown> | undefined)?.[key];
     changes.push(...changedTexts(previous, value, [...path, Array.isArray(after) ? +key : key]));
   }
   return changes;
+}
+
+/** Исходный каркас с подставленными только принятыми текстами. */
+function withAccepted(skeleton: Skeleton, accepted: TextChange[]) {
+  const result = structuredClone(skeleton);
+  for (const change of accepted) {
+    let node = result as unknown as Record<string | number, unknown>;
+    for (const key of change.path.slice(0, -1))
+      node = node[key] as Record<string | number, unknown>;
+    node[change.path[change.path.length - 1]] = change.after;
+  }
+  return result;
+}
+
+function DiffLines({ before, after }: { before: string; after: string }) {
+  const { removed, added } = wordDiff(before, after);
+  return (
+    <div className="gh-diff">
+      {before && (
+        <div className="gh-line removed">
+          <span className="gh-sign">−</span>
+          <span>
+            {removed.map((part, index) =>
+              part.changed ? <del key={index}>{part.text}</del> : part.text,
+            )}
+          </span>
+        </div>
+      )}
+      {after && (
+        <div className="gh-line added">
+          <span className="gh-sign">+</span>
+          <span>
+            {added.map((part, index) =>
+              part.changed ? <ins key={index}>{part.text}</ins> : part.text,
+            )}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function textLabel(path: (string | number)[]) {
@@ -82,6 +140,7 @@ export function AiPageEdit() {
   const [request, setRequest] = useState('');
   const [proposal, setProposal] = useState<ScopeEditProposal | null>(null);
   const [saved, setSaved] = useState('');
+  const [decisions, setDecisions] = useState<Record<string, 'accept' | 'reject'>>({});
   const scope = editScope(location.pathname, location.hash);
   const snapshot = course.data?.snapshot;
   const propose = useMutation({
@@ -93,7 +152,10 @@ export function AiPageEdit() {
         request,
         skeleton: input.skeleton,
       }),
-    onSuccess: setProposal,
+    onSuccess: (result) => {
+      setProposal(result);
+      setDecisions({});
+    },
   });
 
   useEffect(() => {
@@ -115,12 +177,12 @@ export function AiPageEdit() {
     command.reset();
   }
 
-  async function apply() {
+  async function apply(accepted: TextChange[]) {
     try {
       await command.mutateAsync({
         action: 'save_skeleton',
         expected_version: snapshot!.course_version,
-        payload: proposal!.skeleton,
+        payload: withAccepted(snapshot!.skeleton, accepted),
       });
       setProposal(null);
       setRequest('');
@@ -132,13 +194,30 @@ export function AiPageEdit() {
 
   if (!open)
     return (
-      <button type="button" className="ai-page-trigger" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className="ai-page-trigger"
+        onClick={() => {
+          setOpen(true);
+          // В демо сразу показываем пример, чтобы было видно, как выглядит правка.
+          if (api.mode === 'demo' && !readonly)
+            propose.mutate({
+              scope,
+              skeleton: snapshot.skeleton,
+              version: snapshot.course_version,
+            });
+        }}
+      >
         <Sparkles size={16} />
         Изменить с ИИ
       </button>
     );
 
   const changes = proposal ? changedTexts(snapshot.skeleton, proposal.skeleton) : [];
+  const accepted = changes.filter((change) => decisions[change.label] === 'accept');
+  const undecided = changes.filter((change) => !decisions[change.label]).length;
+  const decide = (label: string, decision: 'accept' | 'reject') =>
+    setDecisions((previous) => ({ ...previous, [label]: decision }));
   return (
     <div
       className="ai-page-dialog"
@@ -193,34 +272,65 @@ export function AiPageEdit() {
         <div className="ai-page-proposal">
           {proposal.note && <small className="muted">{proposal.note}</small>}
           {!changes.length && <Notice>ИИ не предложил изменений в текстах.</Notice>}
-          {changes.map((change) => (
-            <div className="ai-page-change" key={change.label}>
-              <strong>{change.label}</strong>
-              <div className="diff-grid">
-                <div>
-                  <span>БЫЛО</span>
-                  <pre>{change.before || '—'}</pre>
+          {changes.map((change) => {
+            const decision = decisions[change.label];
+            return (
+              <div className={`gh-file ${decision || ''}`} key={change.label}>
+                <div className="gh-file-header">
+                  <strong>{change.label}</strong>
+                  {decision ? (
+                    <>
+                      <span className={`gh-verdict ${decision}`}>
+                        {decision === 'accept' ? 'Новая версия' : 'Оставлено как было'}
+                      </span>
+                      <button
+                        type="button"
+                        className="gh-undo"
+                        aria-label={`Отменить решение: ${change.label}`}
+                        onClick={() => setDecisions(({ [change.label]: _, ...rest }) => rest)}
+                      >
+                        <Undo2 size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="gh-accept"
+                        onClick={() => decide(change.label, 'accept')}
+                      >
+                        <Check size={14} /> Утвердить
+                      </button>
+                      <button
+                        type="button"
+                        className="gh-reject"
+                        onClick={() => decide(change.label, 'reject')}
+                      >
+                        <X size={14} /> Оставить
+                      </button>
+                    </>
+                  )}
                 </div>
-                <div>
-                  <span>СТАНЕТ</span>
-                  <pre>{change.after || '—'}</pre>
-                </div>
+                <DiffLines before={change.before} after={change.after} />
               </div>
-            </div>
-          ))}
+            );
+          })}
           <div className="actions">
             <button
               className="primary"
               type="button"
-              disabled={readonly || command.isPending}
-              onClick={() => void apply()}
+              disabled={readonly || command.isPending || undecided > 0 || !accepted.length}
+              onClick={() => void apply(accepted)}
             >
-              {command.isPending ? 'Сохраняем…' : 'Применить и сохранить'}
+              {command.isPending
+                ? 'Сохраняем…'
+                : `Сохранить утверждённое (${accepted.length} из ${changes.length})`}
             </button>
             <button type="button" onClick={() => setProposal(null)}>
-              Уточнить запрос
+              {api.mode === 'demo' && !request ? 'Написать свой запрос' : 'Уточнить запрос'}
             </button>
           </div>
+          {undecided > 0 && <small className="muted">Осталось решить по полям: {undecided}.</small>}
         </div>
       )}
       <ErrorMessage error={propose.error || command.error} />

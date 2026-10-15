@@ -356,6 +356,26 @@ async function resolveCalendar(
   course.job.status = 'awaiting_approval';
   course.job.next_action = 'Решение сохранено. Отдельно утвердите каркас после повторного расчёта.';
 }
+const demoOutcomeExample = (draft: Skeleton) => {
+  const outcome = draft.outcomes[0];
+  if (outcome)
+    outcome.description = `${outcome.description.replace(/[.\s]+$/, '')} и объясняет своё решение на примере собственного кода`;
+};
+const demoScopeExample: Record<EditScope, (draft: Skeleton) => void> = {
+  intent: (draft) => {
+    draft.goal = `${draft.goal.replace(/[.\s]+$/, '')} через серию коротких практических мини-проектов`;
+    demoOutcomeExample(draft);
+  },
+  outcomes: demoOutcomeExample,
+  curriculum: (draft) => {
+    const topic = draft.topics[0];
+    if (topic)
+      topic.content = `${topic.content.replace(/[.\s]+$/, '')}. В конце темы — разбор типичных ошибок на примерах учеников.`;
+  },
+  calendar: (draft) => {
+    draft.requirements.calendar.description = `${draft.requirements.calendar.description.replace(/[.\s]+$/, '')}. Последняя неделя оставлена под защиту проектов.`;
+  },
+};
 export class DemoCourseApi implements CourseApi {
   readonly mode = 'demo';
   private queue: Promise<unknown> = Promise.resolve();
@@ -903,17 +923,20 @@ export class DemoCourseApi implements CourseApi {
       `«${file.name}»: реальное извлечение PDF/DOCX недоступно без backend. Для скана нужен текстовый референс; OCR не поддерживается. Вставьте текст.`,
     );
   }
-  // В демо нет языковой модели: выполняем только однозначную замену фрагмента
-  // в текстах открытой вкладки, а на остальные запросы честно отвечаем, что нужен backend.
+  // В демо нет языковой модели. Однозначную замену «замени "А" на "Б"» выполняем
+  // буквально, а на любой другой запрос показываем заготовленный пример правки
+  // открытой вкладки, чтобы было видно, как выглядит сравнение и решение по полям.
   async proposeScopeEdit({ skeleton, scope, request }: ScopeEditRequest) {
-    const replace = request.match(/замени\S*\s+[«"](.+?)[»"]\s+на\s+[«"](.*?)[»"]/i);
-    if (!replace)
-      throw new ApiError(
-        503,
-        'Свободные запросы к ИИ выполняет backend. В демо доступна команда «замени "А" на "Б"».',
-      );
-    const [, from, to] = replace;
     const draft = structuredClone(skeleton);
+    const replace = request.match(/замени\S*\s+[«"](.+?)[»"]\s+на\s+[«"](.*?)[»"]/i);
+    if (!replace) {
+      demoScopeExample[scope](draft);
+      return {
+        skeleton: draft,
+        note: 'Демо-пример: запрос не анализировался, правки заготовлены. Настоящий ИИ работает через backend.',
+      };
+    }
+    const [, from, to] = replace;
     const swap = (text: string) => text.split(from).join(to);
     const edits: Record<EditScope, () => void> = {
       intent: () => {
