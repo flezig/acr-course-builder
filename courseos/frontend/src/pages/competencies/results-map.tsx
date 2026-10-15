@@ -92,7 +92,6 @@ export function ResultsMap({
   const viewport = useRef<HTMLDivElement>(null);
   const details = useRef<HTMLElement>(null);
   const opener = useRef<HTMLElement | null>(null);
-  const zoomInitialized = useRef(false);
   const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const directById = useMemo(() => {
     const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -177,14 +176,21 @@ export function ResultsMap({
   useEffect(() => {
     const el = viewport.current;
     if (!el) return;
-    const observer = new ResizeObserver(() => {
-      if (zoomInitialized.current) return;
-      zoomInitialized.current = true;
-      setZoom(Math.min(1, el.clientWidth / 1184));
-    });
+    const resize = () => {
+      const availableHeight = Math.max(180, window.innerHeight - el.getBoundingClientRect().top - 24);
+      el.style.setProperty('--map-viewport-height', `${availableHeight}px`);
+      setZoom(Math.min(1, el.clientWidth / 1184, availableHeight / height));
+      el.scrollTo(0, 0);
+    };
+    const observer = new ResizeObserver(resize);
     observer.observe(el);
-    return () => observer.disconnect();
-  }, [mode, noResults]);
+    window.addEventListener('resize', resize);
+    resize();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', resize);
+    };
+  }, [mode, noResults, height]);
   useEffect(() => {
     const header = document.querySelector<HTMLElement>('.topbar');
     const toolbar = document.querySelector<HTMLElement>('.map-control-bar');

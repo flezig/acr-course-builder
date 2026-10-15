@@ -635,8 +635,8 @@
   text-overflow: ellipsis;
 }
 .results-workspace .map-viewport {
-  height: min(640px, 68vh);
-  min-height: 340px;
+  height: var(--map-viewport-height, min(640px, 68dvh));
+  min-height: 180px;
   background: var(--theme-paper, #fafbfc);
   overflow: auto;
   overscroll-behavior: contain;
