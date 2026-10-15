@@ -149,7 +149,9 @@ export function CurriculumTable({ skeleton, focused }: { skeleton: Skeleton; foc
                 {visible.map((kind) => (
                   <td key={kind}>—</td>
                 ))}
-                <td className="control-cell">{final.control}</td>
+                <td className="control-cell">
+                  <TopicAssessment skeleton={skeleton} topic={final} />
+                </td>
               </tr>
             )}
           </tbody>
@@ -209,7 +211,9 @@ function ModuleRows({
           <TopicTitle skeleton={skeleton} topic={topics[0]} label={`Модуль ${moduleNumber}`} />
         </th>
         {row(topics)}
-        <td className="control-cell">{topics[0].control}</td>
+        <td className="control-cell">
+          <TopicAssessment skeleton={skeleton} topic={topics[0]} />
+        </td>
       </tr>
     );
   return (
@@ -233,10 +237,40 @@ function ModuleRows({
             />
           </th>
           {row([topic])}
-          <td className="control-cell">{topic.control}</td>
+          <td className="control-cell">
+            <TopicAssessment skeleton={skeleton} topic={topic} />
+          </td>
         </tr>
       ))}
     </>
+  );
+}
+
+function TopicAssessment({ skeleton, topic }: { skeleton: Skeleton; topic: Topic }) {
+  const assessments = skeleton.assessments.filter((assessment) => assessment.topic_id === topic.id);
+  return (
+    <div className="topic-assessment">
+      <span>{topic.control || 'Форма проверки не указана'}</span>
+      {assessments.length > 0 ? (
+        <details>
+          <summary>Что проверяем и как оцениваем ({assessments.length})</summary>
+          <ul>
+            {assessments.map((assessment) => (
+              <li key={assessment.id}>
+                <p>
+                  <b>Что нужно сделать:</b> {assessment.action || 'Не указано'}
+                </p>
+                <p>
+                  <b>Критерий оценки:</b> {assessment.criterion || 'Не указан'}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : (
+        <small>Проверяемое действие и критерии для этой темы ещё не заданы.</small>
+      )}
+    </div>
   );
 }
 

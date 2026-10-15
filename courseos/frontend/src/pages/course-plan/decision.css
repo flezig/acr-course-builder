@@ -164,6 +164,27 @@
   font-size: 12px;
   color: var(--muted);
 }
+.topic-assessment {
+  min-width: 200px;
+  max-width: 360px;
+  white-space: normal;
+}
+.topic-assessment > small {
+  display: block;
+  margin-top: 6px;
+}
+.topic-assessment summary {
+  margin-top: 6px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.topic-assessment ul {
+  padding-left: 18px;
+  margin: 8px 0 0;
+}
+.topic-assessment p {
+  margin: 6px 0;
+}
 .acr-plan .module-row th,
 .acr-plan .module-row td {
   font-weight: 600;
