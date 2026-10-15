@@ -63,10 +63,10 @@ export function MapPage() {
               </summary>
               <p>Поддерживаемое утверждение: {source.claim}</p>
               <p>
-                {source.coordinate} · {new Date(source.checked_at).toLocaleDateString('ru-RU')} ·
-                область: {source.scope}
+                {source.coordinate} · получено{' '}
+                {new Date(source.checked_at).toLocaleDateString('ru-RU')}
               </p>
-              <pre>{source.text || 'Содержимое ссылки не получено. Требуется backend.'}</pre>
+              {source.scope && <p>Границы применения: {source.scope}</p>}
               {source.url && (
                 <a href={source.url} target="_blank" rel="noreferrer">
                   Открыть исходный источник ↗

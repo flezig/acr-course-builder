@@ -15,7 +15,7 @@ export function professionalStandardReferences(scenario: string): Requirements['
       coordinate: `Приказ №${standard.order_number} от ${standard.order_date}; редакция ${standard.edition_date}; разделы I–IV`,
       claim: standard.scope,
       checked_at: standard.retrieved_at,
-      scope: `${standard.scope} Полный текст: ${standard.text_source_url}. Дата относится к получению текста; актуальность редакции и соответствие курса проверяет методист перед утверждением.`,
+      scope: 'Дата относится к получению текста; актуальность редакции и соответствие курса проверяет методист перед утверждением.',
       hash: standard.text_sha256,
       provenance: {
         origin: 'research',
