@@ -122,3 +122,17 @@
   flex: 0 0 auto;
   margin-top: 4px;
 }
+
+.assessment-editor .form-grid {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.outcome-picker-field {
+  min-width: 0;
+}
+
+.outcome-picker-options {
+  max-height: 300px;
+  overflow-y: auto;
+}

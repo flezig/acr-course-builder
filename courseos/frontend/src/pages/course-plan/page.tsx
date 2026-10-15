@@ -179,7 +179,7 @@ export function PlanPage() {
   const editButton = (block: IntentBlock, label: string) => (
     <button
       className="block-edit"
-      disabled={!canEdit || (block === 'outcomes' && !skeleton.outcomes.length)}
+      disabled={!canEdit}
       onClick={() => {
         setSaved('');
         setBlockEditing(block);
@@ -399,16 +399,23 @@ export function PlanPage() {
                   </>
                 )}
               </section>
-              <details className="intent-tasks">
-                <summary>
-                  Задачи программы <span>{skeleton.tasks.length}</span>
-                </summary>
-                <ul className="task-list">
-                  {skeleton.tasks.map((task) => (
-                    <li key={task}>{task}</li>
-                  ))}
-                </ul>
-              </details>
+              <section className="intent-tasks">
+                <div className="block-heading">
+                  <h3>
+                    Задачи программы <span className="result-count">{skeleton.tasks.length}</span>
+                  </h3>
+                  {editButton('tasks', 'задачи программы')}
+                </div>
+                {blockEditing === 'tasks' ? (
+                  blockEditor('tasks')
+                ) : (
+                  <ul className="task-list">
+                    {skeleton.tasks.map((task) => (
+                      <li key={task}>{task}</li>
+                    ))}
+                  </ul>
+                )}
+              </section>
               {skeleton.requirements.template_id === 'acr_professional' && (
                 <section className="intent-block" id="standard" tabIndex={-1}>
                   <h3>Профессиональный стандарт</h3>

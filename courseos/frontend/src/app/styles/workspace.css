@@ -1105,13 +1105,6 @@ footer {
   color: var(--muted);
   font-size: 13px;
 }
-.intent-tasks summary {
-  font-weight: 500;
-}
-.intent-tasks summary span {
-  float: right;
-  color: var(--theme-dim, #9296a3);
-}
 .plan-workspace .explanations .panel {
   padding: 20px;
   background: var(--theme-paper, #fff);

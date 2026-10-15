@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import type { Snapshot } from '../../entities/course/model/schema';
+import { useFieldArray, useForm } from 'react-hook-form';
+import type { Skeleton, Snapshot } from '../../entities/course/model/schema';
 import { useCommand } from '../../entities/course/api/provider';
 import { Form, ErrorMessage, Field } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 
-export type IntentBlock = 'goal' | 'audience' | 'outcomes';
+export type IntentBlock = 'goal' | 'audience' | 'outcomes' | 'tasks';
 type Values = {
   goal: string;
   audience: string;
   entry_level: string;
-  outcomes: { description: string }[];
+  outcomes: Skeleton['outcomes'];
+  tasks: { description: string }[];
 };
 export function IntentBlockEditor({
   snapshot: currentSnapshot,
@@ -25,7 +26,7 @@ export function IntentBlockEditor({
   saved: () => void;
   focusOutcome?: string;
 }) {
-  // Keep the version on which editing began so concurrent changes cannot be overwritten.
+  // Сохраняем исходную версию, чтобы не перезаписать параллельные изменения.
   const [snapshot] = useState(currentSnapshot);
   const key = `courseos-intent-draft-${snapshot.mode}-${snapshot.course_id}-${snapshot.course_version}-${block}`;
   const [draftError, setDraftError] = useState('');
@@ -35,7 +36,17 @@ export function IntentBlockEditor({
     defaultValues: (() => {
       try {
         const draft = localStorage.getItem(key);
-        if (draft) return JSON.parse(draft);
+        if (draft) {
+          const values = JSON.parse(draft);
+          return {
+            ...values,
+            outcomes: values.outcomes.map(
+              (outcome: { id?: string; description: string }, index: number) =>
+                outcome.id ? outcome : { ...snapshot.skeleton.outcomes[index], ...outcome },
+            ),
+            tasks: values.tasks || snapshot.skeleton.tasks.map((description) => ({ description })),
+          };
+        }
       } catch {
         /* Use the saved programme. */
       }
@@ -43,12 +54,13 @@ export function IntentBlockEditor({
         goal: snapshot.skeleton.goal,
         audience: snapshot.skeleton.requirements.audience,
         entry_level: snapshot.skeleton.requirements.entry_level,
-        outcomes: snapshot.skeleton.outcomes.map((outcome) => ({
-          description: outcome.description,
-        })),
+        outcomes: snapshot.skeleton.outcomes,
+        tasks: snapshot.skeleton.tasks.map((description) => ({ description })),
       };
     })(),
   });
+  const outcomes = useFieldArray({ control: form.control, name: 'outcomes', keyName: 'form_key' });
+  const tasks = useFieldArray({ control: form.control, name: 'tasks' });
   useUnsavedChanges(form.formState.isDirty && !command.isSuccess);
   useEffect(() => {
     const subscription = form.watch((values) => {
@@ -69,7 +81,9 @@ export function IntentBlockEditor({
         ? 'goal'
         : block === 'audience'
           ? 'audience'
-          : `outcomes.${Math.max(0, index)}.description`,
+          : block === 'tasks'
+            ? 'tasks.0.description'
+            : `outcomes.${Math.max(0, index)}.description`,
     );
   }, [block, form, snapshot, focusOutcome]);
   return (
@@ -79,6 +93,7 @@ export function IntentBlockEditor({
       className="intent-editor"
       onSubmit={form.handleSubmit(async (values) => {
         const skeleton = snapshot.skeleton;
+        const outcomeIds = new Set(values.outcomes.map((outcome) => outcome.id));
         const payload = {
           ...skeleton,
           goal: block === 'goal' ? values.goal.trim() : skeleton.goal,
@@ -92,11 +107,31 @@ export function IntentBlockEditor({
               : skeleton.requirements,
           outcomes:
             block === 'outcomes'
-              ? skeleton.outcomes.map((outcome, index) => ({
+              ? values.outcomes.map((outcome) => ({
                   ...outcome,
-                  description: values.outcomes[index].description.trim(),
+                  description: outcome.description.trim(),
                 }))
               : skeleton.outcomes,
+          tasks:
+            block === 'tasks'
+              ? values.tasks.map((task) => task.description.trim())
+              : skeleton.tasks,
+          ...(block === 'outcomes'
+            ? {
+                topics: skeleton.topics.map((topic) => ({
+                  ...topic,
+                  outcome_ids: topic.outcome_ids.filter((id) => outcomeIds.has(id)),
+                })),
+                activities: skeleton.activities.map((activity) => ({
+                  ...activity,
+                  outcome_ids: activity.outcome_ids.filter((id) => outcomeIds.has(id)),
+                })),
+                assessments: skeleton.assessments.map((assessment) => ({
+                  ...assessment,
+                  outcome_ids: assessment.outcome_ids.filter((id) => outcomeIds.has(id)),
+                })),
+              }
+            : {}),
         };
         try {
           await command.mutateAsync({
@@ -146,19 +181,66 @@ export function IntentBlockEditor({
           </Field>
         </div>
       )}
-      {block === 'outcomes' &&
-        snapshot.skeleton.outcomes.map((outcome, index) => (
-          <Field key={outcome.id} label={`Результат ${index + 1}`}>
-            <textarea
-              className={outcome.id === focusOutcome ? 'field-highlight' : ''}
-              {...form.register(`outcomes.${index}.description`, {
-                validate: (value) => !!value.trim() || 'Заполните это поле.',
-              })}
-              required
-              rows={2}
-            />
-          </Field>
-        ))}
+      {block === 'outcomes' && (
+        <>
+          {outcomes.fields.map((outcome, index) => (
+            <div key={outcome.form_key}>
+              <Field key={outcome.id} label={`Результат ${index + 1}`}>
+                <textarea
+                  className={outcome.id === focusOutcome ? 'field-highlight' : ''}
+                  {...form.register(`outcomes.${index}.description`, {
+                    validate: (value) => !!value.trim() || 'Заполните это поле.',
+                  })}
+                  required
+                  rows={2}
+                />
+              </Field>
+              <button type="button" className="link-button" onClick={() => outcomes.remove(index)}>
+                Удалить результат {index + 1}
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() =>
+              outcomes.append({
+                id: `outcome-${crypto.randomUUID()}`,
+                description: '',
+                kind: 'skill',
+                requirement_id: 'request',
+                prerequisite: snapshot.skeleton.requirements.entry_level,
+                depth: '',
+                professional_standard_code: null,
+              })
+            }
+          >
+            Добавить результат обучения
+          </button>
+        </>
+      )}
+      {block === 'tasks' && (
+        <>
+          {tasks.fields.map((task, index) => (
+            <div key={task.id}>
+              <Field label={`Задача ${index + 1}`}>
+                <textarea
+                  {...form.register(`tasks.${index}.description`, {
+                    validate: (value) => !!value.trim() || 'Заполните это поле.',
+                  })}
+                  required
+                  rows={2}
+                />
+              </Field>
+              <button type="button" className="link-button" onClick={() => tasks.remove(index)}>
+                Удалить задачу {index + 1}
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={() => tasks.append({ description: '' })}>
+            Добавить задачу
+          </button>
+        </>
+      )}
       <ErrorMessage error={command.error} />
       {draftError && <p role="alert">{draftError}</p>}
       <div className="actions">

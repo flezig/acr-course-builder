@@ -46,6 +46,8 @@ export function SkeletonEditor({
     name: 'outcomes',
     keyName: 'form_key',
   });
+  const topics = useFieldArray({ control: form.control, name: 'topics', keyName: 'form_key' });
+  const currentTopics = form.watch('topics');
   const currentOutcomes = form.watch('outcomes');
   const currentAssessments = form.watch('assessments');
   const removeOutcome = (index: number) => {
@@ -168,12 +170,7 @@ export function SkeletonEditor({
                 ))}
               </select>
             </Field>
-            <button
-              type="button"
-              className="link-button"
-              disabled={outcomes.fields.length <= 1}
-              onClick={() => removeOutcome(index)}
-            >
+            <button type="button" className="link-button" onClick={() => removeOutcome(index)}>
               Удалить результат {index + 1}
             </button>
           </div>
@@ -210,8 +207,8 @@ export function SkeletonEditor({
               </tr>
             </thead>
             <tbody>
-              {snapshot.skeleton.topics.map((topic, index) => (
-                <tr key={topic.id}>
+              {topics.fields.map((topic, index) => (
+                <tr key={topic.form_key}>
                   <th>
                     <Field>
                       <input
@@ -240,6 +237,47 @@ export function SkeletonEditor({
                         />
                       )}
                     />
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => {
+                        const removedId = topic.id;
+                        topics.remove(index);
+                        form.setValue(
+                          'topics',
+                          form.getValues('topics').map((remaining) => ({
+                            ...remaining,
+                            prerequisite_ids: remaining.prerequisite_ids.filter(
+                              (id) => id !== removedId,
+                            ),
+                          })),
+                          { shouldDirty: true },
+                        );
+                        form.setValue(
+                          'time_budgets',
+                          form
+                            .getValues('time_budgets')
+                            ?.filter((budget) => budget.topic_id !== removedId),
+                          { shouldDirty: true },
+                        );
+                        form.setValue(
+                          'activities',
+                          form
+                            .getValues('activities')
+                            .filter((activity) => activity.topic_id !== removedId),
+                          { shouldDirty: true },
+                        );
+                        form.setValue(
+                          'assessments',
+                          form
+                            .getValues('assessments')
+                            .filter((assessment) => assessment.topic_id !== removedId),
+                          { shouldDirty: true },
+                        );
+                      }}
+                    >
+                      Удалить тему {index + 1}
+                    </button>
                   </th>
                   {hourKinds.map((kind) => (
                     <td key={kind} data-label={hourLabels[kind]}>
@@ -270,11 +308,34 @@ export function SkeletonEditor({
             </tbody>
           </table>
         </div>
+        <button
+          type="button"
+          onClick={() =>
+            topics.append({
+              id: `topic-${crypto.randomUUID()}`,
+              module_id: currentTopics[0]?.module_id || 'module-1',
+              title: '',
+              content: '',
+              hours: { lecture: '0', practice: '0', lab: '0', self_study: '0', assessment: '0' },
+              planned_total: '0',
+              prerequisite_ids: [],
+              outcome_ids: [],
+              delivery: '',
+              control: '',
+            })
+          }
+        >
+          Добавить тему
+        </button>
+        <p className="muted">
+          При удалении темы удаляются её активности и оценочные средства. После изменения тем
+          проверьте распределение часов.
+        </p>
         <details className="assessment-plan-editor">
           <summary>Оценочные материалы</summary>
           <p className="muted">
-            Проверьте, каким заданием и по какому критерию оценивается каждый результат обучения.
-            На этапе каркаса агент предлагает краткие описания заданий и критерии оценки. Полные
+            Проверьте, каким заданием и по какому критерию оценивается каждый результат обучения. На
+            этапе каркаса агент предлагает краткие описания заданий и критерии оценки. Полные
             условия и материалы появятся после утверждения каркаса.
           </p>
           {assessments.fields.map((assessment, index) => (
@@ -336,8 +397,8 @@ export function SkeletonEditor({
             onClick={() =>
               assessments.append({
                 id: `assessment-${crypto.randomUUID()}`,
-                topic_id: 'topic-final',
-                outcome_ids: [currentOutcomes[0].id],
+                topic_id: currentTopics.at(-1)?.id || '',
+                outcome_ids: currentOutcomes[0] ? [currentOutcomes[0].id] : [],
                 type: 'project',
                 action: '',
                 criterion: '',
@@ -361,7 +422,7 @@ export function SkeletonEditor({
               </Field>
               <Field label="Тема активности">
                 <select {...form.register(`activities.${index}.topic_id`)}>
-                  {snapshot.skeleton.topics.map((topic) => (
+                  {currentTopics.map((topic) => (
                     <option key={topic.id} value={topic.id}>
                       {topic.title}
                     </option>
@@ -394,8 +455,8 @@ export function SkeletonEditor({
             onClick={() =>
               activities.append({
                 id: `activity-${crypto.randomUUID()}`,
-                topic_id: snapshot.skeleton.topics[0].id,
-                outcome_ids: [currentOutcomes[0].id],
+                topic_id: currentTopics[0]?.id || '',
+                outcome_ids: currentOutcomes[0] ? [currentOutcomes[0].id] : [],
                 description: '',
               })
             }
