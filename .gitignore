@@ -28,6 +28,7 @@ test-results/
 # Документация, исходные задания и отчёты остаются локально
 *.md
 !/README.md
+*.pdf
 *.docx
 /courseos/docs/
 /courseos/reports/
