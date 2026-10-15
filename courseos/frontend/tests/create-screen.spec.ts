@@ -16,9 +16,9 @@ for (const [width, height] of [
     await page.goto('/');
     const submit = page.getByRole('button', { name: 'Отправить запрос', exact: true });
     await expect(page.getByLabel('Запрос методиста')).toBeInViewport({ ratio: 1 });
-    await expect(submit).toBeInViewport({ ratio: 1 });
-    const bounds = await submit.boundingBox();
-    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(height);
+    // Отправка стоит после референсов, чтобы источники добавляли до запуска.
+    const references = await page.locator('.create-references').boundingBox();
+    expect((await submit.boundingBox())!.y).toBeGreaterThan(references!.y);
     if (width > 1000) {
       await expect(page.locator('.example').last()).toBeInViewport({ ratio: 1 });
       const heading = await page.locator('.create-heading').boundingBox();
@@ -80,33 +80,7 @@ for (const [width, height] of [
       await example.click();
       await expect(example).toHaveAttribute('aria-pressed', 'true');
       await expect(page.locator('.example[aria-pressed="true"]')).toHaveCount(1);
-      // Check the complete original payload, including dates, flags and empty values.
-      const fields = await page
-        .locator('.create-layout')
-        .evaluate((form) =>
-          Object.fromEntries(
-            Array.from(
-              form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
-                'input[name], select[name], textarea[name]',
-              ),
-            ).map((field) => [
-              field.name,
-              field instanceof HTMLInputElement && field.type === 'checkbox'
-                ? field.checked
-                : field.value,
-            ]),
-          ),
-        );
-      for (const [key, value] of Object.entries(preset.requirements)) {
-        if (key === 'references') continue;
-        if (key === 'calendar') {
-          for (const [name, expected] of Object.entries(preset.requirements.calendar)) {
-            expect(fields[`calendar.${name}`]).toBe(
-              typeof expected === 'boolean' ? expected : String(expected),
-            );
-          }
-        } else expect(fields[key]).toBe(value);
-      }
+      await expect(page.getByLabel('Запрос методиста')).toHaveValue(preset.requirements.request);
       await expect(page).toHaveURL(/\/$/); // Selecting an example must not submit it.
     }
     const first = page.locator('.example').first();
@@ -114,9 +88,9 @@ for (const [width, height] of [
     await page.keyboard.press('Enter');
     await expect(first).toHaveAttribute('aria-pressed', 'true');
     expect(await first.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid');
-    await page.getByLabel('Название / ИТ-тема').fill('Моя программа с изменённой темой');
+    await page.getByLabel('Запрос методиста').fill('Моя программа с изменённой темой');
     await page.reload();
-    await expect(page.getByLabel('Название / ИТ-тема')).toHaveValue(
+    await expect(page.getByLabel('Запрос методиста')).toHaveValue(
       'Моя программа с изменённой темой',
     );
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -140,13 +114,7 @@ test('Submit preserves the incomplete request and opens existing clarification s
 test('Empty form keeps validation and does not submit', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.getByLabel('Название / ИТ-тема', { exact: true })).toBeFocused();
-  await expect(page.getByLabel('Название / ИТ-тема', { exact: true })).toHaveAccessibleDescription(
-    'Заполните это поле.',
-  );
-  await expect(page.getByLabel('Аудитория', { exact: true })).toHaveAttribute(
-    'aria-invalid',
-    'true',
-  );
+  await expect(page.getByLabel('Запрос методиста')).toBeFocused();
+  await expect(page.getByLabel('Запрос методиста')).toHaveAttribute('aria-invalid', 'true');
   await expect(page).toHaveURL(/\/$/);
 });

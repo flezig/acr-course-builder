@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useApi, useCommand, useCourses } from '../../entities/course/api/provider';
 import { inputSchema, type Requirements } from '../../entities/course/model/schema';
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
@@ -40,7 +40,12 @@ export function CreateCoursePage() {
   }, [form, api.mode]);
   const submit = form.handleSubmit(async (values) => {
     try {
-      const result = await command.mutateAsync({ action: 'start', payload: values });
+      // Отдельного поля названия нет: до уточнений курс подписан началом запроса.
+      const title = values.title.trim() || values.request.trim().split('\n')[0].slice(0, 80);
+      const result = await command.mutateAsync({
+        action: 'start',
+        payload: { ...values, title },
+      });
       localStorage.removeItem(`courseos-create-draft-${api.mode}`);
       form.reset(emptyRequirements);
       allowNavigation();
@@ -58,19 +63,6 @@ export function CreateCoursePage() {
         : 'smooth',
       block: 'start',
     });
-  };
-  const fillFromText = () => {
-    const request = form.getValues('request');
-    const hours = request.match(/(\d+(?:[.,]\d+)?)\s*(?:час|ч\b)/i);
-    if (hours)
-      form.setValue('total_hours', hours[1].replace(',', '.'), {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-    if (/общеразвивающ/i.test(request))
-      form.setValue('template_id', 'acr_general', { shouldDirty: true, shouldValidate: true });
-    else if (/повышени.*квалификац/i.test(request))
-      form.setValue('template_id', 'acr_professional', { shouldDirty: true, shouldValidate: true });
   };
   return (
     <div className="create-workspace">
@@ -91,7 +83,7 @@ export function CreateCoursePage() {
         <Panel
           className="create-request"
           title="Опишите будущую программу"
-          subtitle="Начните с темы и аудитории. Остальное уточним."
+          subtitle="Опишите тему, аудиторию и ограничения своими словами. Остальное уточним."
         >
           <Field label="Запрос методиста">
             <textarea
@@ -100,27 +92,6 @@ export function CreateCoursePage() {
               placeholder="Для кого курс, чему нужно научить, сколько часов и какие ограничения важно учесть?"
             />
           </Field>
-          <div className="form-grid">
-            <Field label="Название / ИТ-тема">
-              <input
-                {...form.register('title')}
-                required
-                minLength={2}
-                placeholder="Например, основы веб-разработки"
-              />
-            </Field>
-            <Field label="Аудитория">
-              <input {...form.register('audience')} placeholder="Кто будет учиться?" required />
-            </Field>
-          </div>
-          <ErrorMessage error={command.error} />
-          <div className="create-submit">
-            <button className="primary" disabled={command.isPending} type="submit">
-              {command.isPending ? 'Запрос сохраняется…' : 'Отправить запрос'}
-              <ArrowRight size={18} />
-            </button>
-            <small>Вы сможете проверить и изменить программу перед утверждением</small>
-          </div>
         </Panel>
         <section className="examples" aria-labelledby="examples-title">
           <h2 id="examples-title">Попробуйте на примере</h2>
@@ -153,92 +124,6 @@ export function CreateCoursePage() {
           </div>
         </section>
         <Panel
-          className="create-parameters"
-          title="Параметры программы"
-          subtitle="Заполните то, что уже известно. Пробелы уточним до каркаса."
-        >
-          <button type="button" className="link-button" onClick={fillFromText}>
-            <Sparkles size={15} /> Перенести явно указанные часы и тип из текста
-          </button>
-          <div className="form-grid">
-            <Field label="Тип программы">
-              <select {...form.register('template_id')}>
-                <option value="unknown">Уточнить перед каркасом</option>
-                <option value="acr_general">Общеразвивающая</option>
-                <option value="acr_professional">Повышение квалификации</option>
-              </select>
-            </Field>
-            <Field label="Входной уровень">
-              <input {...form.register('entry_level')} placeholder="Можно оставить для уточнения" />
-            </Field>
-            <Field label="Объём, часы" hint="От 16 до 500; поддерживаются дробные часы">
-              <input {...form.register('total_hours')} inputMode="decimal" placeholder="72" />
-            </Field>
-            <Field label="Форма обучения">
-              <input {...form.register('delivery')} placeholder="Очно, смешанно, стажировка…" />
-            </Field>
-          </div>
-          <Field label="Цель">
-            <textarea
-              {...form.register('goal')}
-              rows={2}
-              placeholder="Какое действие сможет выполнить слушатель?"
-            />
-          </Field>
-          <div className="form-grid">
-            <Field label="Итоговая аттестация">
-              <input {...form.register('assessment')} placeholder="Проект, экзамен, портфолио…" />
-            </Field>
-            <Field label="Срок / календарь">
-              <input
-                {...form.register('calendar.description')}
-                placeholder="Если нет точных дат — уточним"
-              />
-            </Field>
-          </div>
-          <Field label="Дополнительные ограничения">
-            <textarea
-              {...form.register('constraints')}
-              rows={2}
-              placeholder="Минимум практики, инструменты, данные, ограничения нагрузки"
-            />
-          </Field>
-          <details>
-            <summary>Даты и учебная нагрузка</summary>
-            <div className="form-grid">
-              <Field label="Начало">
-                <input type="date" {...form.register('calendar.start')} />
-              </Field>
-              <Field label="Календарных дней">
-                <input
-                  type="number"
-                  min="0"
-                  max="3650"
-                  step="1"
-                  {...form.register('calendar.calendar_days', {
-                    setValueAs: (value) => (value === '' ? 0 : Number(value)),
-                  })}
-                />
-              </Field>
-              <Field label="Максимум часов в учебный день">
-                <input {...form.register('calendar.daily_limit')} inputMode="decimal" />
-              </Field>
-            </div>
-            <label className="checkbox">
-              <input type="checkbox" {...form.register('calendar.weekdays_only')} /> Учиться только
-              по будням
-            </label>
-            <label className="checkbox">
-              <input type="checkbox" {...form.register('calendar.same_units')} /> Объём и дневная
-              нагрузка указаны в одинаковых единицах
-            </label>
-            <label className="checkbox">
-              <input type="checkbox" {...form.register('calendar.confirmed')} /> Даты и учебные дни
-              подтверждены методистом
-            </label>
-          </details>
-        </Panel>
-        <Panel
           className="create-references"
           title="Референсы и основания"
           subtitle="Сохраните требования, прошлую программу или полезный фрагмент."
@@ -247,6 +132,14 @@ export function CreateCoursePage() {
             references={form.watch('references')}
             onChange={(value) => form.setValue('references', value, { shouldDirty: true })}
           />
+          <ErrorMessage error={command.error} />
+          <div className="create-submit">
+            <button className="primary" disabled={command.isPending} type="submit">
+              {command.isPending ? 'Запрос сохраняется…' : 'Отправить запрос'}
+              <ArrowRight size={18} />
+            </button>
+            <small>Вы сможете проверить и изменить программу перед утверждением</small>
+          </div>
         </Panel>
         <aside className="create-guidance">
           <Panel title="Сначала каркас">

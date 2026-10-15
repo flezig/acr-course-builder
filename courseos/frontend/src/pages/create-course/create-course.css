@@ -25,7 +25,7 @@
 }
 .create-workspace .create-layout {
   grid-template-columns: minmax(0, 1fr) 320px;
-  grid-template-areas: 'request examples' 'parameters guidance' 'references guidance';
+  grid-template-areas: 'request examples' 'references guidance';
   gap: 20px 24px;
   align-items: start;
 }
@@ -37,9 +37,6 @@
 .create-workspace .create-request {
   grid-area: request;
   scroll-margin-top: 24px;
-}
-.create-workspace .create-parameters {
-  grid-area: parameters;
 }
 .create-workspace .create-references {
   grid-area: references;
@@ -56,9 +53,6 @@
 }
 .create-workspace :is(input, textarea)::placeholder {
   color: var(--muted);
-}
-.create-workspace .create-request .form-grid {
-  margin-top: 0;
 }
 .create-workspace .create-submit {
   display: flex;
@@ -209,7 +203,7 @@
   }
   .create-workspace .create-layout {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'request' 'examples' 'parameters' 'references' 'guidance';
+    grid-template-areas: 'request' 'examples' 'references' 'guidance';
   }
   .create-workspace .example-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

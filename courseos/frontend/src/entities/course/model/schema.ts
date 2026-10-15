@@ -86,8 +86,7 @@ export const requirementsSchema = z.object({
 });
 export type Requirements = z.infer<typeof requirementsSchema>;
 export const inputSchema = requirementsSchema.extend({
-  title: z.string().trim().min(2, 'Укажите тему курса — не менее 2 символов'),
-  audience: z.string().trim().min(1, 'Укажите, кто будет учиться'),
+  request: z.string().trim().min(10, 'Опишите программу — не менее 10 символов'),
   total_hours: optionalHoursSchema,
   calendar: requirementsSchema.shape.calendar.extend({
     daily_limit: optionalDecimalSchema,
