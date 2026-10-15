@@ -105,3 +105,22 @@ export function compareAudits(before: Snapshot['audit'], after: Snapshot['audit'
     resolved: before.issues.filter((issue) => !afterIds.has(issue.id)),
   };
 }
+
+export type DiffBlock = { kind: 'lines'; lines: DiffLine[] } | { kind: 'fold'; lines: DiffLine[] };
+
+// Длинные участки без изменений сворачиваются, вокруг правок остаётся несколько строк контекста.
+export function foldUnchanged(lines: DiffLine[], context = 2): DiffBlock[] {
+  const near = lines.map((_, index) =>
+    lines
+      .slice(Math.max(0, index - context), index + context + 1)
+      .some((line) => line.kind !== 'same'),
+  );
+  const blocks: DiffBlock[] = [];
+  lines.forEach((line, index) => {
+    const kind = near[index] ? 'lines' : 'fold';
+    const last = blocks.at(-1);
+    if (last?.kind === kind) last.lines.push(line);
+    else blocks.push({ kind, lines: [line] });
+  });
+  return blocks;
+}

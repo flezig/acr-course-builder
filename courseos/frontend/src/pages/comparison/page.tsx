@@ -4,8 +4,8 @@ import { useApi, useCourse } from '../../entities/course/api/provider';
 import type { Material } from '../../entities/course/model/schema';
 import { canonicalJson } from '../../shared/lib/decimal';
 import { plural } from '../../shared/lib/plural';
-import { Badge, Empty, ErrorMessage, Loading, Notice, Panel } from '../../shared/ui/ui';
-import { changedSkeletonFields, compareAudits, diffLines } from './version-diff';
+import { Badge, Empty, ErrorMessage, Loading, Notice } from '../../shared/ui/ui';
+import { changedSkeletonFields, compareAudits, diffLines, foldUnchanged } from './version-diff';
 function materialText(material?: Material) {
   if (!material) return 'Материал отсутствует';
   return [
@@ -46,6 +46,17 @@ export function ComparisonPage() {
         Сначала подготовьте материалы и примените согласованную правку.
       </Empty>
     );
+  if (base.course_version === after.course_version)
+    return (
+      <Empty title={`Выбрана та же версия ${after.course_version}`}>
+        Сравнивать версию с самой собой бессмысленно.{' '}
+        {after.course_version > 1 && (
+          <Link to={`/courses/${courseId}/compare?before=${after.course_version - 1}`}>
+            Сравнить с версией {after.course_version - 1}
+          </Link>
+        )}
+      </Empty>
+    );
   const change = after.changes.find(
     (c) => c.base_version === base.course_version && c.result_version === after.course_version,
   );
@@ -83,164 +94,289 @@ export function ComparisonPage() {
   const issuesLabel = (n: number) => `${n} ${plural(n, ['замечание', 'замечания', 'замечаний'])}`;
   const auditStatus = (snapshot: typeof after) =>
     `${snapshot.audit.technical_ready ? 'Технически полный черновик' : 'Нужна проверка'} · ${issuesLabel(snapshot.audit.issues.length)}`;
+  const preserved = (change?.preserved ?? []).map((item) => {
+    const old = base.materials.find((m) => m.id === item.id);
+    const actual = after.materials.find((m) => m.id === item.id);
+    return { item, actual, equal: !!old && !!actual && old.hash === actual.hash && item.equal };
+  });
+  // Расхождения показываем первыми: ради них раздел и существует.
+  preserved.sort((a, b) => Number(a.equal) - Number(b.equal));
+  // Расхождения видны всегда, совпавшие сверх первых пяти убраны под раскрытие.
+  const preservedVisible = preserved.filter((row, index) => !row.equal || index < 5);
+  const preservedHidden = preserved.filter((row) => !preservedVisible.includes(row));
+  const preservedRow = ({ item, actual, equal }: (typeof preserved)[number]) => (
+    <div className="compare-preserved" key={item.id}>
+      <span className={equal ? 'ok' : 'broken'} aria-hidden>
+        {equal ? '✓' : '!'}
+      </span>
+      <strong>{actual?.title || item.id}</strong>
+      <small title={actual?.hash ? `SHA-256: ${actual.hash}` : undefined}>
+        {item.id}
+        {actual?.manual ? ' · ручная правка сохранена' : ''}
+        {!equal && ' · содержание расходится'}
+      </small>
+      <span className="compare-links">
+        <Link to={materialsLink(base.course_version, item.id)}>До ↗</Link>
+        <Link to={materialsLink(after.course_version, item.id)}>После ↗</Link>
+      </span>
+    </div>
+  );
+  const preservedBroken = preserved.filter((row) => !row.equal).length;
+  const issuesDelta = after.audit.issues.length - base.audit.issues.length;
+  const materialsLink = (version: number, id: string) =>
+    `/courses/${courseId}/materials?version=${version}&material=${id}`;
   return (
-    <>
-      <header className="page-heading">
-        <h1>
-          Версия {base.course_version} → {after.course_version}
-        </h1>
-        <p>
-          {change
-            ? `Причина: ${change.request}`
-            : 'Причина появления новой версии не записана — сравнение по сохранённым версиям.'}
-        </p>
-      </header>
-      <div className="readiness">
-        <Badge tone={hasChanges ? 'amber' : 'neutral'}>
-          {hasChanges ? 'Есть изменения' : 'Без изменений содержания'}
-        </Badge>
-        {base.skeleton_version !== after.skeleton_version && (
-          <Badge>
-            Ревизия каркаса: {base.skeleton_version} → {after.skeleton_version}
-          </Badge>
-        )}
-        <Badge tone={after.approval_applicable ? 'green' : 'amber'}>{approvalLabel}</Badge>
-      </div>
-      {!hasChanges && !auditChanged && (
-        <Panel>
+    <div className="compare-page">
+      <header className="compare-hero">
+        <div>
+          <span className="compare-eyebrow">
+            Сравнение версий · {after.skeleton.requirements.title}
+          </span>
+          <h1>
+            Версия {base.course_version} → {after.course_version}
+          </h1>
           <p>
-            Версия {after.course_version} совпадает с версией {base.course_version}: каркас,
-            требования, материалы и результаты аудита ({issuesLabel(after.audit.issues.length)}) не
-            изменились.
+            {change
+              ? `Причина: ${change.request}`
+              : 'Причина появления новой версии не записана — сравнение по сохранённым версиям.'}
+            {!hasChanges &&
+              !auditChanged &&
+              ` Содержание версии ${after.course_version} совпадает с версией ${base.course_version}.`}
           </p>
-        </Panel>
-      )}
-      {skeletonChanged && (
-        <Panel title="Изменения каркаса и оснований">
+        </div>
+        <div className="compare-cta">
+          <Badge tone={after.approval_applicable ? 'green' : 'amber'}>{approvalLabel}</Badge>
+          <div className="actions">
+            <Link className="button" to={`/courses/${courseId}/audit`}>
+              Повторный аудит
+            </Link>
+            <Link className="button" to={`/courses/${courseId}/materials?tab=exports`}>
+              Выгрузки новой версии
+            </Link>
+            <Link
+              className="button primary"
+              to={`/courses/${courseId}/${after.approval_applicable ? 'materials' : 'plan'}`}
+            >
+              {after.approval_applicable
+                ? 'Открыть материалы'
+                : after.approvals.length
+                  ? 'Утвердить новую ревизию'
+                  : 'Утвердить программу'}
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <section className="compare-kpis" aria-label="Сводка изменений">
+        <div className={`compare-kpi ${changed.length ? 'accent' : ''}`}>
+          <b>{changed.length}</b>
+          <span>
+            {plural(changed.length, [
+              'материал изменён',
+              'материала изменено',
+              'материалов изменено',
+            ])}
+          </span>
+        </div>
+        <div className={`compare-kpi ${removed.length ? 'danger' : ''}`}>
+          <b>{removed.length}</b>
+          <span>
+            {plural(removed.length, ['материал удалён', 'материала удалено', 'материалов удалено'])}
+          </span>
+        </div>
+        <div className={`compare-kpi ${preservedBroken ? 'danger' : ''}`}>
+          <b>
+            {preserved.length ? `${preserved.length - preservedBroken}/${preserved.length}` : '—'}
+          </b>
+          <span>
+            {preserved.length
+              ? 'незатронутых элементов совпадают'
+              : 'перечень незатронутых элементов не задан'}
+          </span>
+        </div>
+        <div className="compare-kpi">
+          <b>
+            {after.audit.issues.length}
+            {issuesDelta !== 0 && (
+              <small className={issuesDelta < 0 ? 'better' : 'worse'}>
+                {issuesDelta < 0 ? '↓' : '↑'}
+                {Math.abs(issuesDelta)}
+              </small>
+            )}
+          </b>
+          <span>
+            {plural(after.audit.issues.length, ['замечание', 'замечания', 'замечаний'])} аудита
+            {issuesDelta !== 0 && ` (было ${base.audit.issues.length})`}
+          </span>
+        </div>
+      </section>
+
+      <section className="compare-sections">
+        <details open={changed.length + removed.length > 0}>
+          <summary>
+            Материалы
+            <span className={`compare-count ${changed.length + removed.length ? '' : 'ok'}`}>
+              {changed.length + removed.length
+                ? `${changed.length + removed.length} ${plural(changed.length + removed.length, ['изменение', 'изменения', 'изменений'])}`
+                : 'без изменений'}
+            </span>
+          </summary>
+          {changed.map((material) => {
+            const old = base.materials.find((m) => m.id === material.id);
+            const planned = change?.affected_ids.includes(material.id);
+            return (
+              <article className="compare-material" key={material.id}>
+                <h3>
+                  {old ? material.title : `Новый материал: ${material.title}`}
+                  <Badge tone={planned ? 'green' : 'amber'}>
+                    {planned ? 'В согласованном плане' : 'Вне плана — проверьте основание'}
+                  </Badge>
+                </h3>
+                <small>{material.id}</small>
+                <div className="line-diff">
+                  {foldUnchanged(diffLines(materialText(old), materialText(material))).map(
+                    (block, blockIndex) =>
+                      block.kind === 'fold' ? (
+                        <details className="line-fold" key={blockIndex}>
+                          <summary>
+                            ⋯ {block.lines.length}{' '}
+                            {plural(block.lines.length, ['строка', 'строки', 'строк'])} без
+                            изменений
+                          </summary>
+                          {block.lines.map((line, index) => (
+                            <div className="same" key={index}>
+                              {line.text || ' '}
+                            </div>
+                          ))}
+                        </details>
+                      ) : (
+                        block.lines.map((line, index) => (
+                          <div className={line.kind} key={`${blockIndex}-${index}`}>
+                            {line.kind === 'added' ? '+ ' : line.kind === 'removed' ? '− ' : '  '}
+                            {line.text}
+                          </div>
+                        ))
+                      ),
+                  )}
+                </div>
+              </article>
+            );
+          })}
+          {removed.map((material) => (
+            <article className="compare-material" key={material.id}>
+              <h3>
+                Удалён материал: {material.title}
+                <Badge tone="red">Удалён</Badge>
+              </h3>
+              <small>{material.id}</small>
+              <div className="line-diff">
+                {material.content.split('\n').map((line, index) => (
+                  <div className="removed" key={index}>
+                    − {line}
+                  </div>
+                ))}
+              </div>
+            </article>
+          ))}
+          {!changed.length && !removed.length && (
+            <p className="compare-empty">Содержимое материалов не изменилось.</p>
+          )}
+        </details>
+
+        <details open={auditChanged}>
+          <summary>
+            Аудит
+            <span className={`compare-count ${audit.added.length ? 'warn' : 'ok'}`}>
+              {auditChanged
+                ? [
+                    audit.resolved.length && `${audit.resolved.length} закрыто`,
+                    audit.added.length && `${audit.added.length} новых`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'изменился статус'
+                : 'без изменений'}
+            </span>
+          </summary>
+          <p className="compare-empty">
+            {auditStatus(base)} → {auditStatus(after)}
+          </p>
+          {auditChanged && (
+            <div className="compare-pills">
+              {audit.resolved.map((issue) => (
+                <span className="compare-pill resolved" key={issue.id}>
+                  ✓ Закрыто: {issue.message}
+                </span>
+              ))}
+              {audit.added.map((issue) => (
+                <span className="compare-pill added" key={issue.id}>
+                  Новое: {issue.message}
+                </span>
+              ))}
+              {!audit.added.length && <span className="compare-pill">Новых замечаний нет</span>}
+            </div>
+          )}
+        </details>
+
+        <details open={skeletonChanged}>
+          <summary>
+            Каркас и основания
+            <span className={`compare-count ${skeletonChanged ? 'warn' : 'ok'}`}>
+              {skeletonChanged
+                ? `${skeletonChanges.length} ${plural(skeletonChanges.length, ['раздел', 'раздела', 'разделов'])}`
+                : 'без изменений'}
+            </span>
+            {base.skeleton_version !== after.skeleton_version && (
+              <span className="compare-count">
+                ревизия {base.skeleton_version} → {after.skeleton_version}
+              </span>
+            )}
+          </summary>
           {skeletonChanges.map(({ key, label, lines }) => (
-            <div className="diff-element" key={key}>
+            <div className="compare-skeleton-field" key={key}>
               <h3>{label}</h3>
-              <ul className="diff-list">
+              <ul>
                 {lines.map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>
             </div>
           ))}
-          <Notice tone="warning">
-            Изменились требования или план оценивания. Новая ревизия требует отдельного утверждения;
-            обновление материалов выполняется после него.
-          </Notice>
-        </Panel>
-      )}
-      {(changed.length > 0 || removed.length > 0 || auditChanged) && (
-        <Panel title="Фактические изменения">
-          {auditChanged && (
-            <div className="diff-element">
-              <h3>Аудит</h3>
-              <p>
-                {auditStatus(base)} → {auditStatus(after)}
-              </p>
-              <ul className="diff-list">
-                {audit.resolved.map((issue) => (
-                  <li className="removed" key={issue.id}>
-                    Закрыто: {issue.message}
-                  </li>
-                ))}
-                {audit.added.map((issue) => (
-                  <li className="added" key={issue.id}>
-                    Новое: {issue.message}
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {skeletonChanged ? (
+            <Notice tone="warning">
+              Изменились требования или план оценивания. Новая ревизия требует отдельного
+              утверждения; обновление материалов выполняется после него.
+            </Notice>
+          ) : (
+            <p className="compare-empty">Каркас и требования не изменились.</p>
           )}
-          {changed.map((material) => {
-            const old = base.materials.find((m) => m.id === material.id);
-            return (
-              <div className="diff-element" key={material.id}>
-                <h3>{material.title}</h3>
-                <small>
-                  {material.id} ·{' '}
-                  {change?.affected_ids.includes(material.id)
-                    ? 'В согласованном плане влияния'
-                    : 'Проверьте основание изменения'}
-                </small>
-                <pre className="line-diff">
-                  {diffLines(materialText(old), materialText(material)).map((line, index) => (
-                    <span className={line.kind} key={index}>
-                      {line.kind === 'added' ? '+ ' : line.kind === 'removed' ? '− ' : '  '}
-                      {line.text}
-                      {'\n'}
-                    </span>
-                  ))}
-                </pre>
-              </div>
-            );
-          })}
-          {removed.map((material) => (
-            <div className="diff-element" key={material.id}>
-              <h3>Удалён материал: {material.title}</h3>
-              <pre>{material.content}</pre>
-            </div>
-          ))}
-        </Panel>
-      )}
-      {change && change.preserved.length > 0 && (
-        <Panel
-          title="Сохранность незатронутых элементов"
-          subtitle="Проверка всех объявленных незатронутыми ID и SHA-256 содержимого."
-        >
-          {change.preserved.map((item) => {
-            const old = base.materials.find((m) => m.id === item.id);
-            const actual = after.materials.find((m) => m.id === item.id);
-            const equal = !!old && !!actual && old.hash === actual.hash && item.equal;
-            return (
-              <div className="preserved-row" key={item.id}>
-                <div>
-                  <strong>{actual?.title || item.id}</strong>
-                  <small>
-                    {item.id}
-                    {actual?.manual ? ' · ручная правка сохранена' : ''}
-                  </small>
-                  <code>{actual?.hash}</code>
-                </div>
-                <Badge tone={equal ? 'green' : 'red'}>
-                  {equal ? 'Содержание совпадает' : 'Расхождение'}
-                </Badge>
-                <Link
-                  to={`/courses/${courseId}/materials?version=${base.course_version}&material=${item.id}`}
-                >
-                  До ↗
-                </Link>
-                <Link
-                  to={`/courses/${courseId}/materials?version=${after.course_version}&material=${item.id}`}
-                >
-                  После ↗
-                </Link>
-              </div>
-            );
-          })}
-        </Panel>
-      )}
-      <div className="actions">
-        <Link
-          className="button primary"
-          to={`/courses/${courseId}/${after.approval_applicable ? 'materials' : 'plan'}`}
-        >
-          {after.approval_applicable
-            ? 'Открыть материалы'
-            : after.approvals.length
-              ? 'Утвердить новую ревизию'
-              : 'Утвердить программу'}
-        </Link>
-        <Link className="button" to={`/courses/${courseId}/audit`}>
-          Повторный аудит
-        </Link>
-        <Link className="button" to={`/courses/${courseId}/materials?tab=exports`}>
-          Выгрузки новой версии
-        </Link>
-      </div>
-    </>
+        </details>
+
+        {preserved.length > 0 && (
+          <details open={preservedBroken > 0}>
+            <summary>
+              Незатронутые элементы
+              <span className={`compare-count ${preservedBroken ? 'danger' : 'ok'}`}>
+                {preservedBroken
+                  ? `${preservedBroken} с расхождением`
+                  : `${preserved.length} из ${preserved.length} совпадают`}
+              </span>
+            </summary>
+            {preservedVisible.map(preservedRow)}
+            {preservedHidden.length > 0 && (
+              <details className="compare-more">
+                <summary>
+                  Показать ещё {preservedHidden.length}{' '}
+                  {plural(preservedHidden.length, ['элемент', 'элемента', 'элементов'])}
+                </summary>
+                {preservedHidden.map(preservedRow)}
+              </details>
+            )}
+            <p className="compare-note">
+              Проверка по ID и SHA-256 содержимого; хеш виден при наведении на ID.
+            </p>
+          </details>
+        )}
+      </section>
+    </div>
   );
 }

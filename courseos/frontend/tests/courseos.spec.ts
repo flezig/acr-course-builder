@@ -112,9 +112,12 @@ test('Полный путь: уточнения, правка каркаса, а
   await expect(page.getByRole('button', { name: 'Применить согласованную правку' })).toBeDisabled();
   await page.getByRole('checkbox', { name: 'Принимаю именно этот план изменений' }).check();
   await page.getByRole('button', { name: 'Применить согласованную правку' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Сохранность незатронутых элементов' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Версия \d+ → \d+/ })).toBeVisible();
+  await expect(page.locator('.line-diff .added').first()).toBeVisible();
+  // Когда все незатронутые элементы совпали, раздел свёрнут — раскрываем, чтобы проверить строки.
+  const preserved = page.locator('summary', { hasText: 'Незатронутые элементы' });
+  await expect(preserved).toContainText('совпадают');
+  await preserved.click();
   await expect(page.getByText('ручная правка сохранена', { exact: false }).first()).toBeVisible();
   await expect(page.getByText('Утверждение применимо', { exact: true })).toBeVisible();
   await page.screenshot({ path: path.join(reports, 'comparison-1440.png') });

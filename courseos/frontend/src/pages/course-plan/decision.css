@@ -221,14 +221,6 @@
 .acr-plan .final-row th {
   font-weight: 600;
 }
-.hours-reason {
-  margin: 0 0 8px;
-}
-.hours-reason.unverified b::after {
-  content: ' (оценка, не проверено)';
-  font-weight: 400;
-  color: var(--muted);
-}
 /* Результаты обучения — карточки в духе GigaCowork. Селекторы длинные, потому что
    этот файл подключается раньше global.css, а там у списков .program-intent точки. */
 .plan-workspace .program-intent .outcome-group h4 span {

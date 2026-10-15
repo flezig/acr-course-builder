@@ -323,7 +323,6 @@ function TopicTitle({
   topic: Topic;
   label: string;
 }) {
-  const reason = skeleton.time_budgets?.find((budget) => budget.topic_id === topic.id)?.note;
   const prerequisites = topic.prerequisite_ids
     .map((id) => skeleton.topics.find((item) => item.id === id)?.title)
     .filter(Boolean);
@@ -337,13 +336,6 @@ function TopicTitle({
         </span>
       </summary>
       <div className="topic-content">
-        {reason && (
-          <p
-            className={reason.includes('не проверено') ? 'hours-reason unverified' : 'hours-reason'}
-          >
-            <b>Почему столько часов:</b> {reason}
-          </p>
-        )}
         {topic.content.split('\n').map((line) => (
           <p key={line}>{line}</p>
         ))}
