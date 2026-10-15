@@ -25,8 +25,8 @@ export function outcomeAssessments(skeleton: Skeleton, outcomeId: string) {
   return skeleton.assessments.filter((assessment) => assessment.outcome_ids.includes(outcomeId));
 }
 
-export function outcomeAssessmentTypeCount(skeleton: Skeleton, outcomeId: string) {
-  return new Set(outcomeAssessments(skeleton, outcomeId).map((assessment) => assessment.type)).size;
+export function outcomeAssessmentCount(skeleton: Skeleton, outcomeId: string) {
+  return outcomeAssessments(skeleton, outcomeId).length;
 }
 
 // Тема, в которой результат осваивается до итоговой аттестации: туда агент добавляет

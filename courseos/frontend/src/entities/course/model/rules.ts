@@ -13,7 +13,7 @@ import {
   agentFindings,
   calendarProposalText,
   coverageIssue,
-  outcomeAssessmentTypeCount,
+  outcomeAssessmentCount,
 } from './findings';
 export function calendarCalculation(requirements: Requirements) {
   const calendar = requirements.calendar;
@@ -118,7 +118,7 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
     (outcome) =>
       !skeleton.topics.some((topic) => topic.outcome_ids.includes(outcome.id)) ||
       !skeleton.activities.some((activity) => activity.outcome_ids.includes(outcome.id)) ||
-      outcomeAssessmentTypeCount(skeleton, outcome.id) < 2,
+      outcomeAssessmentCount(skeleton, outcome.id) < 2,
   );
   gaps.forEach((outcome) => issues.push(coverageIssue(skeleton, outcome)));
   skeleton.conflicts

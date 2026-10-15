@@ -54,7 +54,7 @@ test('Итоговая аттестация не заменяет тему об�
   expect(buildCoverage(s)[0].gaps).toContain('Нет связанных тем');
 });
 
-test.each([0, 1, 2, 3])('Покрытие требует два разных типа средств: %i типов', (count) => {
+test.each([0, 1, 2, 3])('Покрытие требует два средства: %i средств', (count) => {
   const s = skeleton();
   const id = s.outcomes[0].id;
   const types = ['test', 'practical', 'project'] as const;
@@ -66,13 +66,12 @@ test.each([0, 1, 2, 3])('Покрытие требует два разных т�
   }));
   const row = buildCoverage(s)[0];
   expect(row.missingAssessments).toBe(count < 2);
-  if (count === 1) expect(row.gaps).toContain('Нужно второе оценочное средство другого типа');
+  if (count === 1) expect(row.gaps).toContain('Нужно второе оценочное средство');
 });
 
-test('Несколько заданий одного типа не заменяют второе средство', () => {
+test('Два задания одного типа считаются двумя средствами', () => {
   const s = skeleton();
   const first = s.assessments[0];
   s.assessments = [first, { ...first, id: 'another-test' }];
-  expect(buildCoverage(s)[0].missingAssessments).toBe(true);
-  expect(buildCoverage(s)[0].gaps).toContain('Нужно второе оценочное средство другого типа');
+  expect(buildCoverage(s)[0].missingAssessments).toBe(false);
 });

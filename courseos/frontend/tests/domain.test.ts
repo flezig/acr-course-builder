@@ -209,7 +209,7 @@ describe('Согласование, задачи и версии demo', () => {
     expect(updated.skeleton.explanations[0].evidence[0].text).toContain('Взрослые');
   });
   it.each([0, 1, 2, 3])(
-    'аудит, чек-лист, таблица и карта согласованы: %i типов средств',
+    'аудит, чек-лист, таблица и карта согласованы: %i средств',
     async (count) => {
       const initial = await startPython();
       const skeleton = structuredClone(initial.skeleton);
@@ -225,7 +225,6 @@ describe('Согласование, задачи и версии demo', () => {
           outcome_ids: [outcomeId],
         })),
       ];
-      if (count === 1) skeleton.assessments.push({ ...first, id: 'same-type-copy' });
       const snapshot = await saveSkeleton(initial, skeleton);
       const insufficient = count < 2;
       expect(snapshot.audit.checks.find((c) => c.id === 'coverage')!.status).toBe(

@@ -1,6 +1,6 @@
 import { professionalStandardEvidence } from './professional-standards';
 import Decimal from 'decimal.js';
-import { outcomeAssessmentTypeCount } from './findings';
+import { outcomeAssessmentCount } from './findings';
 import type { Audit, Snapshot } from './schema';
 import { calendarCalculation, hourTotals } from './rules';
 import { contactAndRemoteHours, isOnHourStep, weeklyLoad } from './hours-plan';
@@ -44,7 +44,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
     (o) => !skeleton.topics.some((t) => t.id !== 'topic-final' && t.outcome_ids.includes(o.id)),
   );
   const underAssessed = skeleton.outcomes.filter(
-    (o) => outcomeAssessmentTypeCount(skeleton, o.id) < 2,
+    (o) => outcomeAssessmentCount(skeleton, o.id) < 2,
   );
   const templateSections =
     requirements.template_id === 'acr_general' ? generalSections : professionalSections;

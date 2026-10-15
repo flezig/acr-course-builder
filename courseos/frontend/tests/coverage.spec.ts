@@ -48,7 +48,7 @@ test('Покрытие в каркасе: три состояния, фильт�
     panel.locator('tr').filter({
       has: page.getByRole('rowheader').filter({ hasText: `Контрольный результат ${n}` }),
     });
-  await expect(row(1)).toContainText('Нужно второе оценочное средство другого типа');
+  await expect(row(1)).toContainText('Нужно второе оценочное средство');
   await expect(
     row(1).getByRole('button', { name: 'Добавить проверку', exact: true }),
   ).toBeVisible();
