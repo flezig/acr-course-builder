@@ -21,29 +21,46 @@ test('Plan editor keeps content readable and outcome links consistent after addi
   const count = await editor.locator('.outcome-editor').count();
   await page.getByRole('button', { name: 'Добавить результат обучения', exact: true }).click();
   await page
-    .getByLabel(`Результат ${count + 1}`, { exact: true })
+    .getByRole('textbox', { name: `Результат ${count + 1}`, exact: true })
     .fill('Объяснять работу алгоритма на примере');
   const topicResults = page.getByLabel('Результаты темы 1', { exact: true });
-  const newId = await topicResults.locator('option').last().getAttribute('value');
-  await topicResults.selectOption(newId!);
+  await topicResults.locator('summary').click();
+  await topicResults
+    .getByRole('checkbox', { name: 'Объяснять работу алгоритма на примере' })
+    .check();
+  await topicResults.locator('summary').click();
+  await expect(topicResults.locator('summary')).toContainText('Выбрано результатов:');
   await page.getByText('План оценивания и критерии', { exact: true }).click();
   const assessmentResults = page
     .getByLabel('Проверяемые результаты (можно выбрать несколько)')
     .first();
-  await assessmentResults.selectOption(newId!);
+  await expect(assessmentResults.getByRole('checkbox').first()).toBeHidden();
+  await assessmentResults.locator('summary').click();
+  await assessmentResults.getByRole('checkbox').first().check();
+  await assessmentResults
+    .getByRole('checkbox', { name: 'Объяснять работу алгоритма на примере' })
+    .check();
+  await assessmentResults.locator('summary').click();
+  await assessmentResults.locator('summary').press('Enter');
+  expect(await assessmentResults.locator('input:checked').count()).toBeGreaterThan(1);
+  await expect(
+    assessmentResults.getByRole('checkbox', { name: 'Объяснять работу алгоритма на примере' }),
+  ).toBeChecked();
   await expect(editor).not.toContainText(/assessment-| · project| · test/);
   await page.getByRole('button', { name: `Удалить результат ${count + 1}`, exact: true }).click();
-  await expect(topicResults.locator(`option[value="${newId}"]`)).toHaveCount(0);
-  expect(
-    await topicResults.evaluate((select: HTMLSelectElement) =>
-      Array.from(select.selectedOptions).map((o) => o.value),
-    ),
-  ).toEqual([]);
-  expect(
-    await assessmentResults.evaluate((select: HTMLSelectElement) =>
-      Array.from(select.selectedOptions).map((o) => o.value),
-    ),
-  ).toEqual([]);
+  await expect(
+    topicResults.getByRole('checkbox', { name: 'Объяснять работу алгоритма на примере' }),
+  ).toHaveCount(0);
+  await expect(
+    assessmentResults.getByRole('checkbox', { name: 'Объяснять работу алгоритма на примере' }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Добавить оценочное средство', exact: true }).click();
+  const addedAssessment = page.locator('.assessment-plan-editor .assessment-editor').last();
+  await expect(addedAssessment).toContainText('Проект');
+  await addedAssessment.getByRole('button', { name: 'Удалить оценочное средство' }).click();
+  await page
+    .locator('.assessment-plan-editor')
+    .screenshot({ path: '/tmp/courseos-assessment-picker.png' });
   const content = page.getByRole('textbox', { name: 'Содержание темы 1', exact: true });
   await content.fill('Подробное объяснение темы с примерами и упражнениями. '.repeat(40));
   for (const width of [1440, 768, 390]) {
@@ -61,7 +78,7 @@ test('Plan editor keeps content readable and outcome links consistent after addi
   }
   await page.getByRole('button', { name: 'Добавить результат обучения', exact: true }).click();
   await page
-    .getByLabel(`Результат ${count + 1}`, { exact: true })
+    .getByRole('textbox', { name: `Результат ${count + 1}`, exact: true })
     .fill('Находить ошибку в учебной программе');
   await page.getByRole('button', { name: 'Сохранить новую ревизию', exact: true }).click();
   await expect(editor).toHaveCount(0);
@@ -71,7 +88,7 @@ test('Plan editor keeps content readable and outcome links consistent after addi
     'Подробное объяснение темы с примерами и упражнениями. '.repeat(40),
   );
   await expect(page.locator('.outcome-editor')).toHaveCount(count + 1);
-  await expect(page.getByLabel(`Результат ${count + 1}`, { exact: true })).toHaveValue(
-    'Находить ошибку в учебной программе',
-  );
+  await expect(
+    page.getByRole('textbox', { name: `Результат ${count + 1}`, exact: true }),
+  ).toHaveValue('Находить ошибку в учебной программе');
 });

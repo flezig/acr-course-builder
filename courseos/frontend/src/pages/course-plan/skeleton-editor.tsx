@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   skeletonSchema,
@@ -228,15 +228,18 @@ export function SkeletonEditor({
                         rows={2}
                       />
                     </Field>
-                    <Field label={`Результаты темы ${index + 1}`}>
-                      <select multiple {...form.register(`topics.${index}.outcome_ids`)}>
-                        {currentOutcomes.map((outcome, outcomeIndex) => (
-                          <option key={outcome.id} value={outcome.id}>
-                            {outcome.description || `Результат ${outcomeIndex + 1}`}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+                    <Controller
+                      control={form.control}
+                      name={`topics.${index}.outcome_ids`}
+                      render={({ field }) => (
+                        <OutcomePicker
+                          label={`Результаты темы ${index + 1}`}
+                          outcomes={currentOutcomes}
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      )}
+                    />
                   </th>
                   {hourKinds.map((kind) => (
                     <td key={kind} data-label={hourLabels[kind]}>
@@ -298,15 +301,18 @@ export function SkeletonEditor({
                     ))}
                   </select>
                 </Field>
-                <Field label="Проверяемые результаты (можно выбрать несколько)">
-                  <select multiple {...form.register(`assessments.${index}.outcome_ids`)}>
-                    {currentOutcomes.map((outcome, outcomeIndex) => (
-                      <option key={outcome.id} value={outcome.id}>
-                        {outcome.description || `Результат ${outcomeIndex + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                <Controller
+                  control={form.control}
+                  name={`assessments.${index}.outcome_ids`}
+                  render={({ field }) => (
+                    <OutcomePicker
+                      label="Проверяемые результаты (можно выбрать несколько)"
+                      outcomes={currentOutcomes}
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  )}
+                />
               </div>
               <Field label="Наблюдаемое действие">
                 <input {...form.register(`assessments.${index}.action`)} required />
@@ -316,7 +322,7 @@ export function SkeletonEditor({
               </Field>
               <button
                 type="button"
-                className="link-button"
+                className="assessment-remove-button"
                 onClick={() => assessments.remove(index)}
               >
                 Удалить оценочное средство {index + 1}
@@ -325,6 +331,7 @@ export function SkeletonEditor({
           ))}
           <button
             type="button"
+            className="primary assessment-add-button"
             onClick={() =>
               assessments.append({
                 id: `assessment-${crypto.randomUUID()}`,
@@ -360,15 +367,18 @@ export function SkeletonEditor({
                   ))}
                 </select>
               </Field>
-              <Field label="Осваиваемые результаты">
-                <select multiple {...form.register(`activities.${index}.outcome_ids`)}>
-                  {currentOutcomes.map((outcome, outcomeIndex) => (
-                    <option key={outcome.id} value={outcome.id}>
-                      {outcome.description || `Результат ${outcomeIndex + 1}`}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              <Controller
+                control={form.control}
+                name={`activities.${index}.outcome_ids`}
+                render={({ field }) => (
+                  <OutcomePicker
+                    label="Осваиваемые результаты"
+                    outcomes={currentOutcomes}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
               <button
                 type="button"
                 className="link-button"
@@ -421,4 +431,45 @@ export function SkeletonEditor({
 }
 function BadgeDirty({ dirty }: { dirty: boolean }) {
   return dirty ? <span className="muted">Есть несохранённые правки</span> : null;
+}
+
+function OutcomePicker({
+  label,
+  outcomes,
+  value,
+  onChange,
+}: {
+  label: string;
+  outcomes: Skeleton['outcomes'];
+  value: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  return (
+    <div className="field outcome-picker-field">
+      <span className="outcome-picker-label">{label}</span>
+      <details className="outcome-picker" aria-label={label}>
+        <summary>
+          {value.length ? `Выбрано результатов: ${value.length}` : 'Выберите результаты'}
+        </summary>
+        <div className="outcome-picker-options">
+          {outcomes.map((outcome, index) => (
+            <label key={outcome.id}>
+              <input
+                type="checkbox"
+                checked={value.includes(outcome.id)}
+                onChange={(event) =>
+                  onChange(
+                    event.target.checked
+                      ? [...value, outcome.id]
+                      : value.filter((id) => id !== outcome.id),
+                  )
+                }
+              />
+              <span>{outcome.description || `Результат ${index + 1}`}</span>
+            </label>
+          ))}
+        </div>
+      </details>
+    </div>
+  );
 }
