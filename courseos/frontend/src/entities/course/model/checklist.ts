@@ -7,7 +7,7 @@ import { contactAndRemoteHours, isOnHourStep, weeklyLoad } from './hours-plan';
 import { generalSections, professionalSections, scenarioKind } from './factory';
 import { formatHours, sumHours } from '../../../shared/lib/decimal';
 
-export type ChecklistStatus = 'passed' | 'problem' | 'not_checked';
+export type ChecklistStatus = 'passed' | 'problem' | 'not_checked' | 'manual_review';
 export type ChecklistItem = {
   id: string;
   title: string;
@@ -186,7 +186,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
     {
       id: 'russian',
       title: 'Все материалы на русском языке',
-      status: 'not_checked',
+      status: 'manual_review',
       evidence:
         'Язык материалов проверяет методист при вычитке; названия инструментов остаются латиницей.',
       target: { screen: 'materials', hash: '' },
@@ -250,14 +250,8 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
             'Прошлая программа в демо не приложена; разделы построены по шаблону ПК АЦР.',
           ],
           [
-            'Профстандарт в области данных: название и код существуют',
-            standardStatus(snapshot),
-            professionalStandardEvidence(skeleton.requirements),
-            toIssue('professional-standard'),
-          ],
-          [
             'Инструменты и версии библиотек актуальны на 2026 год',
-            'not_checked',
+            'manual_review',
             `${skeleton.tools?.length || 0} инструментов перечислены; версии требуют подтверждения по источнику.`,
             toIssue('tool-versions', { screen: 'plan', hash: 'tools' }),
           ],
@@ -344,16 +338,9 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
             ],
             [
               'Язык понятен школьнику, термины поясняются',
-              'not_checked',
+              'manual_review',
               'Проверяет методист при вычитке материалов.',
               { screen: 'materials', hash: '' },
-            ],
-            [
-              'Нет привязки к профстандартам',
-              skeleton.outcomes.every((o) => !o.professional_standard_code) && !professional
-                ? 'passed'
-                : 'problem',
-              'Общеразвивающая программа: кодов профстандарта нет.',
             ],
           ]
         : kind === 'teachers'
@@ -369,19 +356,13 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
                 `Очно ${hours(contact.plus(assessment))}, дистанционно ${hours(selfStudy)}.`,
               ],
               [
-                'Компетенции связаны с трудовыми функциями профстандарта «Педагог», коды верны',
-                standardStatus(snapshot),
-                professionalStandardEvidence(skeleton.requirements),
-                toIssue('professional-standard'),
-              ],
-              [
                 'Отдельная тема о рисках, этике и персональных данных учеников',
                 has('риск') ? 'passed' : 'problem',
                 `Модуль 1 «${study[0]?.title}».`,
               ],
               [
                 'Все упомянутые ИИ-сервисы доступны в России',
-                'not_checked',
+                'manual_review',
                 'Конкретные сервисы не названы; доступность проверяет методист перед стартом.',
               ],
               [
@@ -436,14 +417,8 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
                     : 'СПО не упомянуто.',
                 ],
                 [
-                  'Профстандарт в области ИБ с верным кодом',
-                  standardStatus(snapshot),
-                  'Не проверено: код не выдуман и оставлен пустым.',
-                  toIssue('professional-standard'),
-                ],
-                [
                   'Результаты — начальный уровень, без обещания подготовки специалиста',
-                  'not_checked',
+                  'manual_review',
                   `Методист сопоставляет результаты с начальным уровнем и проверяет отсутствие обещания готовности к работе. Цель: ${skeleton.goal}`,
                 ],
                 [
@@ -524,17 +499,11 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
                   ],
                   [
                     'Требования к отчёту и критерии защиты описаны',
-                    'not_checked',
+                    materials ? 'manual_review' : 'not_checked',
                     materials
                       ? 'Методист проверяет полноту требований к отчёту и критериев защиты в материалах.'
                       : 'Описание отчёта создаётся после утверждения программы.',
                     { screen: 'materials', hash: '' },
-                  ],
-                  [
-                    'Профстандарт сисадминистрирования или разработки с верным кодом',
-                    standardStatus(snapshot),
-                    'Не проверено: код не выдуман и оставлен пустым.',
-                    toIssue('professional-standard'),
                   ],
                   [
                     'У каждого раздела свои результаты и средства, темы не повторяются',
@@ -559,7 +528,7 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
                   ],
                   [
                     `Форма обучения «${requirements.delivery}» отражена в часах`,
-                    'not_checked',
+                    'manual_review',
                     `Методист сверяет распределение часов с формой обучения «${requirements.delivery}»: очно ${hours(contact.plus(assessment))}, дистанционно ${hours(selfStudy)}.`,
                   ],
                   [
@@ -569,7 +538,7 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
                   ],
                   [
                     'Предметное содержание тем проверено экспертом',
-                    'not_checked',
+                    'manual_review',
                     'Для произвольного запроса темы — заготовка; содержание уточняет эксперт.',
                   ],
                 ];
@@ -613,4 +582,11 @@ function withFindingStatus(snapshot: Snapshot, items: ChecklistItem[]): Checklis
           : item.evidence,
     };
   });
+}
+
+// Часы, покрытие, разделы и календарь представлены в чек-листе; повторять их на соседней вкладке не нужно.
+export function technicalChecks(audit: Audit): Audit['checks'] {
+  return audit.checks.filter(
+    (check) => !['hours', 'coverage', 'sections', 'calendar'].includes(check.id),
+  );
 }

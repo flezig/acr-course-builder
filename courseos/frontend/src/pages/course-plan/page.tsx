@@ -177,7 +177,7 @@ export function PlanPage() {
               skeleton.outcomes.some((outcome) => outcome.id === id) ||
               skeleton.explanations.some((explanation) => explanation.id === id)
             ? `${href('plan')}#fix-${id}${snapshot.observations.some((issue) => issue.id === issueId) ? `~${issueId}` : ''}`
-            : `${href('audit')}#issue-${issues.find((issue) => issue.element_id === id)?.id || ''}`;
+            : `${href('audit')}#issue-${issueId}`;
   const editButton = (block: IntentBlock, label: string) => (
     <button
       className="block-edit"

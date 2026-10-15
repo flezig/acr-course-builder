@@ -286,7 +286,7 @@ describe('Проверка программы — зеркало чек-лист
     const snapshot = (await api.get(result.course_id)).snapshot!;
     const items = [...generalRequirements(snapshot), ...requestChecklist(snapshot)];
     for (const item of items) {
-      expect(['passed', 'problem', 'not_checked']).toContain(item.status);
+      expect(['passed', 'problem', 'not_checked', 'manual_review']).toContain(item.status);
       expect(item.evidence.trim(), item.title).not.toBe('');
       expect(item.target.screen).toBeTruthy();
     }
@@ -316,7 +316,7 @@ describe('Проверка программы — зеркало чек-лист
     }
   });
 
-  it('bank: все общие требования и девять пунктов запроса 3', async () => {
+  it('bank: профстандарт учитывается один раз в общих требованиях', async () => {
     const result = await api.command({
       action: 'start',
       payload: requirementsFor('bank'),
@@ -339,12 +339,10 @@ describe('Проверка программы — зеркало чек-лист
       'Все материалы на русском языке',
     ]);
     const request = requestChecklist(snapshot);
-    expect(request).toHaveLength(9);
+    expect(request).toHaveLength(8);
     const byTitle = Object.fromEntries(request.map((item) => [item.title, item]));
     expect(byTitle['В начале — вводный блок по основам Python'].status).toBe('passed');
-    expect(byTitle['Профстандарт в области данных: название и код существуют'].status).toBe(
-      'problem',
-    );
+    expect(request.some((item) => /профстандарт/i.test(item.title))).toBe(false);
     expect(byTitle['Объём ровно 72 ч, календарь на 4 недели']).toMatchObject({
       status: 'problem',
       target: { screen: 'plan', hash: 'issue-calendar-unknown' },

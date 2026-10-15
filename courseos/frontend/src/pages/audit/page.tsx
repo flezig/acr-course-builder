@@ -5,6 +5,7 @@ import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw, ArrowLeft } from 
 import {
   generalRequirements,
   requestChecklist,
+  technicalChecks,
   type ChecklistItem,
 } from '../../entities/course/model/checklist';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
@@ -25,7 +26,8 @@ import './audit.css';
 const checklistStatuses: Record<ChecklistItem['status'], string> = {
   passed: 'Пройдено',
   problem: 'Проблема',
-  not_checked: 'Не проверено',
+  not_checked: 'Не проверено: не хватает данных',
+  manual_review: 'Проверяет методист',
 };
 export function AuditPage() {
   const query = useCourse();
@@ -60,6 +62,8 @@ export function AuditPage() {
   const general = generalRequirements(snapshot);
   const request = requestChecklist(snapshot);
   const all = [...general, ...request];
+  const checks = technicalChecks(snapshot.audit);
+  const verdict = programVerdict(snapshot);
   const count = (status: ChecklistItem['status']) =>
     all.filter((item) => item.status === status).length;
   const itemHref = ({ target }: ChecklistItem) =>
@@ -73,7 +77,8 @@ export function AuditPage() {
           <h1>Проверка программы</h1>
           <p>
             Отчёт автопроверки: замечания, покрытие результатов обучения, источники и полнота
-            обязательных разделов. «Не проверено» означает, что не хватает источника или материалов.
+            обязательных разделов. «Не проверено» — не хватает данных; «Проверяет методист» — нужна
+            содержательная ручная проверка.
           </p>
         </div>
         <button
@@ -100,8 +105,12 @@ export function AuditPage() {
         {(
           [
             ['audit-checklist', 'Чек-лист', count('problem')],
-            ['audit-findings', 'Находки аудита', programVerdict(snapshot).open],
-            ['audit-checks', 'Технические проверки', 0],
+            ['audit-findings', 'Находки аудита', verdict.open],
+            [
+              'audit-checks',
+              'Технические проверки',
+              checks.filter((check) => check.status === 'failed').length,
+            ],
             ['audit-observation', 'Замечание методиста', snapshot.observations.length],
           ] as const
         ).map(([id, title, count]) => (
@@ -123,7 +132,7 @@ export function AuditPage() {
         aria-label="Находки аудита"
         hidden={tab !== 'audit-findings'}
       >
-        <p>Блокируют утверждение: {programVerdict(snapshot).open}</p>
+        <p>Блокируют утверждение: {verdict.open}</p>
         {decisionQueue(snapshot.audit.issues).map((issue) => (
           <article id={`issue-${issue.id}`} key={issue.id} tabIndex={-1}>
             <Panel title={issue.message}>
@@ -156,6 +165,10 @@ export function AuditPage() {
           <div>
             <dt>Не проверено</dt>
             <dd>{count('not_checked')}</dd>
+          </div>
+          <div>
+            <dt>Проверяет методист</dt>
+            <dd>{count('manual_review')}</dd>
           </div>
         </dl>
         {(
@@ -210,7 +223,7 @@ export function AuditPage() {
         hidden={tab !== 'audit-checks'}
       >
         <div className="audit-grid">
-          {snapshot.audit.checks.map((check) => (
+          {checks.map((check) => (
             <Panel key={check.id}>
               {check.status === 'passed' ? (
                 <CheckCircle2 className="green-icon" size={22} />
@@ -323,8 +336,13 @@ export function AuditPage() {
         </Panel>
       </section>
       <Notice>
-        Предметный эксперт и методист пока не участвовали в приёмке. Модельный аудит не выполнен;
-        экспертное одобрение отсутствует. Все комплекты остаются черновиками.
+        {snapshot.audit.at
+          ? `Аудит выполнен. Блокируют утверждение: ${verdict.open}. Решено методистом: ${snapshot.audit.issues.filter((issue) => issue.decision).length}.`
+          : 'Аудит ещё не выполнен.'}{' '}
+        {snapshot.audit.expert_status === 'not_reviewed' && 'Экспертная проверка не проведена.'}{' '}
+        {snapshot.approval_applicable
+          ? 'Программа утверждена.'
+          : 'Программа ожидает утверждения методиста.'}
       </Notice>
       <ErrorMessage error={command.error} />
     </>

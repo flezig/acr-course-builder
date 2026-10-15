@@ -11,7 +11,11 @@ import {
   type Snapshot,
 } from '../src/entities/course/model/schema';
 import { HttpCourseApi } from '../src/entities/course/api/http-course-api';
-import { generalRequirements, requestChecklist } from '../src/entities/course/model/checklist';
+import {
+  generalRequirements,
+  requestChecklist,
+  technicalChecks,
+} from '../src/entities/course/model/checklist';
 import { buildCoverage } from '../src/pages/competencies/coverage-model';
 import { buildMap } from '../src/pages/competencies/map-model';
 class MemoryStorage {
@@ -855,7 +859,9 @@ describe('Отсутствующие данные и ручные проверк
   });
   it('называет источники без статуса', async () => {
     const snapshot = await startPython();
-    snapshot.sources = [{ ...preset('bank').references[0], status: '' as Snapshot['sources'][number]['status'] }];
+    snapshot.sources = [
+      { ...preset('bank').references[0], status: '' as Snapshot['sources'][number]['status'] },
+    ];
     const item = generalRequirements(snapshot).find((item) => item.id === 'sources-marked')!;
     expect(item.status).toBe('problem');
     expect(item.evidence).toContain(snapshot.sources[0].name);
@@ -864,7 +870,14 @@ describe('Отсутствующие данные и ручные проверк
   it('не выдаёт историю уточнений и начальный уровень за проверенные', async () => {
     const result = await api.command({
       action: 'start',
-      payload: { ...preset('security'), template_id: 'acr_professional', total_hours: '72', entry_level: 'Основы сетей', delivery: 'Очно', assessment: 'Экзамен' },
+      payload: {
+        ...preset('security'),
+        template_id: 'acr_professional',
+        total_hours: '72',
+        entry_level: 'Основы сетей',
+        delivery: 'Очно',
+        assessment: 'Экзамен',
+      },
       request_id: crypto.randomUUID(),
     });
     vi.advanceTimersByTime(500);
@@ -876,6 +889,22 @@ describe('Отсутствующие данные и ручные проверк
     ).toBe(true);
     expect(
       requestChecklist(snapshot).find((item) => item.title.startsWith('Результаты —'))?.status,
-    ).toBe('not_checked');
+    ).toBe('manual_review');
+  });
+});
+
+describe('Единственные проверки в отчёте', () => {
+  it('не повторяет проверки чек-листа на технической вкладке', async () => {
+    const snapshot = await startPython();
+    const checks = technicalChecks(snapshot.audit);
+    expect(
+      checks.some((check) => ['hours', 'coverage', 'calendar', 'sections'].includes(check.id)),
+    ).toBe(false);
+    expect(checks.find((check) => check.id === 'prerequisites')).toEqual(
+      snapshot.audit.checks.find((check) => check.id === 'prerequisites'),
+    );
+    expect(generalRequirements(snapshot).find((item) => item.id === 'russian')?.status).toBe(
+      'manual_review',
+    );
   });
 });
