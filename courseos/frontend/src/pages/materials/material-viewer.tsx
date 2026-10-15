@@ -174,25 +174,6 @@ export function MaterialViewer({
           ))}
         </div>
       )}
-      <details>
-        <summary>Источники, замечания и контрольная сумма</summary>
-        {material.source_ids.map((id) => (
-          <Link key={id} to={`/courses/${snapshot.course_id}/map?version=${versionParam}#${id}`}>
-            Открыть фрагмент {id} ↗
-          </Link>
-        ))}
-        {!material.source_ids.length && (
-          <p>Предметные источники не предоставлены; содержание демонстрационное.</p>
-        )}
-        {snapshot.audit.issues
-          .filter((issue) => issue.element_id === material.id)
-          .map((issue) => (
-            <Notice key={issue.id} tone="warning">
-              {issue.message} · {issue.suggested_fix}
-            </Notice>
-          ))}
-        <code>SHA-256: {material.hash}</code>
-      </details>
     </article>
   );
 }
