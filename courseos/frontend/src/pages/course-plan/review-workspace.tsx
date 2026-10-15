@@ -1,14 +1,16 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import type { Snapshot } from '../../entities/course/model/schema';
 import { rationaleCoverage } from '../../entities/course/model/rationale';
-import { Badge, Notice, Panel } from '../../shared/ui/ui';
+import { programVerdict, questionCount } from '../../entities/course/model/rules';
+import { Panel } from '../../shared/ui/ui';
 import { RationalePanel } from './rationale-panel';
+import { DecisionQueue } from './decision-queue';
 import './review-workspace.css';
 
 type Section = 'issues' | 'rationale' | 'approval';
-type Context = { section: Section; issueId: string; detail: boolean };
+type Context = { section: Section };
 const sections: Section[] = ['issues', 'rationale', 'approval'];
 
 export function ReviewWorkspace({
@@ -24,6 +26,7 @@ export function ReviewWorkspace({
   issuePlace,
   issueHref,
   materialsHref,
+  onDecided,
 }: {
   snapshot: Snapshot;
   target: string;
@@ -37,9 +40,10 @@ export function ReviewWorkspace({
   issuePlace: (id: string) => string;
   issueHref: (id: string, issueId: string) => string;
   materialsHref: string;
+  onDecided: (message: string) => void;
 }) {
-  const issues = [...snapshot.audit.issues].sort((a, b) => Number(b.blocking) - Number(a.blocking));
-  const blocking = issues.filter((issue) => issue.blocking);
+  const verdict = programVerdict(snapshot);
+  const issues = snapshot.audit.issues;
   const coverage = rationaleCoverage(snapshot.skeleton);
   const reviewCount = coverage.assumptions + coverage.gaps;
   // Latest revisions share navigation context; archived versions keep their own context.
@@ -51,13 +55,8 @@ export function ReviewWorkspace({
     } catch {
       /* A storage restriction must not prevent review. */
     }
-    return {
-      section: issues.length ? 'issues' : 'approval',
-      issueId: issues[0]?.id || '',
-      detail: false,
-    };
+    return { section: verdict.open ? 'issues' : 'approval' };
   });
-  const selected = issues.find((issue) => issue.id === context.issueId) || issues[0];
   const section = context.section;
   const selectSection = (section: Section) => setContext((previous) => ({ ...previous, section }));
   useEffect(() => {
@@ -68,12 +67,14 @@ export function ReviewWorkspace({
     }
   }, [storageKey, context]);
   useEffect(() => {
-    if (!visible || !target.startsWith('issue-')) return;
-    const id = target.slice(6);
-    if (issues.some((issue) => issue.id === id)) {
-      setContext({ section: 'issues', issueId: id, detail: true });
-    }
-  }, [target, visible]);
+    if (!visible) return;
+    if (target === 'approve') setContext({ section: 'approval' });
+    // Пока есть нерешённые вопросы, вкладка открывается на очереди, а не на утверждении.
+    else if (target === 'review' && verdict.open && section === 'approval')
+      setContext({ section: 'issues' });
+    else if (target.startsWith('issue-') && issues.some((issue) => `issue-${issue.id}` === target))
+      setContext({ section: 'issues' });
+  }, [target, visible, verdict.open]);
   const openSection = (section: Section) => {
     selectSection(section);
     requestAnimationFrame(() => {
@@ -82,43 +83,37 @@ export function ReviewWorkspace({
       panel?.focus({ preventScroll: true });
     });
   };
-  const status = snapshot.approval_applicable
-    ? 'Программа утверждена'
-    : blocking.length
-      ? 'Нужны исправления'
-      : 'Готово к утверждению';
   const reason = !isLatest
     ? 'Архивная версия: утверждение доступно в актуальной версии.'
     : active
       ? 'Дождитесь завершения текущей операции.'
       : editing
         ? 'Сначала сохраните или закройте редактор.'
-        : blocking.length
-          ? `Утверждение недоступно: ${blocking[0].message}`
+        : verdict.open
+          ? `До утверждения: ${questionCount(verdict.open)}`
           : !snapshot.approval_applicable && !confirmed
             ? 'Перед утверждением обязательно подтвердите проверку методистом.'
             : '';
   const action = snapshot.approval_applicable
     ? 'Перейти к материалам'
-    : blocking.length
-      ? 'Разобрать замечания'
+    : verdict.open
+      ? 'К первому вопросу'
       : 'Перейти к утверждению';
-  const labels = [`Замечания · ${issues.length}`, 'Обоснования', 'Утверждение'];
+  const labels = [`Решения · ${verdict.open}`, 'Обоснования', 'Утверждение'];
   return (
     <div className="review-workspace">
       <section className="review-summary" aria-label="Состояние программы">
-        <h2>{status}</h2>
         <dl>
           <div>
-            <dt>Блокирующие замечания</dt>
-            <dd>{blocking.length}</dd>
+            <dt>Вопросы, блокирующие утверждение</dt>
+            <dd>{verdict.open}</dd>
           </div>
           <div>
-            <dt>Замечания к сведению</dt>
-            <dd>{issues.length - blocking.length}</dd>
+            <dt>К сведению</dt>
+            <dd>{verdict.info}</dd>
           </div>
           <div className="review-human-count">
-            <dt>Решения для проверки методистом</dt>
+            <dt>Обоснования для проверки методистом</dt>
             <dd>{reviewCount}</dd>
           </div>
         </dl>
@@ -132,7 +127,6 @@ export function ReviewWorkspace({
       <div className="review-controls">
         <div className="review-action-bar">
           <div>
-            <strong>{status}</strong>
             {reason && <small>{reason}</small>}
             {isLatest && editing && (
               <button className="link-button" onClick={openEditor}>
@@ -169,7 +163,13 @@ export function ReviewWorkspace({
           ) : (
             <button
               className="primary"
-              onClick={() => openSection(blocking.length ? 'issues' : 'approval')}
+              onClick={() => {
+                openSection(verdict.open ? 'issues' : 'approval');
+                if (verdict.open && verdict.first)
+                  requestAnimationFrame(() =>
+                    document.getElementById(`issue-${verdict.first!.id}`)?.focus(),
+                  );
+              }}
             >
               {action}
               <ArrowRight size={15} />
@@ -221,88 +221,18 @@ export function ReviewWorkspace({
         hidden={section !== 'issues'}
       >
         <Panel
-          title="Замечания к программе"
-          subtitle="Сначала блокирующие проблемы. Исправления создают новую ревизию и пересчитывают проверки."
+          title="Очередь решений"
+          subtitle="Сначала то, что блокирует утверждение, затем сведения. Применённое предложение создаёт новую ревизию."
           className="review-panel"
         >
-          {!selected ? (
-            <Notice tone="success">
-              Замечаний нет. Проверьте содержание и основания перед утверждением.
-            </Notice>
-          ) : (
-            <div className={`review-issues-layout ${context.detail ? 'show-detail' : ''}`}>
-              <nav className="review-issue-list" aria-label="Список замечаний">
-                {issues.map((issue) => (
-                  <button
-                    key={issue.id}
-                    aria-current={selected.id === issue.id ? 'true' : undefined}
-                    onClick={() => {
-                      setContext({ section: 'issues', issueId: issue.id, detail: true });
-                      requestAnimationFrame(() =>
-                        document.getElementById(`issue-${issue.id}`)?.focus(),
-                      );
-                    }}
-                  >
-                    <strong>{issue.message}</strong>
-                    <span>{issuePlace(issue.element_id)}</span>
-                    <Badge tone={issue.blocking ? 'amber' : 'neutral'}>
-                      {issue.blocking ? 'Блокирует утверждение' : 'К сведению'}
-                    </Badge>
-                  </button>
-                ))}
-              </nav>
-              <article
-                className={`review-issue ${target === `issue-${selected.id}` ? 'field-highlight' : ''}`}
-                id={`issue-${selected.id}`}
-                tabIndex={-1}
-              >
-                <button
-                  className="review-back link-button"
-                  onClick={() => {
-                    setContext((previous) => ({ ...previous, detail: false }));
-                    requestAnimationFrame(() =>
-                      document
-                        .querySelector<HTMLButtonElement>('.review-issue-list button[aria-current]')
-                        ?.focus(),
-                    );
-                  }}
-                >
-                  <ArrowLeft size={15} />К списку замечаний
-                </button>
-                <div className="toolbar">
-                  <Badge tone={selected.blocking ? 'amber' : 'neutral'}>
-                    {selected.blocking ? 'Нужны исправления' : 'К сведению'}
-                  </Badge>
-                  <span className="check-origin">
-                    {selected.check_type === 'rule'
-                      ? 'Автоматическая проверка'
-                      : selected.check_type === 'human'
-                        ? 'Оценка методиста'
-                        : 'Модельная проверка'}
-                  </span>
-                </div>
-                <h3>{selected.message}</h3>
-                <p className="issue-place">{issuePlace(selected.element_id)}</p>
-                <h4>Рекомендуемое исправление</h4>
-                <p>{selected.suggested_fix}</p>
-                <Link
-                  className="button secondary"
-                  to={issueHref(selected.element_id, selected.id)}
-                  onClick={() =>
-                    setContext({ section: 'issues', issueId: selected.id, detail: true })
-                  }
-                >
-                  Перейти к исправлению
-                  <ArrowRight size={15} />
-                </Link>
-                <details>
-                  <summary>Причина и технические подробности</summary>
-                  <p>Ожидается: {selected.expected}</p>
-                  <p>Фактически: {selected.actual}</p>
-                </details>
-              </article>
-            </div>
-          )}
+          <DecisionQueue
+            snapshot={snapshot}
+            target={target}
+            readonly={!isLatest || active || editing}
+            issuePlace={issuePlace}
+            issueHref={issueHref}
+            onDecided={onDecided}
+          />
         </Panel>
       </section>
       <section

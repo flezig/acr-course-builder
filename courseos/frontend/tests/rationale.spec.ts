@@ -14,6 +14,8 @@ test('Основания в интерфейсе, JSON и MD относятся 
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await expect(page.locator('.verdict')).toBeVisible();
+  await page.getByRole('link', { name: 'О программе', exact: true }).click();
   await expect(page.locator('.goal-statement')).toBeVisible();
   const id = page.url().match(/courses\/([^/]+)/)![1];
   const stored = await page.evaluate(
@@ -32,7 +34,7 @@ test('Основания в интерфейсе, JSON и MD относятся 
       .find((e: { id: string }) => e.id === 'why-hours')
       .detail.replace(/(\d) ч(?=[\s.,]|$)/g, '$1 уч. ч.'),
   );
-  await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Почему курс устроен так' })).toBeVisible();
   await page.getByRole('button', { name: /^Практика/ }).click();
@@ -71,7 +73,7 @@ test('Основания в интерфейсе, JSON и MD относятся 
   await page.getByLabel('Аудитория', { exact: true }).fill('Взрослые слушатели');
   await page.getByRole('button', { name: 'Сохранить изменения', exact: true }).click();
   await expect(page.locator('.save-feedback')).toBeVisible();
-  await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Утвердить программу', exact: true }),
   ).toBeDisabled();

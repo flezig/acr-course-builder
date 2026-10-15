@@ -5,7 +5,7 @@ async function create(page: Page, preset = teacher) {
   await page.goto('/');
   await page.getByRole('button', { name: preset, exact: true }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'О программе', exact: true })).toBeVisible();
+  await expect(page.locator('.verdict')).toBeVisible();
 }
 async function tab(page: Page, name: string) {
   await page
@@ -20,14 +20,15 @@ test('Overview, real tabs, contextual correction and responsive layout preserve 
   page.on('pageerror', (error) => errors.push(error.message));
   await create(page);
   await expect(page.locator('.plan-status')).toHaveCount(0);
-  await expect(page.locator('.tab-count')).toHaveAccessibleName('1 замечание');
+  await expect(page.locator('.tab-count')).toHaveAccessibleName('2 вопроса');
   await expect(page.locator('.plan-nav a[aria-current]')).toHaveCSS(
     'background-color',
     'rgba(0, 0, 0, 0)',
   );
-  await expect(page.locator('.plan-metrics')).toContainText('36 уч. ч.');
-  await expect(page.locator('.plan-metrics')).toContainText('≈ 27,1 уч. ч.');
-  expect((await page.locator('.program-intent').boundingBox())!.y).toBeLessThan(440);
+  await expect(page.locator('.volume-summary')).toContainText('36 ч');
+  await expect(page.locator('main')).not.toContainText('≈');
+  expect((await page.locator('.verdict').boundingBox())!.y).toBeLessThan(300);
+  await tab(page, 'О программе');
   expect((await page.locator('.sidebar').boundingBox())!.width).toBe(248);
   await expect(page.locator('.outcome-group li')).toHaveCount(5);
   await expect(page.getByRole('heading', { name: 'Календарь и учебная нагрузка' })).toBeHidden();
@@ -40,23 +41,20 @@ test('Overview, real tabs, contextual correction and responsive layout preserve 
   await page.locator('#why-hours > summary').press('Enter');
   await tab(page, 'Учебный план');
   await expect(page.locator('.program-intent')).toBeHidden();
-  await page.getByText('Подробные расчёты часов', { exact: true }).click();
-  await expect(page.locator('.plan-calculations')).toContainText('27,058');
-  await expect(page.locator('.plan-calculations')).toContainText(
-    '33,5 обучение + 2,5 аттестация = 36 всего',
-  );
+  await expect(page.locator('.zero-columns')).toContainText('Лабораторных нет');
+  await expect(page.locator('.acr-plan tfoot')).toContainText('36');
   await page.locator('.topic-details summary').first().click();
   await expect(page.locator('.topic-content').first()).toBeVisible();
   await page.screenshot({ path: '../reports/curriculum-workspace-1440.png' });
-  await page.getByRole('link', { name: 'Нужны исправления', exact: true }).press('Enter');
-  await expect(page.locator('.review-issue.field-highlight')).toBeFocused();
-  await expect(page.locator('.review-issue.field-highlight')).toContainText(
+  await page.locator('.verdict').getByRole('link', { name: 'К первому вопросу' }).press('Enter');
+  await expect(page.locator('.decision-item.field-highlight')).toBeFocused();
+  await expect(page.locator('.decision-item.field-highlight')).toContainText(
     'Календарь · параметры нагрузки',
   );
   await page.screenshot({ path: '../reports/review-workspace-1440.png' });
   await page
-    .locator('.review-issue.field-highlight')
-    .getByRole('link', { name: 'Перейти к исправлению' })
+    .locator('.decision-item.field-highlight')
+    .getByRole('link', { name: 'Открыть место в программе' })
     .click();
   await expect(page.getByLabel('Дата начала', { exact: true })).toBeFocused();
   await expect(page.locator('.calendar-form')).toHaveClass(/field-highlight/);
@@ -70,16 +68,16 @@ test('Overview, real tabs, contextual correction and responsive layout preserve 
     .check();
   await page.getByRole('button', { name: 'Применить и пересчитать' }).click();
   await expect(page.locator('.calendar-summary')).toContainText('Календарь подтверждён');
-  await expect(page.locator('.course-meta')).toContainText('Ожидает проверки методиста');
+  await expect(page.locator('.verdict')).toContainText('Нужно решить 1 вопрос');
   await page.screenshot({ path: '../reports/calendar-workspace-1440.png' });
-  await tab(page, 'Проверка и утверждение');
+  await tab(page, 'Решения и утверждение');
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Утвердить программу', exact: true }),
   ).toBeDisabled();
   for (const width of [1440, 1280, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const name of ['О программе', 'Учебный план', 'Календарь', 'Проверка и утверждение']) {
+    for (const name of ['О программе', 'Учебный план', 'Календарь', 'Решения и утверждение']) {
       await tab(page, name);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
@@ -97,6 +95,8 @@ test('Block editing restores a draft, saves only the selected block and requires
   context,
 }) => {
   await create(page, python);
+  await tab(page, 'О программе');
+  await expect(page.locator('.audience-facts')).toBeVisible();
   const original = await page.locator('.audience-facts').innerText();
   const originalResults = await page.locator('.outcomes').innerText();
   await page.getByRole('button', { name: 'Изменить цель обучения', exact: true }).click();
@@ -113,10 +113,11 @@ test('Block editing restores a draft, saves only the selected block and requires
   expect(await page.locator('.audience-facts').innerText()).toBe(original);
   expect(await page.locator('.outcomes').innerText()).toBe(originalResults);
   await page.reload();
+  await tab(page, 'О программе');
   await expect(page.locator('.goal-statement')).toContainText(
     'Создать программу с условием и циклом',
   );
-  await tab(page, 'Проверка и утверждение');
+  await tab(page, 'Решения и утверждение');
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Утвердить программу', exact: true }),
@@ -124,7 +125,7 @@ test('Block editing restores a draft, saves only the selected block and requires
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page.getByRole('checkbox', { name: /Я проверил цель/ }).check();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
-  await expect(page.locator('.course-meta')).toContainText('Программа утверждена');
+  await expect(page.locator('.verdict')).toContainText('Программа утверждена');
   await tab(page, 'О программе');
   await page.getByRole('button', { name: 'Изменить аудиторию и входной уровень' }).click();
   await page.getByLabel('Аудитория', { exact: true }).fill('Слушатели без опыта');
@@ -150,15 +151,15 @@ test('A coverage remark opens the assessment field and a methodist remark opens 
   await page.getByText('План оценивания и критерии', { exact: true }).click();
   await page.getByRole('button', { name: 'Удалить средство assessment-1-b', exact: true }).click();
   await page.getByRole('button', { name: 'Сохранить новую ревизию', exact: true }).click();
-  await page.getByRole('link', { name: 'Нужны исправления', exact: true }).click();
+  await page.locator('.verdict').getByRole('link', { name: 'К первому вопросу' }).click();
   await page
-    .locator('.review-issue.field-highlight')
-    .getByRole('link', { name: 'Перейти к исправлению' })
+    .locator('.decision-item.field-highlight')
+    .getByRole('link', { name: 'Открыть место в программе' })
     .click();
   await expect(page.locator('.assessment-plan-editor')).toHaveAttribute('open', '');
   await expect(page.locator('.assessment-plan-editor input.field-highlight')).toBeFocused();
   await page.getByRole('button', { name: 'Закрыть редактор', exact: true }).click();
-  await tab(page, 'Проверка и утверждение');
+  await tab(page, 'Решения и утверждение');
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page.getByRole('link', { name: 'Отчёт проверки программы', exact: true }).click();
   await page.getByRole('link', { name: 'Замечание методиста', exact: true }).click();
@@ -167,19 +168,17 @@ test('A coverage remark opens the assessment field and a methodist remark opens 
     .fill('Уточните основание достижимости для этой аудитории.');
   await page.getByRole('checkbox', { name: /Ставит под сомнение/ }).check();
   await page.getByRole('button', { name: 'Записать замечание', exact: true }).click();
-  await page.getByRole('link', { name: 'Замечания и следующий шаг', exact: true }).click();
-  await expect(
-    page.getByRole('heading', {
-      name: 'Уточните основание достижимости для этой аудитории.',
-      exact: true,
-    }),
-  ).toBeVisible();
   await page.getByRole('link', { name: 'Каркас и учебный план', exact: true }).click();
-  await page.getByRole('link', { name: 'Нужны исправления', exact: true }).click();
-  await expect(page.locator('.review-issue.field-highlight')).toContainText('Оценка методиста');
+  await expect(page.locator('.verdict')).toContainText(
+    'Блокирует: Уточните основание достижимости для этой аудитории.',
+  );
+  await page.locator('.verdict').getByRole('link', { name: 'К первому вопросу' }).click();
+  await expect(page.locator('.decision-item.field-highlight')).toContainText(
+    'Уточните основание достижимости для этой аудитории.',
+  );
   await page
-    .locator('.review-issue.field-highlight')
-    .getByRole('link', { name: 'Перейти к исправлению' })
+    .locator('.decision-item.field-highlight')
+    .getByRole('link', { name: 'Открыть место в программе' })
     .click();
   await expect(page.locator('#why-reachability')).toHaveAttribute('open', '');
   await expect(page.getByLabel('Исправление основания', { exact: true })).toBeVisible();
@@ -212,10 +211,10 @@ test('Programme states preserve approval, archive restrictions and materials acc
     }
   };
   await expect(page.locator('.tab-count')).toHaveCount(0);
-  await expect(page.locator('.course-meta')).toContainText('Ожидает проверки методиста');
+  await expect(page.locator('.verdict')).toContainText('Можно утверждать');
   await capture('no-remarks');
   await page.getByRole('button', { name: 'Редактировать программу', exact: true }).click();
-  await tab(page, 'Проверка и утверждение');
+  await tab(page, 'Решения и утверждение');
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page.getByRole('checkbox', { name: /Я проверил цель/ }).check();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
@@ -225,7 +224,7 @@ test('Programme states preserve approval, archive restrictions and materials acc
   await capture('editing');
   await page.getByRole('button', { name: 'Закрыть редактор', exact: true }).click();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
-  await expect(page.locator('.course-meta')).toContainText('Программа утверждена');
+  await expect(page.locator('.verdict')).toContainText('Программа утверждена');
   await expect(page.getByRole('link', { name: 'Проверить материалы', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await expect(
@@ -247,10 +246,11 @@ test('Programme states preserve approval, archive restrictions and materials acc
   await expect(
     page.getByRole('button', { name: 'Редактировать программу', exact: true }),
   ).toBeDisabled();
+  await tab(page, 'О программе');
   await expect(
     page.getByRole('button', { name: 'Изменить цель обучения', exact: true }),
   ).toBeDisabled();
-  await tab(page, 'Проверка и утверждение');
+  await tab(page, 'Решения и утверждение');
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Утвердить программу', exact: true }),

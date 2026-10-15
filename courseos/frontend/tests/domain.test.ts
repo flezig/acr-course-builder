@@ -8,7 +8,6 @@ import {
   contentHash,
   sumHours,
   formatHours,
-  formatSummaryHours,
 } from '../src/shared/lib/decimal';
 import {
   inputSchema,
@@ -750,21 +749,16 @@ it.each(['reduce', 'raise', 'extend'] as const)(
 
 describe('Часы и конкретные замечания программы', () => {
   it.each([
-    ['56.135', '≈ 56,1'],
     ['36.000', '36'],
     ['16.5', '16,5'],
-    ['0.04', '≈ 0'],
-    ['9.99', '≈ 10'],
-    ['1234567890123456.1234', '≈ 1234567890123456,1'],
-  ])('компактно показывает %s без изменения точного числа', (value, display) => {
-    expect(formatSummaryHours(value)).toBe(display);
-    expect(formatHours(value)).toBe(value.replace(/\.0+$/, '').replace('.', ','));
+    ['254', '254'],
+  ])('показывает %s точно, без округления и «≈»', (value, display) => {
+    expect(formatHours(value)).toBe(display);
   });
   it.each(['teachers', 'bank', 'python'])('сохраняет точное распределение и баланс %s', (id) => {
     const skeleton = makeSkeleton(preset(id));
     const before = JSON.stringify(skeleton);
     const totals = hourTotals(skeleton);
-    Object.values(totals).forEach(formatSummaryHours);
     expect(JSON.stringify(skeleton)).toBe(before);
     expect(sumHours(Object.values(totals))).toBe(skeleton.requirements.total_hours);
     for (const topic of skeleton.topics)

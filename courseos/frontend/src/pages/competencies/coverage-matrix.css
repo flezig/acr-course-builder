@@ -1,0 +1,33 @@
+.coverage-matrix {
+  width: 100%;
+  font-size: 13px;
+}
+.coverage-matrix th,
+.coverage-matrix td {
+  vertical-align: top;
+  text-align: left;
+}
+.coverage-matrix tbody th small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.coverage-matrix td strong,
+.coverage-matrix td .gap-count {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+.coverage-matrix td span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.coverage-matrix .coverage-gap {
+  background: var(--theme-amber-surface, #fbf3e6);
+}
+.coverage-matrix .gap-count {
+  font-weight: 650;
+  color: var(--theme-amber-ink, #8a5a0f);
+}

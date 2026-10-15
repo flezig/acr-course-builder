@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import Decimal from 'decimal.js';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -7,14 +6,12 @@ import {
   ArrowRight,
   Pencil,
   ListChecks,
-  ShieldCheck,
   ChevronDown,
   AlertCircle,
   CheckCircle2,
-  Clock3,
 } from 'lucide-react';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
-import { hourTotals, calendarSummary } from '../../entities/course/model/rules';
+import { programVerdict, questionCount } from '../../entities/course/model/rules';
 import { kindLabels } from '../../entities/course/model/presets';
 import {
   inputSchema,
@@ -22,15 +19,6 @@ import {
   type Requirements,
 } from '../../entities/course/model/schema';
 import { JobPanel } from '../../entities/job/job-panel';
-import {
-  sumHours,
-  hourKinds,
-  hourLabels,
-  decimalEqual,
-  subtractHours,
-  formatHours,
-  formatSummaryHours,
-} from '../../shared/lib/decimal';
 import {
   Form,
   Badge,
@@ -40,12 +28,14 @@ import {
   Loading,
   Notice,
   Panel,
-  statuses,
 } from '../../shared/ui/ui';
 import { ReviewWorkspace } from './review-workspace';
 import { CalendarPanel } from './calendar-panel';
 import { SkeletonEditor } from './skeleton-editor';
 import { IntentBlockEditor, type IntentBlock } from './intent-block-editor';
+import { CurriculumTable, VolumeSummary, WeeklyLoadTable } from './curriculum-table';
+import { VerdictBanner } from './verdict-banner';
+import './decision.css';
 const conciseOutcomes: Record<string, string> = {
   'Риски, этика и данные детей': 'Оценивает риски и защищает данные детей',
   'Запрос и проверка ответа ИИ': 'Составляет запрос и проверяет ответ ИИ',
@@ -62,10 +52,6 @@ const displayHours = (text: string) =>
   text
     .replace(/(\d)\.(\d+)(?=\s*(?:ч|уч\. ч|[+×=−;]|$))/g, '$1,$2')
     .replace(/(\d) ч(?=[\s.,]|$)/g, '$1 уч. ч.');
-export function remarkCount(count: number) {
-  const form = new Intl.PluralRules('ru').select(count);
-  return `${count} ${form === 'one' ? 'замечание' : form === 'few' ? 'замечания' : 'замечаний'}`;
-}
 export function PlanPage() {
   const query = useCourse();
   const location = useLocation();
@@ -79,12 +65,13 @@ export function PlanPage() {
   const hash = decodeURIComponent(location.hash.slice(1));
   const snapshot = query.data?.snapshot;
   const [target, selectedIssueId] = hash.replace(/^fix-/, '').split('~');
+  // Учебный план открывается первым: после вердикта методист смотрит часы и покрытие.
   const tab =
-    target === 'review' || target.startsWith('issue-')
+    target === 'review' || target === 'approve' || target.startsWith('issue-')
       ? 'review'
       : target === 'calendar'
         ? 'calendar'
-        : target === 'curriculum' || target.startsWith('topic-')
+        : !target || target === 'curriculum' || target.startsWith('topic-')
           ? 'curriculum'
           : 'intent';
   useEffect(() => {
@@ -115,7 +102,7 @@ export function PlanPage() {
         parent.open = true;
         parent = parent.parentElement?.closest('details') || null;
       }
-      const section = ['intent', 'curriculum', 'calendar', 'review'].includes(hash);
+      const section = ['intent', 'curriculum', 'calendar', 'review', 'approve'].includes(hash);
       if (section) return;
       element.scrollIntoView({ block: 'center' });
       if (target.startsWith('issue-')) {
@@ -149,43 +136,48 @@ export function PlanPage() {
       </>
     );
   const skeleton = snapshot.skeleton;
-  const totals = hourTotals(skeleton);
+  const verdict = programVerdict(snapshot);
   const sharedDepth =
     skeleton.outcomes.length > 0 &&
     skeleton.outcomes.every((outcome) => outcome.depth === skeleton.outcomes[0].depth)
       ? skeleton.outcomes[0].depth
       : null;
-  const explainsSolution = skeleton.outcomes.some((outcome) =>
-    outcome.description.endsWith('и объясняет решение'),
-  );
   const issues = snapshot.audit.issues;
-  const blocking = issues.filter((issue) => issue.blocking);
   const active = ['queued', 'running'].includes(view.job.status);
   const readonly = !view.is_latest || active;
   const canEdit = !readonly && !editing && !blockEditing;
   const versionQuery = view.is_latest ? '' : `?version=${snapshot.course_version}`;
   const href = (page: string) => `/courses/${view.course_id}/${page}${versionQuery}`;
-  const state = snapshot.approval_applicable
-    ? 'Программа утверждена'
-    : blocking.length
-      ? 'Нужны исправления'
-      : 'Ожидает проверки методиста';
   const issuePlace = (id: string) =>
     id === 'calendar'
       ? 'Календарь · параметры нагрузки'
-      : skeleton.topics.find((topic) => topic.id === id)?.title
-        ? `Учебный план · ${skeleton.topics.find((topic) => topic.id === id)!.title}`
-        : skeleton.outcomes.find((outcome) => outcome.id === id)?.description
-          ? `О программе · ${outcomeText(skeleton.outcomes.find((outcome) => outcome.id === id)!.description)}`
-          : skeleton.explanations.find((explanation) => explanation.id === id)?.title ||
-            'Проверка программы';
+      : id === 'legal'
+        ? 'О программе · основания разработки'
+        : id === 'tools'
+          ? 'О программе · инструменты'
+          : id === 'curriculum'
+            ? 'Учебный план'
+            : skeleton.requirements.references.find((reference) => reference.id === id)
+              ? `Приложение · ${skeleton.requirements.references.find((reference) => reference.id === id)!.name}`
+              : skeleton.topics.find((topic) => topic.id === id)?.title
+                ? `Учебный план · ${skeleton.topics.find((topic) => topic.id === id)!.title}`
+                : skeleton.outcomes.find((outcome) => outcome.id === id)?.description
+                  ? `О программе · ${outcomeText(skeleton.outcomes.find((outcome) => outcome.id === id)!.description)}`
+                  : skeleton.explanations.find((explanation) => explanation.id === id)?.title ||
+                    'Проверка программы';
   const issueHref = (id: string, issueId: string) =>
-    id === 'calendar' ||
-    skeleton.topics.some((topic) => topic.id === id) ||
-    skeleton.outcomes.some((outcome) => outcome.id === id) ||
-    skeleton.explanations.some((explanation) => explanation.id === id)
-      ? `${href('plan')}#fix-${id}${snapshot.observations.some((issue) => issue.id === issueId) ? `~${issueId}` : ''}`
-      : `${href('audit')}#issue-${issues.find((issue) => issue.element_id === id)?.id || ''}`;
+    id === 'legal' || id === 'tools'
+      ? `${href('plan')}#${id === 'legal' ? 'standard' : 'tools'}`
+      : id === 'curriculum'
+        ? `${href('plan')}#curriculum`
+        : skeleton.requirements.references.some((reference) => reference.id === id)
+          ? `${href('map')}#${id}`
+          : id === 'calendar' ||
+              skeleton.topics.some((topic) => topic.id === id) ||
+              skeleton.outcomes.some((outcome) => outcome.id === id) ||
+              skeleton.explanations.some((explanation) => explanation.id === id)
+            ? `${href('plan')}#fix-${id}${snapshot.observations.some((issue) => issue.id === issueId) ? `~${issueId}` : ''}`
+            : `${href('audit')}#issue-${issues.find((issue) => issue.element_id === id)?.id || ''}`;
   const editButton = (block: IntentBlock, label: string) => (
     <button
       className="block-edit"
@@ -222,17 +214,6 @@ export function PlanPage() {
           <div className="course-meta">
             <span>{skeleton.requirements.audience}</span>
             <span>{skeleton.requirements.delivery}</span>
-            {blocking.length > 0 && !snapshot.approval_applicable ? (
-              <Link className="program-status badge amber" to={`#issue-${blocking[0].id}`}>
-                <Clock3 size={12} aria-hidden="true" />
-                {state}
-              </Link>
-            ) : (
-              <Badge tone={snapshot.approval_applicable ? 'green' : 'neutral'}>
-                {snapshot.approval_applicable ? <CheckCircle2 size={12} /> : <Clock3 size={12} />}
-                {state}
-              </Badge>
-            )}
           </div>
         </div>
         <button
@@ -247,57 +228,39 @@ export function PlanPage() {
           {editing ? 'Редактор открыт' : 'Редактировать программу'}
         </button>
       </header>
+      <VerdictBanner snapshot={snapshot} materialsHref={href('materials')} />
       <nav className="plan-nav" aria-label="Разделы программы">
         {(
           [
-            ['intent', 'О программе'],
             ['curriculum', 'Учебный план'],
+            ['intent', 'О программе'],
             ['calendar', 'Календарь'],
-            ['review', 'Проверка и утверждение'],
+            ['review', 'Решения и утверждение'],
           ] as const
         ).map(([id, title]) => (
           <Link
             key={id}
-            to={`#${id}`}
+            // Ссылка сохраняет ?version, иначе вкладка архивной версии открыла бы актуальную.
+            to={{ search: location.search, hash: `#${id}` }}
             aria-label={title}
             aria-describedby={
-              id === 'review' && blocking.length > 0 ? 'review-remark-count' : undefined
+              id === 'review' && verdict.open > 0 ? 'review-remark-count' : undefined
             }
             aria-current={tab === id ? 'page' : undefined}
           >
             {title}
-            {id === 'review' && blocking.length > 0 && (
+            {id === 'review' && verdict.open > 0 && (
               <span
                 id="review-remark-count"
                 className="tab-count"
-                aria-label={remarkCount(blocking.length)}
+                aria-label={questionCount(verdict.open)}
               >
-                {blocking.length}
+                {verdict.open}
               </span>
             )}
           </Link>
         ))}
       </nav>
-      <div className="plan-metrics" aria-label="Показатели программы" hidden={tab === 'review'}>
-        <div>
-          <small>Объём программы</small>
-          <strong>
-            {formatSummaryHours(skeleton.requirements.total_hours)}
-            <span> уч. ч.</span>
-          </strong>
-        </div>
-        <div>
-          <small>Практика и самостоятельная работа</small>
-          <strong>
-            {formatSummaryHours(sumHours([totals.practice, totals.lab, totals.self_study]))}
-            <span> уч. ч.</span>
-          </strong>
-        </div>
-        <div>
-          <small>Результаты обучения</small>
-          <strong>{skeleton.outcomes.length}</strong>
-        </div>
-      </div>
       {!view.is_latest && (
         <Notice tone="warning">
           Архив версии {snapshot.course_version}. Доступен просмотр и скачивание; редактирование
@@ -373,11 +336,6 @@ export function PlanPage() {
                   blockEditor('outcomes')
                 ) : (
                   <>
-                    {explainsSolution && (
-                      <p className="outcome-intro">
-                        При демонстрации каждого результата слушатель объясняет своё решение.
-                      </p>
-                    )}
                     {!skeleton.outcomes.length && (
                       <p className="muted">
                         Результаты пока не заданы. Уточните исходные требования программы.
@@ -400,6 +358,13 @@ export function PlanPage() {
                                   <div>
                                     {outcomeText(outcome.description)}
                                     {!sharedDepth && <small>{outcome.depth}</small>}
+                                    {outcome.criteria && outcome.criteria.length > 0 && (
+                                      <ul className="outcome-criteria" aria-label="Критерии">
+                                        {outcome.criteria.map((criterion) => (
+                                          <li key={criterion}>{criterion}</li>
+                                        ))}
+                                      </ul>
+                                    )}
                                     {target === outcome.id && (
                                       <div className="context-remark">
                                         <AlertCircle size={15} />
@@ -445,179 +410,99 @@ export function PlanPage() {
                   ))}
                 </ul>
               </details>
+              {skeleton.requirements.template_id === 'acr_professional' && (
+                <section className="intent-block" id="standard" tabIndex={-1}>
+                  <h3>Профессиональный стандарт</h3>
+                  {skeleton.outcomes.some((outcome) => outcome.professional_standard_code) ? (
+                    <p>
+                      {[...new Set(skeleton.outcomes.map((o) => o.professional_standard_code))]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </p>
+                  ) : (
+                    <p className="pending-field">
+                      Требует подтверждения: текст профстандарта не приложен, название и код не
+                      заполнены, чтобы не выдумывать их.
+                    </p>
+                  )}
+                </section>
+              )}
+              {skeleton.tools && skeleton.tools.length > 0 && (
+                <section className="intent-block" id="tools" tabIndex={-1}>
+                  <h3>Инструменты и версии</h3>
+                  <div className="table-scroll">
+                    <table className="tools-table">
+                      <thead>
+                        <tr>
+                          <th>Инструмент</th>
+                          <th>Для чего</th>
+                          <th>Версия</th>
+                          <th>Источник и дата проверки</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {skeleton.tools.map((tool) => (
+                          <tr key={tool.name}>
+                            <th scope="row">{tool.name}</th>
+                            <td>{tool.purpose}</td>
+                            <td className={tool.version ? undefined : 'pending-field'}>
+                              {tool.version || 'требует подтверждения'}
+                            </td>
+                            <td className={tool.source ? undefined : 'pending-field'}>
+                              {tool.source
+                                ? `${tool.source}, ${tool.checked_at}`
+                                : 'источник не указан'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+              <section className="intent-block" id="requisites" tabIndex={-1}>
+                <h3>Реквизиты</h3>
+                <dl className="requisites">
+                  {[
+                    'Приказ об утверждении: номер и дата',
+                    'Подпись руководителя',
+                    'ФИО преподавателей',
+                  ].map((field) => (
+                    <div key={field}>
+                      <dt>{field}</dt>
+                      <dd>заполняет человек</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
             </Panel>
           </div>
           <div id="curriculum" hidden={tab !== 'curriculum'}>
             <div className="section-toolbar">
               <span>
-                {new Set(skeleton.topics.map((topic) => topic.module_id)).size} модулей ·{' '}
-                {skeleton.topics.length} тем
+                {
+                  new Set(
+                    skeleton.topics
+                      .filter((topic) => topic.id !== 'topic-final')
+                      .map((topic) => topic.module_id),
+                  ).size
+                }{' '}
+                модулей · итоговая аттестация{' '}
+                {skeleton.topics.at(-1)?.planned_total.replace('.', ',')} ч
               </span>
               <button className="block-edit" disabled={!canEdit} onClick={() => setEditing(true)}>
                 <Pencil size={14} />
                 Изменить план
               </button>
             </div>
-            <Panel
-              title="Учебный план"
-              subtitle="Часы по темам и видам работы"
-              className="curriculum-panel"
-            >
-              <details className="plan-calculations">
-                <summary>Подробные расчёты часов</summary>
-                <p>
-                  {formatHours(subtractHours(sumHours(Object.values(totals)), totals.assessment))}{' '}
-                  обучение + {formatHours(totals.assessment)} аттестация ={' '}
-                  {formatHours(sumHours(Object.values(totals)))} всего
-                </p>
-                <div className="calculation-content">
-                  <p>
-                    Часы каждого вида работы суммируются по всем модулям. Доля рассчитана от полного
-                    объёма программы, включая аттестацию.
-                  </p>
-                  <p>
-                    Практика, лабораторные и самостоятельная работа:{' '}
-                    {formatHours(sumHours([totals.practice, totals.lab, totals.self_study]))} уч. ч.
-                  </p>
-                  <dl className="calculation-breakdown">
-                    {hourKinds.map((kind) => {
-                      const values = Array.from(new Set(skeleton.topics.map((t) => t.module_id)))
-                        .map((id) =>
-                          sumHours(
-                            skeleton.topics
-                              .filter((t) => t.module_id === id)
-                              .map((t) => t.hours[kind]),
-                          ),
-                        )
-                        .filter((value) => !decimalEqual(value, '0'));
-                      const groups = new Map<string, number>();
-                      values.forEach((value) => groups.set(value, (groups.get(value) || 0) + 1));
-                      const formula = Array.from(groups, ([value, count]) =>
-                        count > 1 ? `${count} × ${formatHours(value)}` : formatHours(value),
-                      ).join(' + ');
-                      const total = sumHours(Object.values(totals));
-                      const share = decimalEqual(total, '0')
-                        ? '0'
-                        : new Decimal(totals[kind])
-                            .div(total)
-                            .times(100)
-                            .toDecimalPlaces(1)
-                            .toString();
-                      return (
-                        <div key={kind}>
-                          <dt>
-                            {kind === 'self_study' ? 'Самостоятельная работа' : hourLabels[kind]}
-                          </dt>
-                          <dd>
-                            <strong>{formatHours(totals[kind])} уч. ч.</strong>
-                            <span>{formatHours(share)}% объёма</span>
-                            <small>
-                              {values.length
-                                ? `${formula} = ${formatHours(totals[kind])} уч. ч. · сумма по модулям`
-                                : 'В учебном плане не предусмотрены'}
-                            </small>
-                          </dd>
-                        </div>
-                      );
-                    })}
-                  </dl>
-                  <div
-                    className={`calculation-check ${decimalEqual(sumHours(Object.values(totals)), skeleton.requirements.total_hours) ? 'is-balanced' : 'is-unbalanced'}`}
-                    role="status"
-                  >
-                    <strong>
-                      {decimalEqual(
-                        sumHours(Object.values(totals)),
-                        skeleton.requirements.total_hours,
-                      )
-                        ? 'Объём совпадает с запросом'
-                        : 'Объём отличается от запроса'}
-                    </strong>
-                    <span>
-                      По плану: {formatHours(sumHours(Object.values(totals)))} уч. ч. · В запросе:{' '}
-                      {formatHours(skeleton.requirements.total_hours)} уч. ч. · Разница (план −
-                      запрос):{' '}
-                      {formatHours(
-                        subtractHours(
-                          sumHours(Object.values(totals)),
-                          skeleton.requirements.total_hours,
-                        ),
-                      )}{' '}
-                      уч. ч.
-                    </span>
-                  </div>
-                  <p>
-                    «Всего» в строке модуля — сумма всех видов работы; «Итого» — сумма по всем
-                    модулям. Аттестация уже включена в общий объём.
-                  </p>
-                  <p>
-                    Дробные значения — доли учебного часа: 1,7 уч. ч. — это 1,7 учебного часа, а не
-                    1 час 70 минут. Продолжительность учебного часа в минутах требует уточнения.
-                  </p>
-                </div>
-              </details>
-              <p className="scroll-hint">
-                Прокрутите таблицу по горизонтали, чтобы увидеть все виды работы →
-              </p>
-              <div
-                className="table-scroll plan-table"
-                tabIndex={0}
-                role="region"
-                aria-label="Учебный план: все столбцы доступны при горизонтальной прокрутке"
-              >
-                <table>
-                  <colgroup>
-                    <col className="topic-column" />
-                    {Array.from({ length: 6 }, (_, i) => (
-                      <col key={i} />
-                    ))}
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th>Модуль / тема</th>
-                      {hourKinds.map((kind) => (
-                        <th key={kind}>
-                          {kind === 'self_study'
-                            ? 'Самостоя\u00adтельная'
-                            : kind === 'lab'
-                              ? 'Лабора\u00adторные'
-                              : hourLabels[kind]}
-                        </th>
-                      ))}
-                      <th>Всего</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Array.from(new Set(skeleton.topics.map((t) => t.module_id))).map(
-                      (moduleId) => (
-                        <ModuleRows
-                          key={moduleId}
-                          moduleId={moduleId}
-                          focused={target}
-                          allTopics={skeleton.topics}
-                          topics={skeleton.topics.filter((t) => t.module_id === moduleId)}
-                        />
-                      ),
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <th>Итого</th>
-                      {hourKinds.map((kind) => (
-                        <HourCell key={kind} value={totals[kind]} />
-                      ))}
-                      <HourCell value={sumHours(Object.values(totals))} />
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <p className="table-note">
-                Все значения — в учебных часах. Аттестация включена в столбец «Всего»; повторно
-                прибавлять её не нужно.
-              </p>
-              <Link className="text-link" to={href('map')}>
+            <Panel title="Учебный план" className="curriculum-panel">
+              <VolumeSummary skeleton={skeleton} />
+              <CurriculumTable skeleton={skeleton} focused={target} />
+              <h3 className="weekly-heading">Нагрузка по неделям</h3>
+              <WeeklyLoadTable skeleton={skeleton} />
+              <Link className="text-link" to={`${href('map')}#coverage`}>
                 <ListChecks size={16} />
-                Открыть связи результатов, тем и оценивания <ArrowRight size={16} />
+                Покрытие результатов темами и оценочными средствами <ArrowRight size={16} />
               </Link>
             </Panel>
           </div>
@@ -658,6 +543,7 @@ export function PlanPage() {
               issuePlace={issuePlace}
               issueHref={issueHref}
               materialsHref={href('materials')}
+              onDecided={setSaved}
               approval={
                 <>
                   <Panel title="Утверждение программы" className="approval-panel">
@@ -665,11 +551,11 @@ export function PlanPage() {
                       Утверждается ревизия <b>{snapshot.skeleton_version}</b> с её основаниями и
                       решениями.
                     </p>
-                    {blocking.length > 0 ? (
+                    {verdict.open > 0 && verdict.first ? (
                       <p className="approval-blocked">
                         <AlertCircle size={16} />
-                        Утверждение недоступно. Исправьте {remarkCount(blocking.length)}.
-                        <Link to={`#issue-${blocking[0].id}`}>Разобрать замечание</Link>
+                        Утверждение недоступно: {verdict.first.message}.
+                        <Link to={`#issue-${verdict.first.id}`}>К первому вопросу</Link>
                       </p>
                     ) : !snapshot.approval_applicable ? (
                       <label className="checkbox">
@@ -693,7 +579,7 @@ export function PlanPage() {
                         active ||
                         editing ||
                         !!blockEditing ||
-                        blocking.length > 0 ||
+                        verdict.open > 0 ||
                         snapshot.approval_applicable ||
                         !approveConfirmed ||
                         command.isPending
@@ -771,11 +657,6 @@ export function PlanPage() {
                 >
                   <summary>
                     <div>
-                      <small className="check-origin">
-                        {explanation.status === 'needs_review'
-                          ? 'Оценка методиста'
-                          : 'Автоматическая проверка'}
-                      </small>
                       <h3>{explanation.title}</h3>
                       <p>{displayHours(explanation.conclusion)}</p>
                       <Badge
@@ -788,18 +669,10 @@ export function PlanPage() {
                         }
                       >
                         {explanation.status === 'needs_review'
-                          ? 'Требует оценки методиста'
-                          : explanation.category === 'hours' &&
-                              explanation.status === 'verified' &&
-                              decimalEqual(
-                                sumHours(Object.values(totals)),
-                                skeleton.requirements.total_hours,
-                              )
-                            ? 'Расчёт проверен'
-                            : explanation.category === 'assessment' &&
-                                explanation.status === 'verified'
-                              ? 'Способы проверки предусмотрены'
-                              : statuses[explanation.status]}
+                          ? 'Не проверено экспертом'
+                          : explanation.status === 'verified'
+                            ? 'Проверено расчётом'
+                            : 'Есть нерешённый вопрос'}
                       </Badge>
                     </div>
                     <ChevronDown className="explanation-chevron" size={18} aria-hidden="true" />
@@ -922,77 +795,6 @@ export function PlanPage() {
         </aside>
       </div>
     </div>
-  );
-}
-function HourCell({ value }: { value: string }) {
-  return (
-    <td className={decimalEqual(value, '0') ? 'zero-hours' : undefined}>{formatHours(value)}</td>
-  );
-}
-function ModuleRows({
-  moduleId,
-  topics,
-  allTopics,
-  focused,
-}: {
-  moduleId: string;
-  focused?: string;
-  allTopics: import('../../entities/course/model/schema').Topic[];
-  topics: import('../../entities/course/model/schema').Topic[];
-}) {
-  const moduleLabel =
-    moduleId === 'module-final'
-      ? 'Итоговая аттестация'
-      : `Модуль ${moduleId.replace('module-', '')}`;
-  return (
-    <>
-      {topics.map((topic) => (
-        <tr
-          key={topic.id}
-          id={topic.id}
-          className={focused === topic.id ? 'field-highlight' : undefined}
-        >
-          <th scope="row">
-            <details className="topic-details">
-              <summary>
-                <ChevronDown size={16} aria-hidden="true" />
-                <span>
-                  <small>{moduleLabel !== topic.title ? moduleLabel : null}</small>
-                  <span>{topic.title}</span>
-                </span>
-              </summary>
-              <div className="topic-content">
-                <p>{topic.content}</p>
-                <p>
-                  Предпосылки:{' '}
-                  {topic.prerequisite_ids
-                    .map(
-                      (id) => allTopics.find((item) => item.id === id)?.title || 'Связанная тема',
-                    )
-                    .join(', ') || 'Входной уровень'}
-                </p>
-                <p>
-                  {topic.delivery} · {topic.control}
-                </p>
-              </div>
-            </details>
-          </th>
-          {hourKinds.map((kind) => (
-            <HourCell key={kind} value={topic.hours[kind]} />
-          ))}
-          <HourCell value={sumHours(Object.values(topic.hours))} />
-        </tr>
-      ))}
-      {topics.length > 1 && (
-        <tr className="subtotal">
-          <th scope="row">Итого по модулю</th>
-          {hourKinds.map((kind) => (
-            <HourCell key={kind} value={sumHours(topics.map((topic) => topic.hours[kind]))} />
-          ))}
-          <HourCell value={sumHours(topics.flatMap((topic) => Object.values(topic.hours)))} />
-        </tr>
-      )}
-    </>
   );
 }
 function Clarifications({ view }: { view: CourseView }) {

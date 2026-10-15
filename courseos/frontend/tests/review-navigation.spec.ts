@@ -11,16 +11,15 @@ async function create(page: Page, teacher = false) {
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.locator('.goal-statement')).toBeVisible();
-  await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await expect(page.locator('.verdict')).toBeVisible();
+  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
 }
 
-test('Blocking remarks: first-screen summary, contextual correction and keyboard navigation', async ({
+test('Decision queue: verdict counts, keyboard tabs, open place and keep with reason', async ({
   page,
 }) => {
   await create(page, true);
   const summary = page.getByRole('region', { name: 'Состояние программы' });
-  await expect(summary).toContainText('Нужны исправления');
   const data = await page.evaluate(
     () =>
       Object.values(JSON.parse(localStorage.getItem('courseos-demo-v1')!).courses)[0] as {
@@ -28,21 +27,22 @@ test('Blocking remarks: first-screen summary, contextual correction and keyboard
       },
   );
   const issues = data.snapshots.at(-1)!.audit.issues;
-  await expect(summary.locator('dd').nth(0)).toHaveText(
-    String(issues.filter((i) => i.blocking).length),
-  );
-  await expect(summary.locator('dd').nth(1)).toHaveText(
-    String(issues.filter((i) => !i.blocking).length),
-  );
-  await expect(page.getByRole('tab', { name: `Замечания · ${issues.length}` })).toHaveAttribute(
+  const blocking = issues.filter((i) => i.blocking).length;
+  await expect(summary.locator('dd').nth(0)).toHaveText(String(blocking));
+  await expect(summary.locator('dd').nth(1)).toHaveText(String(issues.length - blocking));
+  await expect(page.getByRole('tab', { name: `Решения · ${blocking}` })).toHaveAttribute(
     'aria-selected',
     'true',
   );
+  await expect(page.locator('.verdict')).toContainText('Блокирует:');
   await expect(page.locator('.rationale-panel')).toBeHidden();
   expect(
-    (await page.getByRole('button', { name: 'Разобрать замечания', exact: true }).boundingBox())!.y,
-  ).toBeLessThan(650);
-  await page.getByRole('tab', { name: /^Замечания/ }).focus();
+    (await page
+      .locator('.review-action-bar')
+      .getByRole('button', { name: 'К первому вопросу', exact: true })
+      .boundingBox())!.y,
+  ).toBeLessThan(900);
+  await page.getByRole('tab', { name: /^Решения/ }).focus();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: 'Обоснования', exact: true })).toBeFocused();
   await expect(page.locator('.rationale-decision-list')).toBeVisible();
@@ -53,19 +53,28 @@ test('Blocking remarks: first-screen summary, contextual correction and keyboard
     page.getByRole('button', { name: 'Утвердить программу', exact: true }),
   ).toBeDisabled();
   await page.keyboard.press('Home');
-  await page.locator('.review-issue-list button').first().press('Enter');
-  const selectedId = await page.locator('.review-issue').getAttribute('id');
-  await page.getByRole('link', { name: 'Перейти к исправлению', exact: true }).click();
+  const first = page.locator('.decision-item').first();
+  await expect(first).toContainText('Доказательство');
+  await first.getByRole('link', { name: 'Открыть место в программе' }).click();
   await expect(page.getByLabel('Дата начала', { exact: true })).toBeFocused();
-  await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
-  await expect(page.locator('.review-issue')).toHaveAttribute('id', selectedId!);
-  await expect(page.getByRole('tab', { name: /^Замечания/ })).toHaveAttribute(
+  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+  await expect(page.getByRole('tab', { name: /^Решения/ })).toHaveAttribute(
     'aria-selected',
     'true',
   );
+  const standard = page.locator('#issue-professional-standard');
+  await standard.getByRole('button', { name: 'Оставить как есть' }).click();
+  await expect(standard.getByRole('button', { name: 'Сохранить решение' })).toBeDisabled();
+  await standard
+    .getByLabel('Почему оставить как есть')
+    .fill('Коды функций «Педагога» подтвердит учебная часть');
+  await standard.getByRole('button', { name: 'Сохранить решение' }).click();
+  await expect(page.locator('.save-feedback')).toContainText('Причина сохранена');
+  await expect(page.locator('#issue-professional-standard')).toContainText(
+    'Коды функций «Педагога» подтвердит учебная часть',
+  );
+  await expect(page.getByRole('tab', { name: `Решения · ${blocking - 1}` })).toBeVisible();
   await page.screenshot({ path: '../reports/review-navigation-blocking.png', fullPage: true });
-  await page.reload();
-  await expect(page.locator('.review-issue')).toHaveAttribute('id', selectedId!);
 });
 
 test('No remarks, explicit approval, rationale filters and archived restrictions', async ({
@@ -84,7 +93,7 @@ test('No remarks, explicit approval, rationale filters and archived restrictions
     sessionStorage.clear();
   });
   await page.reload();
-  await expect(page.locator('.review-summary')).toContainText('Готово к утверждению');
+  await expect(page.locator('.verdict')).toContainText('Можно утверждать');
   await expect(page.getByRole('tab', { name: 'Утверждение', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -97,16 +106,16 @@ test('No remarks, explicit approval, rationale filters and archived restrictions
   await expect(page.locator('.rationale-decision-list button').first()).toBeVisible();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page.getByRole('checkbox', { name: /Я проверил цель/ }).check();
-  await expect(page.locator('.review-summary')).toContainText('Готово к утверждению');
+  await expect(page.locator('.verdict')).toContainText('Можно утверждать');
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
-  await expect(page.locator('.review-summary')).toContainText('Программа утверждена');
-  await expect(page.getByRole('link', { name: 'Перейти к материалам', exact: true })).toBeVisible();
+  await expect(page.locator('.verdict')).toContainText('Программа утверждена');
+  await expect(page.locator('#review').getByRole('link', { name: 'Перейти к материалам', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await expect(page.getByLabel('Найти пояснение')).toHaveValue('План');
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Скачать пояснения · MD', exact: true }).click();
   expect((await download).suggestedFilename()).toMatch(/rationale.md$/);
-  await page.getByRole('link', { name: 'Перейти к материалам', exact: true }).click();
+  await page.locator('#review').getByRole('link', { name: 'Перейти к материалам', exact: true }).click();
   await expect(page).toHaveURL(/\/materials/);
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await page.goto(`/courses/${id}/plan?version=1#review`);
@@ -117,16 +126,11 @@ test('No remarks, explicit approval, rationale filters and archived restrictions
   ).toBeDisabled();
 });
 
-test('Mobile lists, return focus, sticky actions and no horizontal overflow', async ({ page }) => {
+test('Mobile queue, return focus, sticky actions and no horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await create(page, true);
-  await expect(page.locator('.review-issue-list')).toBeVisible();
-  await expect(page.locator('.review-issue')).toBeHidden();
-  await page.locator('.review-issue-list button').first().click();
-  await expect(page.getByRole('button', { name: 'К списку замечаний', exact: true })).toBeVisible();
-  await expect(page.locator('.review-issue-list')).toBeHidden();
-  await page.getByRole('button', { name: 'К списку замечаний', exact: true }).click();
-  await expect(page.locator('.review-issue-list button').first()).toBeFocused();
+  await expect(page.locator('.decision-queue')).toBeVisible();
+  await expect(page.locator('.decision-item').first()).toBeVisible();
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await page.locator('.rationale-decision-list button').first().click();
   await expect(page.locator('.rationale-card')).toBeVisible();

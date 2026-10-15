@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw, ArrowLeft } from 'lucide-react';
-import { skeletonElements } from '../../entities/course/model/rationale';
-import { assessmentLabels } from '../../entities/course/model/presets';
+import {
+  generalRequirements,
+  requestChecklist,
+  type ChecklistItem,
+} from '../../entities/course/model/checklist';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
 import {
   Form,
@@ -17,6 +20,11 @@ import {
   statuses,
 } from '../../shared/ui/ui';
 import './audit.css';
+const checklistStatuses: Record<ChecklistItem['status'], string> = {
+  passed: 'Пройдено',
+  problem: 'Проблема',
+  not_checked: 'Не проверено',
+};
 export function AuditPage() {
   const query = useCourse();
   const command = useCommand();
@@ -24,11 +32,7 @@ export function AuditPage() {
   const location = useLocation();
   const section = location.hash.slice(1);
   const tab =
-    section === 'audit-observation'
-      ? 'audit-observation'
-      : section === 'audit-issues' || section.startsWith('issue-')
-        ? 'audit-issues'
-        : 'audit-checks';
+    section === 'audit-observation' || section === 'audit-checks' ? section : 'audit-checklist';
   const form = useForm<{ message: string; element_id: string; blocking: boolean }>({
     mode: 'onChange',
     defaultValues: { message: '', element_id: 'why-reachability', blocking: false },
@@ -40,47 +44,24 @@ export function AuditPage() {
   const snapshot = view.snapshot;
   if (!snapshot) return <Empty title="Проверять пока нечего">Завершите уточнения.</Empty>;
   const suffix = view.is_latest ? '' : `?version=${snapshot.course_version}`;
-  const sectionNames: Record<string, string> = {
-    calendar: 'Календарь',
-    legal: 'Нормативные основания',
-    goal: 'Цель программы',
-    requirements: 'Параметры программы',
-    map: 'Карта результатов',
-    hours: 'Объём программы',
-    audience: 'Аудитория',
-    entry_level: 'Входной уровень',
-    constraints: 'Ограничения',
-  };
-  const elements = skeletonElements(snapshot.skeleton);
-  const targetName = (id: string) => {
-    const assessment = snapshot.skeleton.assessments.find(
-      (item) => item.id === id || `criterion:${item.id}` === id,
-    );
-    return (
-      sectionNames[id] ||
-      snapshot.materials.find((item) => item.id === id)?.title ||
-      snapshot.sources.find((item) => item.id === id)?.name ||
-      snapshot.skeleton.explanations.find((item) => item.id === id)?.title ||
-      (assessment &&
-        (id === assessment.id ? assessmentLabels[assessment.type] : 'Критерий проверки')) ||
-      elements.find((item) => item.id === id)?.title ||
-      'Связанный раздел'
-    );
-  };
-  const target = (id: string) =>
-    id.startsWith('outcome') ||
-    id.startsWith('assessment') ||
-    snapshot.sources.some((s) => s.id === id)
-      ? `/courses/${snapshot.course_id}/map${suffix}#${id}`
-      : snapshot.materials.some((m) => m.id === id)
-        ? `/courses/${snapshot.course_id}/materials?${view.is_latest ? '' : `version=${snapshot.course_version}&`}material=${id}`
-        : `/courses/${snapshot.course_id}/plan${suffix}#${id}`;
+  const general = generalRequirements(snapshot);
+  const request = requestChecklist(snapshot);
+  const all = [...general, ...request];
+  const count = (status: ChecklistItem['status']) =>
+    all.filter((item) => item.status === status).length;
+  const itemHref = ({ target }: ChecklistItem) =>
+    target.screen === 'materials'
+      ? `/courses/${snapshot.course_id}/materials${suffix}`
+      : `/courses/${snapshot.course_id}/${target.screen}${suffix}${target.hash ? `#${target.hash}` : ''}`;
   return (
     <>
       <header className="page-heading heading-action">
         <div>
-          <h1>Проверка программы и материалов</h1>
-          <p>Расчёты и структурные проверки отделены от содержательной экспертизы.</p>
+          <h1>Проверка программы</h1>
+          <p>
+            Общие требования кейса и чек-лист запроса. «Не проверено» — честный статус: для проверки
+            не хватает источника или материалов.
+          </p>
         </div>
         <button
           disabled={
@@ -105,8 +86,8 @@ export function AuditPage() {
       <nav className="audit-nav" aria-label="Разделы проверки программы">
         {(
           [
-            ['audit-checks', 'Результаты проверок', 0],
-            ['audit-issues', 'Замечания и следующий шаг', snapshot.audit.issues.length],
+            ['audit-checklist', 'Чек-лист', count('problem')],
+            ['audit-checks', 'Технические проверки', 0],
             ['audit-observation', 'Замечание методиста', snapshot.observations.length],
           ] as const
         ).map(([id, title, count]) => (
@@ -122,6 +103,71 @@ export function AuditPage() {
           </Link>
         ))}
       </nav>
+      <section
+        id="audit-checklist"
+        className="audit-section"
+        aria-label="Чек-лист"
+        hidden={tab !== 'audit-checklist'}
+      >
+        <dl className="checklist-summary">
+          <div>
+            <dt>Пройдено</dt>
+            <dd>{count('passed')}</dd>
+          </div>
+          <div>
+            <dt>Проблема</dt>
+            <dd>{count('problem')}</dd>
+          </div>
+          <div>
+            <dt>Не проверено</dt>
+            <dd>{count('not_checked')}</dd>
+          </div>
+        </dl>
+        {(
+          [
+            [
+              'Общие требования',
+              'Из файла открытых запросов: проверяются в любой программе.',
+              general,
+            ],
+            ['Требования запроса', snapshot.skeleton.requirements.title, request],
+          ] as const
+        ).map(([title, subtitle, items]) => (
+          <Panel key={title} title={title} subtitle={subtitle} className="checklist-panel">
+            <ul className="checklist">
+              {items.map((item) => (
+                <li key={item.id} className={`checklist-item ${item.status}`}>
+                  {item.status === 'passed' ? (
+                    <CheckCircle2 className="green-icon" size={18} aria-hidden="true" />
+                  ) : item.status === 'problem' ? (
+                    <AlertTriangle className="red-icon" size={18} aria-hidden="true" />
+                  ) : (
+                    <CircleDashed size={18} aria-hidden="true" />
+                  )}
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p>{item.evidence}</p>
+                  </div>
+                  <Badge
+                    tone={
+                      item.status === 'passed'
+                        ? 'green'
+                        : item.status === 'problem'
+                          ? 'red'
+                          : 'neutral'
+                    }
+                  >
+                    {checklistStatuses[item.status]}
+                  </Badge>
+                  <Link className="checklist-link" to={itemHref(item)}>
+                    Открыть
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        ))}
+      </section>
       <section
         id="audit-checks"
         className="audit-section"
@@ -159,52 +205,6 @@ export function AuditPage() {
             </Panel>
           ))}
         </div>
-      </section>
-      <section
-        id="audit-issues"
-        className="audit-section"
-        aria-label="Замечания и следующий шаг"
-        hidden={tab !== 'audit-issues'}
-      >
-        <Panel
-          title="Замечания и следующий шаг"
-          subtitle={`Отчёт от ${new Date(snapshot.audit.at).toLocaleString('ru-RU')} · версия ${snapshot.audit.course_version}`}
-        >
-          {snapshot.audit.issues.length === 0 && (
-            <Notice tone="success">
-              Вычислимых ошибок не обнаружено. Экспертная проверка ещё не выполнена.
-            </Notice>
-          )}
-          {snapshot.audit.issues.map((issue) => (
-            <div className="audit-issue" key={issue.id} id={`issue-${issue.id}`}>
-              <div className="toolbar">
-                <Badge tone={issue.severity === 'error' ? 'red' : 'amber'}>
-                  {issue.severity === 'error'
-                    ? 'Ошибка'
-                    : issue.severity === 'warning'
-                      ? 'Предупреждение'
-                      : 'Наблюдение'}
-                </Badge>
-                <Badge>
-                  {issue.check_type === 'rule'
-                    ? 'Правило'
-                    : issue.check_type === 'human'
-                      ? 'Для проверки человеком'
-                      : 'Модель'}
-                </Badge>
-                {issue.blocking && <Badge tone="red">Блокирует продолжение</Badge>}
-              </div>
-              <h3>{issue.message}</h3>
-              <p>
-                Ожидается: {issue.expected}. Фактически: {issue.actual}.
-              </p>
-              <p>{issue.suggested_fix}</p>
-              <Link to={target(issue.element_id)}>
-                Открыть «{targetName(issue.element_id)}» и исправить ↗
-              </Link>
-            </div>
-          ))}
-        </Panel>
       </section>
       <section
         id="audit-observation"

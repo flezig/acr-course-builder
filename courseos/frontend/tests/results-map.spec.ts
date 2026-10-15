@@ -147,6 +147,8 @@ test('Полная карта: компактные карточки, прямы
   await openMap(page, 'teachers');
   await page.getByRole('button', { name: 'Показать всю карту' }).click();
   await expect(page.locator('.map-card')).toHaveCount(27);
+  // Курсор не должен остаться над карточкой: наведение тоже показывает её связи.
+  await page.mouse.move(0, 0);
   await page
     .locator('.results-workspace')
     .screenshot({ path: '../reports/results-map-workspace.png' });

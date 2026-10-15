@@ -17,11 +17,23 @@ async function createPython(page: Page, incomplete = false) {
       .fill('Без опыта программирования');
     await page.getByRole('button', { name: 'Сохранить ответы и построить каркас' }).click();
   }
-  await expect(page.getByRole('heading', { name: 'Обоснование программы' })).toBeVisible();
+  await expect(page.locator('.verdict')).toBeVisible();
   return page.url().match(/courses\/([^/]+)/)![1];
 }
+// Находки, которые нельзя применить автоматически, методист оставляет с причиной.
+async function keepFindings(page: Page) {
+  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+  await page.getByRole('tab', { name: /^Решения/ }).click();
+  const queue = page.locator('.decision-queue');
+  while (await queue.getByRole('button', { name: 'Оставить как есть' }).count()) {
+    await queue.getByRole('button', { name: 'Оставить как есть' }).first().click();
+    await page.getByLabel('Почему оставить как есть').fill('Проверено методистом вручную');
+    await page.getByRole('button', { name: 'Сохранить решение' }).click();
+    await expect(page.getByLabel('Почему оставить как есть')).toHaveCount(0);
+  }
+}
 async function approveAndWait(page: Page) {
-  await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page
     .getByRole('checkbox', {
@@ -53,7 +65,7 @@ test('Полный путь: уточнения, правка каркаса, а
   await expect(page.getByRole('heading', { name: 'Уточните 1 параметров' })).toBeVisible();
   await page.getByLabel('Какой входной уровень слушателей?').fill('Без опыта программирования');
   await page.getByRole('button', { name: 'Сохранить ответы и построить каркас' }).click();
-  await expect(page.getByRole('heading', { name: 'Обоснование программы' })).toBeVisible();
+  await expect(page.locator('.verdict')).toBeVisible();
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await expect(page.locator('.explanation')).toHaveCount(5);
   await expect(page.locator('.approval-panel > button.primary')).toBeDisabled();
@@ -68,10 +80,8 @@ test('Полный путь: уточнения, правка каркаса, а
     .locator('#main')
     .getByRole('link', { name: 'Проверка программы', exact: true })
     .click();
-  await expect(
-    page.getByRole('heading', { name: 'Проверка программы и материалов' }),
-  ).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Баланс часов' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Проверка программы', exact: true })).toBeVisible();
+  await expect(page.getByText('Итог с итоговой аттестацией равен объёму')).toBeVisible();
   await page.getByRole('button', { name: 'Вернуться к месту просмотра' }).click();
   await page
     .getByRole('button', { name: 'Практикум: Знакомство с Python Семинар', exact: true })
@@ -171,6 +181,7 @@ test('DevOps: подтвердить56дней, увидеть64/32, решит�
   await page.getByRole('button', { name: 'Применить и пересчитать' }).click();
   await expect(page.getByRole('heading', { name: 'Календарь и учебная нагрузка' })).toBeVisible();
   await expect(page.locator('.approval-panel > button.primary')).toBeDisabled();
+  await keepFindings(page);
   await approveAndWait(page);
   await page.getByRole('tab', { name: 'Выгрузки', exact: true }).click();
   const downloadPromise = page.waitForEvent('download');
@@ -235,7 +246,7 @@ test('Длинная новая программа500часов, прокрут�
   await page.getByLabel('Календарных дней', { exact: true }).fill('250');
   await page.getByLabel('Максимум часов в учебный день').fill('4');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Обоснование программы' })).toBeVisible();
+  await expect(page.locator('.verdict')).toBeVisible();
   await expect(page.locator('.plan-table tbody tr')).toHaveCount(33);
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.screenshot({ path: path.join(reports, 'long-plan-1024.png') });
@@ -243,14 +254,14 @@ test('Длинная новая программа500часов, прокрут�
   await page.getByRole('button', { name: 'Редактировать программу' }).click();
   await page.getByLabel('topic-16 Практика', { exact: true }).fill('1');
   await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
-  await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page.getByRole('link', { name: 'Отчёт проверки программы' }).click();
-  await page.getByRole('link', { name: 'Замечания и следующий шаг', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Сумма часов тем не совпадает с объёмом курса' }),
   ).toBeVisible();
-  await page.locator('a[href$="/plan#topic-16"]').click();
+  await page
+    .locator('#issue-hours-topic-16')
+    .getByRole('link', { name: 'Открыть место в программе' })
+    .click();
   await expect(page.getByRole('link', { name: 'Учебный план', exact: true })).toHaveAttribute(
     'aria-current',
     'page',

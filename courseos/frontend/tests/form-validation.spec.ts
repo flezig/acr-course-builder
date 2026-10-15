@@ -6,7 +6,7 @@ async function pythonCourse(page: Page) {
     .getByRole('button', { name: 'Первые шаги в Python 16 часов · школьники · общеразвивающая' })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Обоснование программы' })).toBeVisible();
+  await expect(page.locator('.verdict')).toBeVisible();
 }
 
 test('Creation validates inline, accepts commas and reveals errors inside collapsed sections', async ({
@@ -40,7 +40,7 @@ test('Creation validates inline, accepts commas and reveals errors inside collap
   await expect(limit).toBeFocused();
   await limit.fill('2,5');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Обоснование программы' })).toBeVisible();
+  await expect(page.locator('.verdict')).toBeVisible();
 });
 
 test('Clarifications reject the screenshot input locally and require a program type', async ({
@@ -84,7 +84,7 @@ test('Clarifications reject the screenshot input locally and require a program t
   await page.setViewportSize({ width: 1440, height: 900 });
   await hours.fill('72,5');
   await submit.click();
-  await expect(page.getByRole('heading', { name: 'Обоснование программы' })).toBeVisible();
+  await expect(page.locator('.verdict')).toBeVisible();
 });
 
 test('Program editor validates table cells before saving and keeps the entered draft', async ({
@@ -129,7 +129,7 @@ test('Source actions validate complete HTTP URLs inline, before adding a source'
 
 test('Observation form rejects whitespace next to the field', async ({ page }) => {
   await pythonCourse(page);
-  await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await page.getByRole('link', { name: 'Проверка программы', exact: true }).click();
   await page.getByRole('link', { name: 'Замечание методиста', exact: true }).click();
   const message = page.getByLabel('Конкретное замечание', { exact: true });
@@ -143,7 +143,7 @@ test('Observation form rejects whitespace next to the field', async ({ page }) =
 
 test('Material editing and hour changes validate before saving or preview', async ({ page }) => {
   await pythonCourse(page);
-  await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page
     .getByRole('checkbox', {

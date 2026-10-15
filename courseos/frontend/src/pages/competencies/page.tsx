@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useSearchParams } from 'react-router-dom';
 import { ResultsMap } from './results-map';
+import { CoverageMatrix } from './coverage-matrix';
+import './coverage-matrix.css';
 import type { Snapshot, Requirements } from '../../entities/course/model/schema';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 import { ReferenceEditor } from '../../features/upload-reference/reference-editor';
@@ -30,43 +32,49 @@ export function MapPage() {
     );
   return (
     <>
+      <CoverageMatrix
+        snapshot={snapshot}
+        planHref={`/courses/${snapshot.course_id}/plan${query.data.is_latest ? '' : `?version=${snapshot.course_version}`}`}
+      />
       <ResultsMap
         key={`map-${snapshot.course_id}`}
         snapshot={snapshot}
         editable={query.data.is_latest && !['queued', 'running'].includes(query.data.job.status)}
         initialSearch={search.get('filter') || ''}
       />
-      <Panel
-        title="Источники и исходные фрагменты"
-        subtitle="Наличие ссылки или текста не подтверждает достоверность и применимость."
-      >
-        {snapshot.sources.length === 0 && (
-          <Notice tone="warning">
-            Референсы не предоставлены. Нормативные и предметные утверждения остаются
-            неподтверждёнными.
-          </Notice>
-        )}
-        {snapshot.sources.map((source) => (
-          <details key={source.id} className="source" id={source.id}>
-            <summary>
-              {source.name}
-              <Badge>{statuses[source.status]}</Badge>
-            </summary>
-            <p>Поддерживаемое утверждение: {source.claim}</p>
-            <p>
-              {source.coordinate} · {new Date(source.checked_at).toLocaleDateString('ru-RU')} ·
-              область: {source.scope}
-            </p>
-            <pre>{source.text || 'Содержимое ссылки не получено. Требуется backend.'}</pre>
-            {source.url && (
-              <a href={source.url} target="_blank" rel="noreferrer">
-                Открыть исходный источник ↗
-              </a>
-            )}
-            <code>SHA-256: {source.hash}</code>
-          </details>
-        ))}
-      </Panel>
+      <div id="sources">
+        <Panel
+          title="Источники и исходные фрагменты"
+          subtitle="Наличие ссылки или текста не подтверждает достоверность и применимость."
+        >
+          {snapshot.sources.length === 0 && (
+            <Notice tone="warning">
+              Референсы не предоставлены. Нормативные и предметные утверждения остаются
+              неподтверждёнными.
+            </Notice>
+          )}
+          {snapshot.sources.map((source) => (
+            <details key={source.id} className="source" id={source.id}>
+              <summary>
+                {source.name}
+                <Badge>{statuses[source.status]}</Badge>
+              </summary>
+              <p>Поддерживаемое утверждение: {source.claim}</p>
+              <p>
+                {source.coordinate} · {new Date(source.checked_at).toLocaleDateString('ru-RU')} ·
+                область: {source.scope}
+              </p>
+              <pre>{source.text || 'Содержимое ссылки не получено. Требуется backend.'}</pre>
+              {source.url && (
+                <a href={source.url} target="_blank" rel="noreferrer">
+                  Открыть исходный источник ↗
+                </a>
+              )}
+              <code>SHA-256: {source.hash}</code>
+            </details>
+          ))}
+        </Panel>
+      </div>
       {query.data.is_latest && !['queued', 'running'].includes(query.data.job.status) && (
         <CourseReferences key={`references-${snapshot.course_version}`} snapshot={snapshot} />
       )}

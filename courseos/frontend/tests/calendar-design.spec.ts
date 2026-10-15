@@ -29,7 +29,7 @@ test('Calendar decisions require fresh consent and reflow', async ({ page }) => 
   await form.getByLabel('Подтверждаю изменение срока обучения', { exact: true }).check();
   await expect(apply).toBeEnabled();
   await form.getByText('Увеличить дневную нагрузку', { exact: true }).click();
-  await expect(form.locator('.calendar-result')).toContainText('7,2 уч. ч. в день');
+  await expect(form.locator('.calendar-result')).toContainText('7,5 уч. ч. в день');
   await expect(apply).toBeDisabled();
   await form
     .getByRole('checkbox', { name: 'Как методист, согласен с увеличением дневной нагрузки' })
