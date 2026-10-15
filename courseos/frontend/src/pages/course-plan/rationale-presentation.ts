@@ -7,11 +7,12 @@ export const rationaleGroups = [
   { id: 'intent', title: 'Цель и участники' },
   { id: 'outcomes', title: 'Результаты обучения' },
   { id: 'topics', title: 'Темы и порядок' },
-  { id: 'practice', title: 'Практика' },
   { id: 'assessment', title: 'Проверка знаний' },
   { id: 'time', title: 'Часы и расписание' },
 ] as const;
 export type RationaleGroup = (typeof rationaleGroups)[number]['id'];
+// Практика показывается внутри модуля своей темы, но пояснения к ней остаются свои.
+type RationaleKind = RationaleGroup | 'practice';
 
 const hours = (value: string) => `${value.replace('.', ',')} уч. ч.`;
 
@@ -19,7 +20,6 @@ export function rationaleGroup(s: Skeleton, id: string): RationaleGroup {
   if (['goal', 'audience', 'entry_level', 'constraints'].includes(id) || id.startsWith('task-'))
     return 'intent';
   if (s.outcomes.some((o) => o.id === id)) return 'outcomes';
-  if (s.activities.some((a) => a.id === id)) return 'practice';
   if (s.assessments.some((a) => a.id === id || `criterion:${a.id}` === id)) return 'assessment';
   if (
     ['hours', 'calendar'].includes(id) ||
@@ -37,10 +37,12 @@ export function moduleHeading(s: Skeleton, moduleId: string): string {
   return `Модуль ${modules.indexOf(moduleId) + 1}: ${titles.join(', ')}`;
 }
 
-// Связь порядка относим к модулю темы, которой нужна предпосылка.
+// Практику относим к модулю её темы, связь порядка — к модулю темы, которой нужна предпосылка.
 export function elementModuleId(s: Skeleton, id: string): string | undefined {
   if (s.topics.some((t) => t.module_id === id)) return id;
-  const topicId = id.startsWith('dependency:') ? id.split(':')[2] : id;
+  const topicId = id.startsWith('dependency:')
+    ? id.split(':')[2]
+    : s.activities.find((a) => a.id === id)?.topic_id || id;
   return s.topics.find((t) => t.id === topicId)?.module_id;
 }
 
@@ -122,8 +124,10 @@ export function rationaleSummary(
   const supported = records.find((r) => rationaleIsSupported(s, r, signature));
   const stale = records.some((r) => r.status === 'stale');
   const research = records.find((r) => ['research', 'subject_reference'].includes(r.kind));
-  const group = rationaleGroup(s, e.id);
-  const prompts: Record<RationaleGroup, string> = {
+  const group: RationaleKind = s.activities.some((a) => a.id === e.id)
+    ? 'practice'
+    : rationaleGroup(s, e.id);
+  const prompts: Record<RationaleKind, string> = {
     intent: 'Обсудите с заказчиком, подходит ли цель и учтён ли опыт будущих участников.',
     outcomes:
       'Попросите преподавателя оценить, смогут ли участники выполнить это действие к концу курса.',
@@ -135,7 +139,7 @@ export function rationaleSummary(
       'Проверьте, что работа действительно показывает нужный навык, а по критерию понятно, как её оценивать.',
     time: 'Оцените время на объяснение, самостоятельную работу и разбор ошибок. Согласуйте длительность учебного часа.',
   };
-  const contexts: Record<RationaleGroup, string> = {
+  const contexts: Record<RationaleKind, string> = {
     intent:
       'Здесь собраны исходные условия курса. Они помогают выбрать содержание и сложность заданий.',
     outcomes:

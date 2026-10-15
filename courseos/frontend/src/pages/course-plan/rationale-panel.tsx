@@ -22,6 +22,12 @@ import {
 } from './rationale-presentation';
 import './rationale-panel.css';
 
+// Внутри модуля его название уже в заголовке, поэтому пункты подписаны коротко.
+function sectionItemName(id: string, moduleId: string | undefined, name: string) {
+  if (id === moduleId) return 'Модуль целиком';
+  return moduleId ? name.replace(/^Практика: .*/, 'Практика') : name;
+}
+
 export function RationalePanel({ snapshot }: { snapshot: Snapshot }) {
   return <RationaleBrowser key={snapshot.course_id} snapshot={snapshot} />;
 }
@@ -203,7 +209,7 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
                       }}
                     >
                       <strong>
-                        {item.element.id === section.moduleId ? 'Модуль целиком' : item.name}
+                        {sectionItemName(item.element.id, section.moduleId, item.name)}
                       </strong>
                       <span>{item.summary.label}</span>
                     </button>
