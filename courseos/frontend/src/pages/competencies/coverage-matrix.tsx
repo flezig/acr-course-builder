@@ -49,8 +49,8 @@ export function CoverageMatrix({
     },
     {
       key: 'assessment',
-      label: 'Без проверки',
-      count: rows.filter((row) => !row.assessments.length).length,
+      label: 'Недостаточно оценочных средств',
+      count: rows.filter((row) => row.missingAssessments).length,
     },
     {
       key: 'criteria',
@@ -63,7 +63,7 @@ export function CoverageMatrix({
       (!onlyGaps || row.gaps.length > 0) &&
       (filter === 'all' ||
         (filter === 'topics' && !row.topics.length) ||
-        (filter === 'assessment' && !row.assessments.length) ||
+        (filter === 'assessment' && row.missingAssessments) ||
         (filter === 'criteria' && row.missingCriteria)),
   );
   function link(outcomeId: string, target: LinkRequest['target']) {
@@ -102,9 +102,9 @@ export function CoverageMatrix({
         Только с пробелами
       </label>
       <p className="coverage-note">
-        «Без проверки» — нет связанного задания. «Без критериев оценки» — критерии отсутствуют или
-        не заполнены у одного из заданий. Фильтр пробелов показывает отсутствующие связи и
-        детализацию.
+        Для каждого результата нужны минимум два оценочных средства разных типов. Несколько заданий
+        одного типа считаются одним средством. «Без критериев оценки» — критерии отсутствуют или не
+        заполнены у одного из заданий.
       </p>
       <div className="table-scroll" tabIndex={0} role="region" aria-label="Покрытие результатов">
         <table className="coverage-matrix">
@@ -225,7 +225,7 @@ export function CoverageMatrix({
                           {!topics.length && (
                             <button onClick={() => link(outcome.id, 'topic')}>Связать тему</button>
                           )}
-                          {!assessments.length && (
+                          {row.missingAssessments && (
                             <button onClick={() => link(outcome.id, 'assessment')}>
                               Добавить проверку
                             </button>

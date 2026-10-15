@@ -213,7 +213,11 @@ test('Пробелы сохраняют контекст; общая оценк�
   await dialog.getByRole('checkbox').first().check();
   await dialog.getByRole('button', { name: 'Сохранить связи' }).click();
   await expect(dialog).not.toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Ничего не найдено' })).toBeVisible();
+  await expect(page.locator('.outcome-list-item')).toHaveCount(1);
+  await expect(page.locator('.outcome-list-item').first()).toContainText(
+    'Нужно второе оценочное средство другого типа',
+  );
+  await expect(page.getByRole('button', { name: 'Добавить проверку' })).toBeVisible();
   await page.getByRole('button', { name: 'Сбросить фильтры' }).click();
   await expect(page.locator('.outcome-list-item').first()).not.toContainText('Нет оценивания');
   const stored = await page.evaluate((id) => {

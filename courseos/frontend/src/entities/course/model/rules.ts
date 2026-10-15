@@ -9,7 +9,12 @@ import {
 } from './rationale';
 import type { Audit, Requirements, Skeleton, Snapshot } from './schema';
 import { hourKinds, sumHours } from '../../../shared/lib/decimal';
-import { agentFindings, calendarProposalText, coverageIssue } from './findings';
+import {
+  agentFindings,
+  calendarProposalText,
+  coverageIssue,
+  outcomeAssessmentTypeCount,
+} from './findings';
 export function calendarCalculation(requirements: Requirements) {
   const calendar = requirements.calendar;
   const start = new Date(`${calendar.start || '2026-10-14'}T00:00:00Z`);
@@ -91,11 +96,7 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
     (outcome) =>
       !skeleton.topics.some((topic) => topic.outcome_ids.includes(outcome.id)) ||
       !skeleton.activities.some((activity) => activity.outcome_ids.includes(outcome.id)) ||
-      new Set(
-        skeleton.assessments
-          .filter((item) => item.outcome_ids.includes(outcome.id))
-          .map((item) => item.type),
-      ).size < 2,
+      outcomeAssessmentTypeCount(skeleton, outcome.id) < 2,
   );
   gaps.forEach((outcome) => issues.push(coverageIssue(skeleton, outcome)));
   skeleton.conflicts

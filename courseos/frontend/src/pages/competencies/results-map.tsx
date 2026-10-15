@@ -36,7 +36,7 @@ const gapFilters = {
   problems: 'Требуют проверки',
   verified: 'Проверены пользователем',
   learning: 'Нет обучения / темы / практики',
-  assessment: 'Нет оценивания',
+  assessment: 'Недостаточно оценочных средств',
   requirement: 'Нет требования',
   unlinked: 'Не связан с результатами',
 };
@@ -128,7 +128,7 @@ export function ResultsMap({
         (gapFilter === 'verified' &&
           outcomeReviewStatus(snapshot.skeleton, o.sourceId) === 'Проверен') ||
         (gapFilter === 'learning' && (!hasLink(o.id, 'topic') || !hasLink(o.id, 'activity'))) ||
-        (gapFilter === 'assessment' && !hasLink(o.id, 'assessment')) ||
+        (gapFilter === 'assessment' && !!o.assessmentGap) ||
         (gapFilter === 'requirement' && !hasLink(o.id, 'requirement'))) &&
       (!normalizedSearch || matches(o) || neighbors(o.id).some(matches)),
   );
@@ -425,8 +425,8 @@ export function ResultsMap({
           !hasLink(o.id, 'activity') &&
           gap(o, 'activity', 'Нет практики', 'Привязать практику')}
         {(column === undefined || column === 3) &&
-          !hasLink(o.id, 'assessment') &&
-          gap(o, 'assessment', 'Нет оценивания', 'Добавить проверку')}
+          o.assessmentGap &&
+          gap(o, 'assessment', o.assessmentGap, 'Добавить проверку')}
       </>
     );
   }

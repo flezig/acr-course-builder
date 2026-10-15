@@ -48,16 +48,19 @@ test('Покрытие в каркасе: три состояния, фильт�
     panel.locator('tr').filter({
       has: page.getByRole('rowheader').filter({ hasText: `Контрольный результат ${n}` }),
     });
-  await expect(row(1)).toContainText('Связи и критерии заполнены');
+  await expect(row(1)).toContainText('Нужно второе оценочное средство другого типа');
+  await expect(
+    row(1).getByRole('button', { name: 'Добавить проверку', exact: true }),
+  ).toBeVisible();
   await expect(row(1)).toContainText('Соответствие требует проверки');
   await expect(row(2)).toContainText('Нет проверочного задания');
   await expect(row(3)).toContainText('Не указаны критерии');
-  await panel.getByRole('button', { name: /Без проверки/ }).click();
-  await expect(row(1)).toHaveCount(0);
+  await panel.getByRole('button', { name: /Недостаточно оценочных средств/ }).click();
+  await expect(row(1)).toBeVisible();
   await expect(row(2)).toBeVisible();
   await panel.getByRole('button', { name: /Всего результатов/ }).click();
   await panel.getByLabel('Только с пробелами').check();
-  await expect(row(1)).toHaveCount(0);
+  await expect(row(1)).toBeVisible();
   await panel.getByLabel('Только с пробелами').uncheck();
   await row(1)
     .getByRole('link', { name: /Написать программу/ })

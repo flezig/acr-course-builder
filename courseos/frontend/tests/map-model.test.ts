@@ -3,14 +3,18 @@ import { makeSkeleton } from '../src/entities/course/model/factory';
 import { presets } from '../src/entities/course/model/presets';
 import { buildMap, relatedChain } from '../src/pages/competencies/map-model';
 const skeleton = () => makeSkeleton(presets.find((p) => p.id === 'python')!.requirements);
-test('Одного оценочного средства достаточно для наличия проверки; общие карточки не дублируются', () => {
+test('Одно средство оставляет пробел в оценивании; общие карточки не дублируются', () => {
   const s = skeleton();
   const ids = s.outcomes.map((o) => o.id);
   s.topics = [{ ...s.topics[0], outcome_ids: ids }];
   s.activities = [];
   s.assessments = [{ ...s.assessments[0], outcome_ids: ids }];
   const { nodes, edges } = buildMap(s);
-  expect(nodes.filter((n) => n.column === 1).every((n) => n.status === 'Нет практики')).toBe(true);
+  expect(
+    nodes
+      .filter((n) => n.column === 1)
+      .every((n) => n.status === 'Нет практики · Нужно второе оценочное средство другого типа'),
+  ).toBe(true);
   expect(nodes.filter((n) => n.column === 3)).toHaveLength(1);
   expect(
     edges.filter(
@@ -70,4 +74,13 @@ test('Короткие подписи сохраняют исходные фор
       .map((n) => n.title),
   ).toEqual([result.title, result.title]);
   expect(s).toEqual(before);
+});
+
+test.each([false, true])('Карта считает разные типы средств: одинаковый тип — %s', (sameType) => {
+  const s = skeleton();
+  const first = s.assessments[0];
+  s.assessments = [first, { ...first, id: 'second', type: sameType ? first.type : 'practical' }];
+  const node = buildMap(s).nodes.find((n) => n.sourceId === s.outcomes[0].id)!;
+  expect(node.gap).toBe(sameType);
+  expect(node.assessmentGap).toBe(sameType ? 'Нужно второе оценочное средство другого типа' : '');
 });

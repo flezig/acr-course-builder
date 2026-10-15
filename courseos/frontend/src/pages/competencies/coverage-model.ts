@@ -1,3 +1,4 @@
+import { outcomeAssessmentTypeCount } from '../../entities/course/model/findings';
 import type { Skeleton } from '../../entities/course/model/schema';
 import { outcomeReviewStatus } from './outcome-review-model';
 
@@ -13,6 +14,7 @@ export function buildCoverage(skeleton: Skeleton) {
     const assessments = skeleton.assessments.filter((assessment) =>
       assessment.outcome_ids.includes(outcome.id),
     );
+    const missingAssessments = outcomeAssessmentTypeCount(skeleton, outcome.id) < 2;
     const criteria = [
       ...new Set(
         [...(outcome.criteria || []), ...assessments.map((assessment) => assessment.criterion)]
@@ -25,7 +27,9 @@ export function buildCoverage(skeleton: Skeleton) {
       !criteria.length || assessments.some((assessment) => !assessment.criterion.trim());
     const gaps = [
       !topics.length && 'Нет связанных тем',
-      !assessments.length && 'Нет проверочного задания',
+      !assessments.length
+        ? 'Нет проверочного задания'
+        : missingAssessments && 'Нужно второе оценочное средство другого типа',
       missingCriteria && 'Не указаны критерии',
       assessments.some((assessment) => !assessment.action.trim()) &&
         'Не указана формулировка задания',
@@ -45,6 +49,7 @@ export function buildCoverage(skeleton: Skeleton) {
       assessments,
       criteria,
       missingCriteria,
+      missingAssessments,
       gaps,
       reviewed: outcomeReviewStatus(skeleton, outcome.id) === 'Проверен',
     };

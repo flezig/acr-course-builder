@@ -3,12 +3,7 @@ import { DemoCourseApi } from '../src/entities/course/api/demo-course-api';
 import { presets } from '../src/entities/course/model/presets';
 import { makeSkeleton, refreshExplanations } from '../src/entities/course/model/factory';
 import { hourTotals, auditSnapshot, calendarCalculation } from '../src/entities/course/model/rules';
-import {
-  canonicalJson,
-  contentHash,
-  sumHours,
-  formatHours,
-} from '../src/shared/lib/decimal';
+import { canonicalJson, contentHash, sumHours, formatHours } from '../src/shared/lib/decimal';
 import {
   inputSchema,
   snapshotSchema,
@@ -16,6 +11,9 @@ import {
   type Snapshot,
 } from '../src/entities/course/model/schema';
 import { HttpCourseApi } from '../src/entities/course/api/http-course-api';
+import { generalRequirements } from '../src/entities/course/model/checklist';
+import { buildCoverage } from '../src/pages/competencies/coverage-model';
+import { buildMap } from '../src/pages/competencies/map-model';
 class MemoryStorage {
   private values = new Map<string, string>();
   getItem(key: string) {
@@ -205,6 +203,39 @@ describe('Согласование, задачи и версии demo', () => {
     expect(updated.materials.every((m) => m.stale)).toBe(true);
     expect(updated.skeleton.explanations[0].evidence[0].text).toContain('Взрослые');
   });
+  it.each([0, 1, 2, 3])(
+    'аудит, чек-лист, таблица и карта согласованы: %i типов средств',
+    async (count) => {
+      const initial = await startPython();
+      const skeleton = structuredClone(initial.skeleton);
+      const outcomeId = skeleton.outcomes[0].id;
+      const first = skeleton.assessments[0];
+      const types = ['test', 'practical', 'project'] as const;
+      skeleton.assessments = [
+        ...skeleton.assessments.filter((a) => !a.outcome_ids.includes(outcomeId)),
+        ...types.slice(0, count).map((type, index) => ({
+          ...first,
+          id: `check-${index}`,
+          type,
+          outcome_ids: [outcomeId],
+        })),
+      ];
+      if (count === 1) skeleton.assessments.push({ ...first, id: 'same-type-copy' });
+      const snapshot = await saveSkeleton(initial, skeleton);
+      const insufficient = count < 2;
+      expect(snapshot.audit.checks.find((c) => c.id === 'coverage')!.status).toBe(
+        insufficient ? 'failed' : 'passed',
+      );
+      expect(
+        generalRequirements(snapshot).find((c) => c.id === 'outcomes-assessments')!.status,
+      ).toBe(insufficient ? 'problem' : 'passed');
+      expect(buildCoverage(snapshot.skeleton)[0].missingAssessments).toBe(insufficient);
+      expect(
+        !!buildMap(snapshot.skeleton).nodes.find((n) => n.sourceId === outcomeId)!.assessmentGap,
+      ).toBe(insufficient);
+      if (insufficient) await expect(approve(snapshot)).rejects.toMatchObject({ status: 409 });
+    },
+  );
   it('ошибка часов и результат без оценивания блокируют утверждение', async () => {
     const initial = await startPython();
     const skeleton = structuredClone(initial.skeleton);

@@ -8,7 +8,12 @@ test('Связи и критерии не означают проверенно�
   const s = skeleton();
   const id = s.outcomes[0].id;
   s.topics = [{ ...s.topics[0], outcome_ids: [id] }];
-  s.assessments = [{ ...s.assessments[0], topic_id: s.topics[0].id, outcome_ids: [id] }];
+  s.assessments = s.assessments
+    .filter((a) => a.outcome_ids.includes(id))
+    .map((a) => ({
+      ...a,
+      topic_id: s.topics[0].id,
+    }));
   expect(buildCoverage(s)[0].gaps).toEqual([]);
   expect(buildCoverage(s)[0].reviewed).toBe(false);
   s.outcomes[0].review = { signature: outcomeReviewSignature(s, id), checked_at: '2026-10-15' };
@@ -47,4 +52,27 @@ test('Итоговая аттестация не заменяет тему об�
   s.topics = [{ ...s.topics[0], id: 'topic-final', outcome_ids: [s.outcomes[0].id] }];
   expect(buildCoverage(s)[0].topics).toHaveLength(0);
   expect(buildCoverage(s)[0].gaps).toContain('Нет связанных тем');
+});
+
+test.each([0, 1, 2, 3])('Покрытие требует два разных типа средств: %i типов', (count) => {
+  const s = skeleton();
+  const id = s.outcomes[0].id;
+  const types = ['test', 'practical', 'project'] as const;
+  s.assessments = types.slice(0, count).map((type, index) => ({
+    ...s.assessments[0],
+    id: `check-${index}`,
+    outcome_ids: [id],
+    type,
+  }));
+  const row = buildCoverage(s)[0];
+  expect(row.missingAssessments).toBe(count < 2);
+  if (count === 1) expect(row.gaps).toContain('Нужно второе оценочное средство другого типа');
+});
+
+test('Несколько заданий одного типа не заменяют второе средство', () => {
+  const s = skeleton();
+  const first = s.assessments[0];
+  s.assessments = [first, { ...first, id: 'another-test' }];
+  expect(buildCoverage(s)[0].missingAssessments).toBe(true);
+  expect(buildCoverage(s)[0].gaps).toContain('Нужно второе оценочное средство другого типа');
 });

@@ -1,3 +1,4 @@
+import { outcomeAssessmentTypeCount } from '../../entities/course/model/findings';
 import type { Skeleton } from '../../entities/course/model/schema';
 import { assessmentLabels, kindLabels } from '../../entities/course/model/presets';
 export type MapNode = {
@@ -11,6 +12,7 @@ export type MapNode = {
   description: string;
   status: string;
   gap: boolean;
+  assessmentGap?: string;
   kind?: string;
   criterion?: string;
 };
@@ -66,12 +68,18 @@ export function buildMap(s: Skeleton) {
     const topic = s.topics.some((t) => t.outcome_ids.includes(o.id));
     const practice = s.activities.some((t) => t.outcome_ids.includes(o.id));
     const learning = topic && practice;
-    const assessment = s.assessments.some((a) => a.outcome_ids.includes(o.id));
+    const assessmentTypes = outcomeAssessmentTypeCount(s, o.id);
+    const assessmentGap =
+      assessmentTypes === 0
+        ? 'Нет оценивания'
+        : assessmentTypes < 2
+          ? 'Нужно второе оценочное средство другого типа'
+          : '';
     const requirement = requirementIds.includes(o.requirement_id);
     const warnings = [
       !requirement && 'Нет требования',
       !topic && !practice ? 'Нет обучения' : !topic ? 'Нет темы' : !practice ? 'Нет практики' : '',
-      !assessment && 'Нет оценивания',
+      assessmentGap,
     ].filter((label): label is string => !!label);
     const status = warnings.join(' · ');
     nodes.push({
@@ -85,7 +93,8 @@ export function buildMap(s: Skeleton) {
       type: o.kind === 'knowledge' ? 'Знание' : o.kind === 'skill' ? 'Умение' : kindLabels[o.kind],
       kind: o.kind,
       status,
-      gap: !requirement || !learning || !assessment,
+      gap: !requirement || !learning || !!assessmentGap,
+      assessmentGap,
     });
     if (requirement) edges.push({ from: `requirement:${o.requirement_id}`, to: `outcome:${o.id}` });
   }
@@ -107,11 +116,7 @@ export function buildMap(s: Skeleton) {
         warnings: gap ? ['Не связан с результатами'] : [],
         description: 'content' in item ? item.content : title,
         type:
-          'type' in item
-            ? assessmentLabels[item.type]
-            : prefix === 'topic'
-              ? 'Тема'
-              : 'Практика',
+          'type' in item ? assessmentLabels[item.type] : prefix === 'topic' ? 'Тема' : 'Практика',
         status: gap ? 'Не связан с результатами' : '',
         gap,
         criterion: 'criterion' in item ? item.criterion : undefined,
