@@ -242,3 +242,16 @@
     font-size: 11px;
   }
 }
+.rationale-list-section h4 {
+  margin: 18px 12px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.rationale-list-section:first-child h4 {
+  margin-top: 4px;
+}
+.rationale-list-section button {
+  width: 100%;
+}

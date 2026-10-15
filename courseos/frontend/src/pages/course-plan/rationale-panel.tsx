@@ -12,7 +12,9 @@ import { saveFile } from '../../shared/lib/use-unsaved';
 import { Badge, Panel } from '../../shared/ui/ui';
 import {
   elementDecision,
+  elementModuleId,
   elementName,
+  moduleHeading,
   rationaleGroup,
   rationaleGroups,
   rationaleSummary,
@@ -58,6 +60,17 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
   );
   const selected = filtered.find((item) => item.element.id === selectedId) || filtered[0];
   const toDiscuss = items.filter((item) => item.summary.needsReview);
+  // В разделе тем плоский список модулей и связей трудно читать, поэтому он разбит по модулям.
+  const listSections =
+    group === 'topics'
+      ? [...new Set(filtered.map((item) => elementModuleId(s, item.element.id)))].map(
+          (moduleId) => ({
+            moduleId,
+            heading: moduleId ? moduleHeading(s, moduleId) : 'Прочее',
+            items: filtered.filter((item) => elementModuleId(s, item.element.id) === moduleId),
+          }),
+        )
+      : [{ moduleId: undefined, heading: '', items: filtered }];
   // Вопрос пишется так, чтобы его можно было без правок переслать преподавателю или заказчику.
   const discussionQuestion = (item: (typeof items)[number]) =>
     `${item.name}: ${item.decision}\n${item.summary.next}`;
@@ -173,22 +186,29 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
         <>
           <div className={`rationale-browser-layout ${showDetail ? 'show-detail' : ''}`}>
             <nav className="rationale-decision-list" aria-label="Список решений">
-              {filtered.map((item) => (
-                <button
-                  key={item.element.id}
-                  data-decision-id={item.element.id}
-                  aria-current={selected.element.id === item.element.id ? 'true' : undefined}
-                  onClick={() => {
-                    setSelectedId(item.element.id);
-                    setShowDetail(true);
-                    requestAnimationFrame(() =>
-                      document.getElementById(`basis-${item.element.id}`)?.focus(),
-                    );
-                  }}
-                >
-                  <strong>{item.name}</strong>
-                  <span>{item.summary.label}</span>
-                </button>
+              {listSections.map((section) => (
+                <div key={section.moduleId || 'all'} className="rationale-list-section">
+                  {section.heading && <h4>{section.heading}</h4>}
+                  {section.items.map((item) => (
+                    <button
+                      key={item.element.id}
+                      data-decision-id={item.element.id}
+                      aria-current={selected.element.id === item.element.id ? 'true' : undefined}
+                      onClick={() => {
+                        setSelectedId(item.element.id);
+                        setShowDetail(true);
+                        requestAnimationFrame(() =>
+                          document.getElementById(`basis-${item.element.id}`)?.focus(),
+                        );
+                      }}
+                    >
+                      <strong>
+                        {item.element.id === section.moduleId ? 'Модуль целиком' : item.name}
+                      </strong>
+                      <span>{item.summary.label}</span>
+                    </button>
+                  ))}
+                </div>
               ))}
             </nav>
             <article

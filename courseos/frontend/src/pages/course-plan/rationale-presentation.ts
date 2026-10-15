@@ -30,6 +30,20 @@ export function rationaleGroup(s: Skeleton, id: string): RationaleGroup {
   return 'topics';
 }
 
+// В данных нет названий модулей, поэтому модуль узнают по номеру и входящим в него темам.
+export function moduleHeading(s: Skeleton, moduleId: string): string {
+  const modules = [...new Set(s.topics.map((t) => t.module_id))];
+  const titles = s.topics.filter((t) => t.module_id === moduleId).map((t) => t.title);
+  return `Модуль ${modules.indexOf(moduleId) + 1}: ${titles.join(', ')}`;
+}
+
+// Связь порядка относим к модулю темы, которой нужна предпосылка.
+export function elementModuleId(s: Skeleton, id: string): string | undefined {
+  if (s.topics.some((t) => t.module_id === id)) return id;
+  const topicId = id.startsWith('dependency:') ? id.split(':')[2] : id;
+  return s.topics.find((t) => t.id === topicId)?.module_id;
+}
+
 export function elementName(s: Skeleton, e: SkeletonElement): string {
   const outcome = s.outcomes.find((o) => o.id === e.id);
   if (outcome) return outcome.description;
@@ -44,10 +58,7 @@ export function elementName(s: Skeleton, e: SkeletonElement): string {
     const topics = s.topics.filter((t) => e.related.includes(t.id));
     return `Порядок: ${e.related.map((id) => topics.find((t) => t.id === id)?.title || 'тема').join(' → ')}`;
   }
-  if (s.topics.some((t) => t.module_id === e.id)) {
-    const modules = [...new Set(s.topics.map((t) => t.module_id))];
-    return `Модуль ${modules.indexOf(e.id) + 1}`;
-  }
+  if (s.topics.some((t) => t.module_id === e.id)) return moduleHeading(s, e.id);
   return e.title;
 }
 
