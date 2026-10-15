@@ -14,7 +14,7 @@ export function VerdictBanner({
 }) {
   const { search } = useLocation();
   const verdict = programVerdict(snapshot);
-  const open = snapshot.audit.issues.filter((issue) => !issue.decision);
+  const open = snapshot.audit.issues.filter((issue) => !issue.decision && issue.blocking);
   const action =
     verdict.kind === 'approved'
       ? { label: 'Перейти к материалам', to: materialsHref }
@@ -27,13 +27,13 @@ export function VerdictBanner({
         <small>Можно ли утверждать программу?</small>
         <h2>
           {verdict.kind === 'approved' && <CheckCircle2 size={20} aria-hidden="true" />}
-          {verdict.title}
+          {verdict.open > 0
+            ? `${new Intl.PluralRules('ru').select(verdict.open) === 'one' ? 'Блокирует' : 'Блокируют'} утверждение: ${verdict.open}`
+            : verdict.title}
         </h2>
         {verdict.kind === 'ready' && (
           <p className="verdict-evidence">
-            Блокирующих вопросов нет.
-            {verdict.info ? ` К сведению: ${verdict.info}.` : ''} Утверждение остаётся решением
-            методиста.
+            Блокирующих вопросов нет. Утверждение остаётся решением методиста.
           </p>
         )}
         {open.length > 0 && (
@@ -43,13 +43,19 @@ export function VerdictBanner({
           >
             {open.map((issue) => (
               <li key={issue.id}>
-                <div className="verdict-issue-heading">
-                  <span className={`verdict-issue-label ${issue.blocking ? 'blocking' : ''}`}>
-                    {issue.blocking ? 'Блокирует утверждение' : 'К сведению'}
+                <Link className="verdict-issue-link" to={{ search, hash: `#issue-${issue.id}` }}>
+                  <span className="verdict-issue-label blocking" aria-label="Блокирует утверждение">
+                    ●
                   </span>
-                  <Link to={{ search, hash: `#issue-${issue.id}` }}>{issue.message}</Link>
-                </div>
-                {issue.evidence && <p className="verdict-evidence">{issue.evidence}</p>}
+                  <span className="verdict-issue-text">
+                    <span className="verdict-issue-heading">{issue.message}</span>
+                    {issue.evidence && (
+                      <span className="verdict-evidence" title={issue.evidence}>
+                        {issue.evidence}
+                      </span>
+                    )}
+                  </span>
+                </Link>
               </li>
             ))}
           </ol>

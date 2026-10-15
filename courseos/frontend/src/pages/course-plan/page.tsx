@@ -28,7 +28,7 @@ import { ReviewWorkspace } from './review-workspace';
 import { CalendarPanel } from './calendar-panel';
 import { SkeletonEditor } from './skeleton-editor';
 import { IntentBlockEditor, type IntentBlock } from './intent-block-editor';
-import { CurriculumTable, VolumeSummary, WeeklyLoadTable } from './curriculum-table';
+import { CurriculumTable, VolumeSummary } from './curriculum-table';
 import { CoverageMatrix } from '../competencies/coverage-matrix';
 import { VerdictBanner } from './verdict-banner';
 import './decision.css';
@@ -503,9 +503,6 @@ export function PlanPage() {
                 setEditing(true);
               }}
             />
-            <Panel title="Нагрузка по неделям">
-              <WeeklyLoadTable skeleton={skeleton} />
-            </Panel>
           </div>
           <div hidden={tab !== 'calendar'}>
             <CalendarPanel

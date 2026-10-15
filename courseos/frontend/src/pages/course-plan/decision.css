@@ -4,8 +4,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
-  padding: 18px 20px;
+  gap: 12px;
+  padding: 12px 16px;
   margin: 0 0 20px;
   border: 1px solid var(--border);
   border-left-width: 4px;
@@ -16,7 +16,7 @@
   border-left-color: var(--theme-red-ink, #b4413c);
 }
 .verdict-decide {
-  border-left-color: var(--theme-amber-ink, #a86a12);
+  border-left-color: var(--theme-red-ink, #b4413c);
 }
 .verdict-ready,
 .verdict-approved {
@@ -46,30 +46,43 @@
 }
 .verdict-queue {
   display: grid;
-  gap: 12px;
-  margin: 16px 0 0;
+  gap: 6px;
+  margin: 8px 0 0;
   padding: 0;
   list-style: none;
 }
-.verdict-queue li {
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow-wrap: anywhere;
+.verdict-queue li,
+.verdict-issue-text {
+  min-width: 0;
+}
+.verdict-issue-link {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+.verdict-issue-link:hover .verdict-issue-heading {
+  text-decoration: underline;
 }
 .verdict-issue-heading {
-  display: grid;
-  gap: 4px;
-  margin-bottom: 6px;
-  font-size: 15px;
+  display: block;
+  font-size: 14px;
   font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.verdict-issue-label {
-  color: var(--muted);
-  font-size: 12px;
+.verdict-issue-text .verdict-evidence {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .verdict-issue-label.blocking {
+  flex-shrink: 0;
   color: var(--theme-red-ink, #b4413c);
+  font-size: 10px;
 }
 .verdict > .button {
   flex-shrink: 0;
@@ -174,8 +187,7 @@
 .zero-columns .link-button {
   font-size: 12px;
 }
-.acr-plan td,
-.weekly-load td {
+.acr-plan td {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -217,15 +229,6 @@
   font-weight: 400;
   color: var(--muted);
 }
-.weekly-heading {
-  margin: 24px 0 10px;
-  font-size: 14px;
-}
-.weekly-load {
-  max-width: 520px;
-  margin-bottom: 16px;
-}
-
 .outcome-criteria {
   margin: 6px 0 0;
   padding-left: 16px;
@@ -245,6 +248,9 @@
     flex-direction: column;
     padding: 16px;
   }
+  .verdict-body {
+    width: 100%;
+  }
   .verdict > .button {
     width: 100%;
     justify-content: center;
@@ -255,11 +261,9 @@
 }
 
 /* Учебный план читается целиком, как в образцах: без внутренней вертикальной прокрутки. */
-.table-scroll.acr-plan,
-.table-scroll.weekly-load {
+.table-scroll.acr-plan {
   max-height: none;
 }
-.acr-plan thead th:not(:first-child):not(:last-child),
-.weekly-load thead th:not(:first-child) {
+.acr-plan thead th:not(:first-child):not(:last-child) {
   text-align: right;
 }

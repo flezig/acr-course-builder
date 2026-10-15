@@ -9,7 +9,6 @@ import {
   contactAndRemoteHours,
   isInternship,
   selfStudyAllowed,
-  weeklyLoad,
 } from '../../entities/course/model/hours-plan';
 import { decimalEqual, formatHours, sumHours } from '../../shared/lib/decimal';
 
@@ -351,41 +350,6 @@ function TopicTitle({
         <p>{topic.delivery}</p>
       </div>
     </details>
-  );
-}
-
-export function WeeklyLoadTable({ skeleton }: { skeleton: Skeleton }) {
-  const weeks = weeklyLoad(skeleton);
-  const label = workLabels(skeleton);
-  if (!weeks.length) return null;
-  return (
-    <div
-      className="table-scroll weekly-load"
-      tabIndex={0}
-      role="region"
-      aria-label="Нагрузка по неделям"
-    >
-      <table>
-        <thead>
-          <tr>
-            <th>Неделя</th>
-            <th>Всего</th>
-            <th>{label.contact}</th>
-            <th>{label.remote}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {weeks.map((week) => (
-            <tr key={week.week}>
-              <th scope="row">{week.week}</th>
-              <td>{hours(week.total)}</td>
-              <td>{hours(week.contact.plus(week.assessment))}</td>
-              <td>{hours(week.remote)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
 

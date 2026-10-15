@@ -68,7 +68,7 @@ test('Overview, real tabs, contextual correction and responsive layout preserve 
     .check();
   await page.getByRole('button', { name: 'Применить и пересчитать' }).click();
   await expect(page.locator('.calendar-summary')).toContainText('Календарь подтверждён');
-  await expect(page.locator('.verdict')).toContainText('Нужно решить 1 вопрос');
+  await expect(page.locator('.verdict')).toContainText('Блокирует утверждение: 1');
   await page.screenshot({ path: '../reports/calendar-workspace-1440.png' });
   await tab(page, 'Решения и утверждение');
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
@@ -170,7 +170,7 @@ test('A coverage remark opens the assessment field and a methodist remark opens 
   await page.getByRole('button', { name: 'Записать замечание', exact: true }).click();
   await page.getByRole('link', { name: 'Каркас и учебный план', exact: true }).click();
   await expect(page.locator('.verdict')).toContainText(
-    'Блокирует: Уточните основание достижимости для этой аудитории.',
+    'Уточните основание достижимости для этой аудитории.',
   );
   await page.locator('.verdict').getByRole('link', { name: 'К первому вопросу' }).click();
   await expect(page.locator('.decision-item.field-highlight')).toContainText(
@@ -258,15 +258,15 @@ test('Programme states preserve approval, archive restrictions and materials acc
   await capture('archived');
 });
 
-test('All issues and named assessment forms are visible without expanding controls', async ({
+test('Only blockers appear in the compact summary and assessment forms stay visible', async ({
   page,
 }) => {
   await create(page);
   const issues = page.locator('.verdict-queue > li');
-  await expect(issues).toHaveCount(3);
+  await expect(issues).toHaveCount(2);
   await expect(page.locator('.verdict-issue-label.blocking')).toHaveCount(2);
   await expect(page.locator('.verdict-issue-label').filter({ hasText: 'К сведению' })).toHaveCount(
-    1,
+    0,
   );
   for (const issue of await issues.all()) {
     await expect(issue.locator('.verdict-issue-heading')).toBeVisible();
@@ -275,7 +275,11 @@ test('All issues and named assessment forms are visible without expanding contro
   for (const evidence of await page.locator('.verdict-queue .verdict-evidence').all()) {
     await expect(evidence).toBeVisible();
   }
-  await page.screenshot({ path: '../reports/visible-issues-1440.png', fullPage: true });
+  await expect(page.locator('.verdict h2')).toHaveText('Блокируют утверждение: 2');
+  await page.setViewportSize({ width: 1000, height: 900 });
+  expect((await page.locator('.verdict').boundingBox())!.height).toBeLessThan(200);
+  expect((await page.locator('.plan-nav').boundingBox())!.y).toBeLessThan(600);
+  await page.screenshot({ path: '../reports/visible-issues-1000.png' });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: '../reports/visible-issues-390.png', fullPage: true });
