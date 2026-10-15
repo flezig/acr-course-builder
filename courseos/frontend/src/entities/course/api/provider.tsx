@@ -45,6 +45,17 @@ export function useCourses() {
   const { api } = useApi();
   return useQuery({ queryKey: [api.mode, 'courses'], queryFn: () => api.list() });
 }
+export function useDeleteCourse() {
+  const { api } = useApi();
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: (courseId: string) => api.delete(courseId),
+    onSuccess: async (_, courseId) => {
+      query.removeQueries({ queryKey: [api.mode, 'course', courseId] });
+      await query.invalidateQueries({ queryKey: [api.mode, 'courses'] });
+    },
+  });
+}
 export function useCommand() {
   const { api } = useApi();
   const query = useQueryClient();

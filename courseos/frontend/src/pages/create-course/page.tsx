@@ -2,8 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
-import { useApi, useCommand, useCourses } from '../../entities/course/api/provider';
+import { ArrowRight, Trash2 } from 'lucide-react';
+import {
+  useApi,
+  useCommand,
+  useCourses,
+  useDeleteCourse,
+} from '../../entities/course/api/provider';
 import { inputSchema, type Requirements } from '../../entities/course/model/schema';
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
 import { ReferenceEditor } from '../../features/upload-reference/reference-editor';
@@ -14,6 +19,7 @@ export function CreateCoursePage() {
   const { api } = useApi();
   const command = useCommand();
   const courses = useCourses();
+  const deleteCourse = useDeleteCourse();
   const navigate = useNavigate();
   const [presetId, setPresetId] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
@@ -141,26 +147,40 @@ export function CreateCoursePage() {
         <Panel title="Ваши сохранённые курсы">
           <div className="course-list">
             {courses.data.map((course) => (
-              <button
-                className="course-row"
-                key={course.course_id}
-                onClick={() => navigate(`/courses/${course.course_id}/plan`)}
-              >
-                <div>
-                  <strong>{course.title}</strong>
-                  <small>
-                    {course.total_hours || 'Объём уточняется'} ч · версия {course.latest_version} ·{' '}
-                    {course.course_id.slice(0, 8)}
-                  </small>
-                </div>
-                <Badge>{statuses[course.status]}</Badge>
-                <ArrowRight size={18} />
-              </button>
+              <div className="course-item" key={course.course_id}>
+                <button
+                  className="course-row"
+                  onClick={() => navigate(`/courses/${course.course_id}/plan`)}
+                >
+                  <div>
+                    <strong>{course.title}</strong>
+                    <small>
+                      {course.total_hours || 'Объём уточняется'} ч · версия {course.latest_version}{' '}
+                      · {course.course_id.slice(0, 8)}
+                    </small>
+                  </div>
+                  <Badge>{statuses[course.status]}</Badge>
+                  <ArrowRight size={18} />
+                </button>
+                <button
+                  className="course-delete"
+                  aria-label={`Удалить курс «${course.title}»`}
+                  title="Удалить курс"
+                  disabled={deleteCourse.isPending}
+                  onClick={() => {
+                    if (window.confirm(`Удалить курс «${course.title}» со всеми версиями?`))
+                      deleteCourse.mutate(course.course_id);
+                  }}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             ))}
           </div>
         </Panel>
       )}
       <ErrorMessage error={courses.error} />
+      <ErrorMessage error={deleteCourse.error} />
     </div>
   );
 }

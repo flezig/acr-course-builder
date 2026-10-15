@@ -965,6 +965,18 @@ export class DemoCourseApi implements CourseApi {
       throw new ApiError(422, `На этой вкладке нет текста «${from}».`);
     return { skeleton: draft, note: `Заменено «${from}» на «${to}».` };
   }
+  async delete(id: string) {
+    await this.transact(async (db) => {
+      if (!db.courses[id]) throw new ApiError(404, 'Курс не найден.');
+      delete db.courses[id];
+      for (const [key, operation] of Object.entries(db.operations))
+        if (operation.result.course_id === id) delete db.operations[key];
+    });
+    for (let index = localStorage.length - 1; index >= 0; index--) {
+      const key = localStorage.key(index);
+      if (key?.startsWith('courseos-') && key.includes(`-demo-${id}`)) localStorage.removeItem(key);
+    }
+  }
   async reset() {
     await this.queue;
     const clear = () => {

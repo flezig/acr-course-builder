@@ -112,6 +112,11 @@ export class HttpCourseApi implements CourseApi {
       { method: 'POST', body: JSON.stringify(input) },
     );
   }
+  async delete(id: string): Promise<void> {
+    await this.transport.request(`/courses/${encodeURIComponent(id)}`, z.unknown(), {
+      method: 'DELETE',
+    });
+  }
   async reset(): Promise<void> {
     throw new ApiError(403, 'Сброс доступен только в демонстрационном режиме.');
   }

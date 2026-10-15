@@ -48,6 +48,8 @@ export class HttpTransport {
       );
     }
     let payload: unknown;
+    // Удаление отвечает 204 без тела, разбирать нечего.
+    if (response.status === 204) return schema.parse(undefined);
     try {
       payload = await response.json();
     } catch {

@@ -63,6 +63,7 @@ export interface CourseApi {
   readonly mode: 'demo' | 'live';
   list(): Promise<CourseSummary[]>;
   get(courseId: string, version?: number): Promise<CourseView>;
+  delete(courseId: string): Promise<void>;
   command(envelope: CommandEnvelope): Promise<CommandResult>;
   getJob(jobId: string): Promise<Job>;
   getChange(courseId: string, changeId: string): Promise<ChangePlan>;

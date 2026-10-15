@@ -784,8 +784,27 @@ summary small {
 .course-row small {
   display: block;
 }
-.course-row:last-child {
+.course-item {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.course-item:last-child {
   border-bottom: 0;
+}
+.course-item .course-row {
+  border-bottom: 0;
+  flex: 1;
+  min-width: 0;
+}
+.course-delete {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 8px;
+}
+.course-delete:hover {
+  color: var(--error-ink);
 }
 .metric-grid {
   display: grid;
