@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Download, Search, X } from 'lucide-react';
+import { ArrowLeft, Copy, Download, Search, X } from 'lucide-react';
 import type { Snapshot } from '../../entities/course/model/schema';
 import {
   currentRationales,
@@ -57,6 +57,22 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
           .includes(search)),
   );
   const selected = filtered.find((item) => item.element.id === selectedId) || filtered[0];
+  const toDiscuss = items.filter((item) => item.summary.needsReview);
+  // Вопрос пишется так, чтобы его можно было без правок переслать преподавателю или заказчику.
+  const discussionQuestion = (item: (typeof items)[number]) =>
+    `${item.name}: ${item.decision}\n${item.summary.next}`;
+  const [copied, setCopied] = useState('');
+  const [copyError, setCopyError] = useState('');
+  const copyQuestions = async (key: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyError('');
+      setCopied(key);
+    } catch {
+      setCopied('');
+      setCopyError('Не удалось скопировать: браузер запретил доступ к буферу обмена.');
+    }
+  };
   const changeGroup = (value: typeof group) => {
     setShowDetail(false);
     setGroup(value);
@@ -71,20 +87,43 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
           <span aria-hidden="true"> · </span>
           <strong>{coverage.assumptions + coverage.gaps}</strong> требуют обсуждения
         </p>
-        <button
-          className="rationale-download"
-          onClick={() =>
-            saveFile(
-              new Blob([skeletonRationaleMarkdown(snapshot)], {
-                type: 'text/markdown;charset=utf-8',
-              }),
-              `${snapshot.course_id}-v${snapshot.course_version}-rationale.md`,
-            )
-          }
-        >
-          <Download size={15} aria-hidden="true" /> Скачать пояснения · MD
-        </button>
+        <div className="rationale-overview-actions">
+          {!!toDiscuss.length && (
+            <button
+              className="rationale-download"
+              onClick={() =>
+                copyQuestions(
+                  'all',
+                  toDiscuss.map((item, i) => `${i + 1}. ${discussionQuestion(item)}`).join('\n\n'),
+                )
+              }
+            >
+              <Copy size={15} aria-hidden="true" />
+              {copied === 'all'
+                ? 'Вопросы скопированы'
+                : `Скопировать вопросы для обсуждения · ${toDiscuss.length}`}
+            </button>
+          )}
+          <button
+            className="rationale-download"
+            onClick={() =>
+              saveFile(
+                new Blob([skeletonRationaleMarkdown(snapshot)], {
+                  type: 'text/markdown;charset=utf-8',
+                }),
+                `${snapshot.course_id}-v${snapshot.course_version}-rationale.md`,
+              )
+            }
+          >
+            <Download size={15} aria-hidden="true" /> Скачать пояснения · MD
+          </button>
+        </div>
       </div>
+      {copyError && (
+        <p className="rationale-copy-error" role="alert">
+          {copyError}
+        </p>
+      )}
       <nav className="rationale-groups" aria-label="Разделы пояснений">
         {rationaleGroups.map((item) => (
           <button
@@ -187,8 +226,17 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
                 <p>{selected.summary.why}</p>
               </div>
               <div className="rationale-next-step">
-                <h4>{selected.summary.needsReview ? 'Что ещё проверить' : 'Следующий шаг'}</h4>
+                <h4>{selected.summary.needsReview ? 'Вынесите на обсуждение' : 'Следующий шаг'}</h4>
                 <p>{selected.summary.next}</p>
+                {selected.summary.needsReview && (
+                  <button
+                    className="rationale-discuss"
+                    onClick={() => copyQuestions(selected.element.id, discussionQuestion(selected))}
+                  >
+                    <Copy size={14} aria-hidden="true" />
+                    {copied === selected.element.id ? 'Вопрос скопирован' : 'Скопировать вопрос'}
+                  </button>
+                )}
               </div>
             </article>
           </div>

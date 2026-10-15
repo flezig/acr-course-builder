@@ -18,6 +18,11 @@
   color: var(--ink);
   font-weight: 600;
 }
+.rationale-overview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .rationale-download {
   display: inline-flex;
   align-items: center;
@@ -192,6 +197,17 @@
   color: #333d4c;
 }
 .rationale-next-step p {
+  font-size: 13px;
+}
+.rationale-discuss {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.rationale-copy-error {
+  color: #a33a2b;
   font-size: 13px;
 }
 .rationale-empty {

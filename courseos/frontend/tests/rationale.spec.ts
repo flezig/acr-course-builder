@@ -42,6 +42,10 @@ test('Основания в интерфейсе, JSON и MD относятся 
   const basis = page.locator('[id="basis-activity-topic-4"]');
   await expect(basis).toContainText('Почему');
   await expect(basis).not.toContainText('Источники и подробности');
+  await expect(basis.getByRole('button', { name: 'Скопировать вопрос' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /^Скопировать вопросы для обсуждения · \d+$/ }),
+  ).toBeVisible();
   const oldDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Скачать пояснения · MD', exact: true }).click();
   const old = await contents(await oldDownload);
