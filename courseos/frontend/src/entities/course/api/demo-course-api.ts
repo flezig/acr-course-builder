@@ -34,7 +34,7 @@ import {
   type CommandEnvelope,
   type CommandResult,
   type CourseApi,
-  type FieldEditRequest,
+  type PageEditRequest,
 } from './contract';
 const storageKey = 'courseos-demo-v1';
 interface StoredCourse {
@@ -902,33 +902,21 @@ export class DemoCourseApi implements CourseApi {
       `«${file.name}»: реальное извлечение PDF/DOCX недоступно без backend. Для скана нужен текстовый референс; OCR не поддерживается. Вставьте текст.`,
     );
   }
-  // В демо нет языковой модели: распознаём несколько однозначных команд,
-  // а на остальные честно отвечаем, что нужен backend, а не выдумываем текст.
-  async proposeFieldEdit({ current_value, request }: FieldEditRequest) {
-    const text = request.trim();
-    const replace = text.match(/замени\S*\s+[«"](.+?)[»"]\s+на\s+[«"](.*?)[»"]/i);
-    if (replace) {
-      if (!current_value.includes(replace[1]))
-        throw new ApiError(422, `В поле нет фрагмента «${replace[1]}».`);
-      return {
-        value: current_value.split(replace[1]).join(replace[2]),
-        note: `Заменено «${replace[1]}» на «${replace[2]}».`,
-      };
-    }
-    const append = text.match(/^добав\S*\s*:?\s*([\s\S]+)/i);
-    if (append) {
-      const separator = current_value && !/\s$/.test(current_value) ? ' ' : '';
-      return { value: current_value + separator + append[1], note: 'Текст добавлен в конец.' };
-    }
-    if (/сократ|короче/i.test(text)) {
-      const first = current_value.match(/^[\s\S]*?[.!?](\s|$)/)?.[0].trim() || current_value;
-      return { value: first, note: 'Оставлено первое предложение.' };
-    }
-    if (/очист|удали вс/i.test(text)) return { value: '', note: 'Поле очищено.' };
-    throw new ApiError(
-      503,
-      'Свободные запросы к ИИ выполняет backend. В демо доступны команды: «замени "А" на "Б"», «добавь: …», «сократи», «очисти».',
-    );
+  // В демо нет языковой модели: выполняем только однозначную замену фрагмента
+  // во всех полях, а на остальные запросы честно отвечаем, что нужен backend.
+  async proposePageEdit({ fields, request }: PageEditRequest) {
+    const replace = request.match(/замени\S*\s+[«"](.+?)[»"]\s+на\s+[«"](.*?)[»"]/i);
+    if (!replace)
+      throw new ApiError(
+        503,
+        'Свободные запросы к ИИ выполняет backend. В демо доступна команда «замени "А" на "Б"» — она применяется ко всем открытым полям.',
+      );
+    const [, from, to] = replace;
+    const changes = fields
+      .filter((field) => field.value.includes(from))
+      .map((field) => ({ field_id: field.id, value: field.value.split(from).join(to) }));
+    if (!changes.length) throw new ApiError(422, `Ни в одном открытом поле нет «${from}».`);
+    return { changes, note: `Заменено «${from}» на «${to}».` };
   }
   async reset() {
     await this.queue;

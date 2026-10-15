@@ -1,68 +1,67 @@
-.ai-field-trigger {
+.ai-page-trigger {
   position: fixed;
+  right: 20px;
+  bottom: 20px;
   z-index: 60;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 26px;
-  min-height: 0;
-  padding: 0 8px;
+  gap: 6px;
+  padding: 10px 16px;
   border: 1px solid var(--theme-purple-ink, #6b3fa0);
-  border-radius: 6px;
+  border-radius: 999px;
   background: var(--theme-purple-surface, #f3ecfb);
   color: var(--theme-purple-ink, #6b3fa0);
-  font-size: 13px;
   font-weight: 600;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.12);
   cursor: pointer;
 }
 
-.ai-field-trigger:hover {
+.ai-page-trigger:hover {
   filter: brightness(0.96);
 }
 
-.ai-field-dialog {
+.ai-page-dialog {
   position: fixed;
+  right: 20px;
+  bottom: 20px;
   z-index: 61;
   display: grid;
   gap: 10px;
-  width: min(400px, calc(100vw - 16px));
-  max-height: calc(100vh - 16px);
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
   overflow: auto;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--surface);
   color: var(--ink);
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.16);
 }
 
-.ai-field-dialog form,
-.ai-field-proposal {
+.ai-page-dialog form,
+.ai-page-proposal {
   display: grid;
   gap: 8px;
 }
 
-.ai-field-dialog textarea {
+.ai-page-dialog textarea {
   width: 100%;
   resize: vertical;
 }
 
-.ai-field-heading {
+.ai-page-heading {
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--theme-purple-ink, #6b3fa0);
 }
 
-.ai-field-heading strong {
+.ai-page-heading strong {
   flex: 1;
-  overflow: hidden;
   color: var(--ink);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.ai-field-close {
+.ai-page-close {
   padding: 2px;
   border: 0;
   background: none;
@@ -70,12 +69,28 @@
   cursor: pointer;
 }
 
-.ai-field-dialog .diff-grid {
+.ai-page-change {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.ai-page-dialog .diff-grid {
   grid-template-columns: 1fr;
 }
 
-.ai-field-dialog pre {
-  max-height: 140px;
+.ai-page-dialog pre {
+  max-height: 120px;
   overflow: auto;
   white-space: pre-wrap;
+}
+
+@media (max-width: 600px) {
+  .ai-page-trigger,
+  .ai-page-dialog {
+    right: 16px;
+    bottom: 16px;
+  }
 }

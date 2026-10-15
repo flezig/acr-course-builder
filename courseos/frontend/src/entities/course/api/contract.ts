@@ -42,17 +42,18 @@ export interface CommandResult {
   job: Job;
   change_plan: ChangePlan | null;
 }
-/** Свободный запрос методиста к ИИ о правке одного поля формы. */
-export interface FieldEditRequest {
+/**
+ * Общий свободный запрос методиста к ИИ. ИИ видит все поля, открытые
+ * сейчас для редактирования, и предлагает новые значения только для нужных.
+ */
+export interface PageEditRequest {
   course_id: string | null;
-  /** Подпись поля и путь страницы, чтобы ИИ понимал, что именно правится. */
-  field_label: string;
   page: string;
-  current_value: string;
   request: string;
+  fields: { id: string; label: string; value: string }[];
 }
-export interface FieldEditProposal {
-  value: string;
+export interface PageEditProposal {
+  changes: { field_id: string; value: string }[];
   note: string;
 }
 export interface CourseApi {
@@ -68,7 +69,7 @@ export interface CourseApi {
   retrieveReference(courseId: string, url: string): Promise<Requirements['references'][number]>;
   uploadReference(courseId: string, file: File): Promise<Requirements['references'][number]>;
   reset(): Promise<void>;
-  proposeFieldEdit(input: FieldEditRequest): Promise<FieldEditProposal>;
+  proposePageEdit(input: PageEditRequest): Promise<PageEditProposal>;
 }
 export function withManifest(snapshot: Snapshot): Snapshot {
   snapshot.export_manifest = (['json', 'docx', 'pptx', 'lms'] as const).map((format) => ({

@@ -8,7 +8,7 @@ import {
   requirementsSchema,
 } from '../model/schema';
 import { HttpTransport, ApiError } from '../../../shared/api/http';
-import type { CommandEnvelope, CourseApi, FieldEditRequest } from './contract';
+import type { CommandEnvelope, CourseApi, PageEditRequest } from './contract';
 const resultSchema = z.object({
   course_id: z.string(),
   job: jobSchema,
@@ -104,10 +104,13 @@ export class HttpCourseApi implements CourseApi {
       { method: 'POST', body },
     );
   }
-  proposeFieldEdit(input: FieldEditRequest) {
+  proposePageEdit(input: PageEditRequest) {
     return this.transport.request(
-      '/ai/field-edit',
-      z.object({ value: z.string(), note: z.string() }),
+      '/ai/page-edit',
+      z.object({
+        changes: z.array(z.object({ field_id: z.string(), value: z.string() })),
+        note: z.string(),
+      }),
       { method: 'POST', body: JSON.stringify(input) },
     );
   }
