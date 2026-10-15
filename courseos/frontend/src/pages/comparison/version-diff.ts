@@ -39,15 +39,55 @@ function elementLabel(item: Identified) {
   return typeof name === 'string' && name ? `${item.id} · ${name}` : item.id;
 }
 
+// Названия полей требований и календаря, которые методист видит в редакторе.
+const fieldLabels: Record<string, string> = {
+  request: 'Запрос',
+  title: 'Название',
+  template_id: 'Шаблон',
+  audience: 'Аудитория',
+  entry_level: 'Входной уровень',
+  goal: 'Цель',
+  total_hours: 'Объём, часов',
+  delivery: 'Форма обучения',
+  assessment: 'Итоговая аттестация',
+  constraints: 'Ограничения',
+  calendar: 'Календарь',
+  description: 'Описание',
+  start: 'Начало',
+  calendar_days: 'Календарных дней',
+  weekdays_only: 'Только будни',
+  daily_limit: 'Часов в день',
+  confirmed: 'Подтверждён',
+  same_units: 'Единые часы',
+  references: 'Источники',
+};
+
+// Полные тексты источников занимают экраны; в сводке изменений хватает начала.
+const valueLimit = 160;
+
 function valueText(value: unknown) {
   if (value === null || value === undefined || value === '') return '—';
-  if (typeof value === 'object') return canonicalJson(value);
-  return String(value);
+  if (typeof value === 'boolean') return value ? 'да' : 'нет';
+  const text = typeof value === 'object' ? canonicalJson(value) : String(value);
+  return text.length > valueLimit ? `${text.slice(0, valueLimit)}…` : text;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 // Изменения одного поля каркаса в виде, понятном методисту: что добавлено, удалено
-// и какие поля элемента поменялись. Сырой JSON остаётся только для полей без id.
+// и какие поля поменялись. Вложенные объекты вроде требований раскрываются по полям.
 export function describeSkeletonField(before: unknown, after: unknown): string[] {
+  if (isPlainObject(before) && isPlainObject(after)) {
+    return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+      .filter((key) => canonicalJson(before[key]) !== canonicalJson(after[key]))
+      .flatMap((key) =>
+        describeSkeletonField(before[key], after[key]).map(
+          (line) => `${fieldLabels[key] ?? key}: ${line}`,
+        ),
+      );
+  }
   if (isIdentifiedList(before) && isIdentifiedList(after)) {
     const beforeById = new Map(before.map((item) => [item.id, item]));
     const afterIds = new Set(after.map((item) => item.id));
