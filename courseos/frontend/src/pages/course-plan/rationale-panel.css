@@ -25,23 +25,15 @@
   font-size: 12px;
 }
 .rationale-groups {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  padding: 6px;
-  border-radius: 10px;
-  background: #f3f4f6;
   margin-bottom: 16px;
 }
 .rationale-groups button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 40px;
-  padding: 9px 12px;
-  text-align: left;
-  border: 1px solid transparent;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
   background: transparent;
   color: #606773;
   font-size: 12px;
@@ -50,16 +42,9 @@
   background: #e9ebef;
 }
 .rationale-groups button[aria-pressed='true'] {
-  border-color: #dadde2;
-  background: white;
-  color: #222936;
-  box-shadow: 0 1px 3px #2229360a;
-  font-weight: 600;
-}
-.rationale-groups button span {
-  font-size: 11px;
-  color: #777e88;
-  font-weight: 400;
+  border-color: #222936;
+  background: #222936;
+  color: white;
 }
 .rationale-filters {
   display: flex;
@@ -95,18 +80,6 @@
   padding: 4px;
   border: 0;
   background: transparent;
-}
-.rationale-review-filter {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.rationale-review-filter input {
-  width: 15px;
-  height: 15px;
-  margin: 0;
 }
 .rationale-search-scope {
   display: flex;
@@ -288,23 +261,6 @@
   font-size: 13px;
   white-space: pre-line;
 }
-.rationale-version {
-  margin-top: 16px;
-  font-size: 12px;
-}
-.rationale-version summary {
-  font-weight: 400;
-  color: var(--muted);
-}
-.rationale-version p {
-  font-size: 12px;
-}
-.rationale-version code {
-  display: block;
-  overflow-wrap: anywhere;
-  white-space: normal;
-  font-size: 11px;
-}
 .rationale-empty {
   text-align: center;
   padding: 28px 16px;
@@ -323,13 +279,6 @@
     align-items: stretch;
     flex-direction: column;
     gap: 10px;
-  }
-  .rationale-groups {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .rationale-groups button {
-    padding: 8px;
-    font-size: 11px;
   }
   .rationale-picker {
     flex-wrap: wrap;
@@ -351,20 +300,4 @@
     align-items: flex-start;
     flex-direction: column;
   }
-}
-
-.rationale-related > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 12px;
-}
-.rationale-related button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-align: left;
-  font-size: 12px;
-  padding: 7px 10px;
-  max-width: 100%;
 }

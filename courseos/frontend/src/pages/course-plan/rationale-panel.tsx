@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Download, Search, X } from 'lucide-react';
+import { ArrowLeft, Download, Search, X } from 'lucide-react';
 import type { Snapshot } from '../../entities/course/model/schema';
 import {
   currentRationales,
@@ -33,7 +33,6 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
   const s = snapshot.skeleton;
   const [group, setGroup] = useState<RationaleGroup | 'all'>('intent');
   const [query, setQuery] = useState('');
-  const [onlyReview, setOnlyReview] = useState(false);
   const [selectedId, setSelectedId] = useState('goal');
   const [showDetail, setShowDetail] = useState(false);
   const coverage = useMemo(() => rationaleCoverage(s), [s]);
@@ -57,7 +56,6 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
   const filtered = items.filter(
     (item) =>
       (group === 'all' || item.group === group) &&
-      (!onlyReview || item.summary.needsReview) &&
       (!search ||
         `${item.name} ${item.decision} ${item.summary.why}`
           .toLocaleLowerCase('ru')
@@ -72,11 +70,7 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
   const readable = (value: string) => readableRationaleText(s, value);
 
   return (
-    <Panel
-      title="Почему курс устроен так"
-      subtitle="Выберите раздел и решение, которое хотите разобрать."
-      className="rationale-panel"
-    >
+    <Panel title="Почему курс устроен так" className="rationale-panel">
       <div className="rationale-overview">
         <p>
           <strong>{coverage.confirmed + coverage.expert}</strong> с подтверждением
@@ -98,19 +92,15 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
         </button>
       </div>
       <nav className="rationale-groups" aria-label="Разделы пояснений">
-        {rationaleGroups.map((item) => {
-          const count = items.filter((element) => element.group === item.id).length;
-          return (
-            <button
-              key={item.id}
-              aria-pressed={group === item.id}
-              onClick={() => changeGroup(item.id)}
-            >
-              {item.title}
-              <span>{count}</span>
-            </button>
-          );
-        })}
+        {rationaleGroups.map((item) => (
+          <button
+            key={item.id}
+            aria-pressed={group === item.id}
+            onClick={() => changeGroup(item.id)}
+          >
+            {item.title}
+          </button>
+        ))}
       </nav>
       <div className="rationale-filters">
         <label className="rationale-search">
@@ -131,17 +121,6 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
               <X size={15} />
             </button>
           )}
-        </label>
-        <label className="rationale-review-filter">
-          <input
-            type="checkbox"
-            checked={onlyReview}
-            onChange={(event) => {
-              setOnlyReview(event.target.checked);
-              setShowDetail(false);
-            }}
-          />
-          Только требующие проверки
         </label>
       </div>
       {group === 'all' && (
@@ -217,33 +196,6 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
                 <h4>{selected.summary.needsReview ? 'Что ещё проверить' : 'Следующий шаг'}</h4>
                 <p>{selected.summary.next}</p>
               </div>
-              {selected.element.related.some((id) =>
-                items.some((item) => item.element.id === id),
-              ) && (
-                <details className="rationale-related">
-                  <summary>Связанные решения</summary>
-                  <div>
-                    {selected.element.related.map((id) => {
-                      const related = items.find((item) => item.element.id === id);
-                      return related ? (
-                        <button
-                          key={id}
-                          onClick={() => {
-                            setGroup(related.group);
-                            setQuery('');
-                            setOnlyReview(false);
-                            setSelectedId(id);
-                            setShowDetail(true);
-                          }}
-                        >
-                          {related.name}
-                          <ArrowRight size={14} aria-hidden="true" />
-                        </button>
-                      ) : null;
-                    })}
-                  </div>
-                </details>
-              )}
               {!!selected.records.length && (
                 <details className="rationale-evidence">
                   <summary>
@@ -341,28 +293,17 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
       ) : (
         <div className="rationale-empty" role="status">
           <h3>Пояснений по этим условиям нет</h3>
-          <p>Попробуйте другое слово или отключите фильтр проверки.</p>
+          <p>Попробуйте другое слово.</p>
           <button
             onClick={() => {
               setQuery('');
-              setOnlyReview(false);
               changeGroup('intent');
             }}
           >
-            Сбросить поиск и фильтр
+            Сбросить поиск
           </button>
         </div>
       )}
-      <details className="rationale-version">
-        <summary>Сведения о сохранённой версии {snapshot.course_version}</summary>
-        <p>
-          Пояснения относятся к этой версии курса. После изменения условий их нужно пересмотреть.
-        </p>
-        <code>
-          {snapshot.course_id} · версия {snapshot.course_version} · ревизия{' '}
-          {snapshot.skeleton_version} · SHA-256: {snapshot.skeleton_hash}
-        </code>
-      </details>
     </Panel>
   );
 }

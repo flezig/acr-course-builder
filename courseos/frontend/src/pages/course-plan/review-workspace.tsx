@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import type { Snapshot } from '../../entities/course/model/schema';
-import { rationaleCoverage } from '../../entities/course/model/rationale';
 import { programVerdict, questionCount } from '../../entities/course/model/rules';
 import { Panel } from '../../shared/ui/ui';
 import { RationalePanel } from './rationale-panel';
@@ -44,8 +43,6 @@ export function ReviewWorkspace({
 }) {
   const verdict = programVerdict(snapshot);
   const issues = snapshot.audit.issues;
-  const coverage = rationaleCoverage(snapshot.skeleton);
-  const reviewCount = coverage.assumptions + coverage.gaps;
   // Latest revisions share navigation context; archived versions keep their own context.
   const storageKey = `courseos-review:${snapshot.course_id}:${isLatest ? 'latest' : snapshot.course_version}`;
   const [context, setContext] = useState<Context>(() => {
@@ -112,17 +109,7 @@ export function ReviewWorkspace({
             <dt>К сведению</dt>
             <dd>{verdict.info}</dd>
           </div>
-          <div className="review-human-count">
-            <dt>Обоснования для проверки методистом</dt>
-            <dd>{reviewCount}</dd>
-          </div>
         </dl>
-        <p>
-          Автоматические проверки и оценка методиста учитываются отдельно.{' '}
-          {snapshot.approval_applicable
-            ? 'Основания доступны для последующего пересмотра.'
-            : 'Отсутствие ошибок не заменяет проверку методистом.'}
-        </p>
       </section>
       <div className="review-controls">
         <div className="review-action-bar">
