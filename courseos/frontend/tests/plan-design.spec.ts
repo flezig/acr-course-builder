@@ -257,3 +257,42 @@ test('Programme states preserve approval, archive restrictions and materials acc
   ).toBeDisabled();
   await capture('archived');
 });
+
+test('All issues and named assessment forms are visible without expanding controls', async ({
+  page,
+}) => {
+  await create(page);
+  const issues = page.locator('.verdict-queue > li');
+  await expect(issues).toHaveCount(3);
+  await expect(page.locator('.verdict-issue-label.blocking')).toHaveCount(2);
+  await expect(page.locator('.verdict-issue-label').filter({ hasText: 'К сведению' })).toHaveCount(
+    1,
+  );
+  for (const issue of await issues.all()) {
+    await expect(issue.locator('.verdict-issue-heading')).toBeVisible();
+  }
+  await expect(page.locator('.verdict-queue .verdict-evidence')).toHaveCount(2);
+  for (const evidence of await page.locator('.verdict-queue .verdict-evidence').all()) {
+    await expect(evidence).toBeVisible();
+  }
+  await page.screenshot({ path: '../reports/visible-issues-1440.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: '../reports/visible-issues-390.png', fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await tab(page, 'Учебный план');
+  const control = page.locator('#topic-1 .control-cell');
+  await expect(control).toContainText('Практическое задание по теме «Риски, этика и данные детей»');
+  await expect(control).toContainText('Тест по теме «Риски, этика и данные детей»');
+  await expect(page.locator('.control-cell details')).toHaveCount(0);
+  expect(
+    await page
+      .locator('.control-cell li')
+      .evaluateAll((items) => items.every((item) => item.scrollWidth <= item.clientWidth)),
+  ).toBe(true);
+  await expect(page.locator('.final-row .control-cell li')).toHaveCount(1);
+  await expect(page.locator('.final-row .control-cell')).toContainText(
+    'Зачёт по портфолио из трёх материалов',
+  );
+  await page.screenshot({ path: '../reports/named-assessments-1440.png', fullPage: true });
+});

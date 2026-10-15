@@ -24,6 +24,7 @@
 }
 .verdict-body {
   min-width: 0;
+  flex: 1;
 }
 .verdict small {
   color: var(--muted);
@@ -44,12 +45,31 @@
   overflow-wrap: anywhere;
 }
 .verdict-queue {
-  margin: 10px 0 0;
-  padding-left: 18px;
-  font-size: 13px;
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
 }
-.verdict-queue li + li {
-  margin-top: 4px;
+.verdict-queue li {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.verdict-issue-heading {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.verdict-issue-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.verdict-issue-label.blocking {
+  color: var(--theme-red-ink, #b4413c);
 }
 .verdict > .button {
   flex-shrink: 0;
@@ -164,26 +184,23 @@
   font-size: 12px;
   color: var(--muted);
 }
+.acr-plan .curriculum-topic-column {
+  width: 30%;
+}
+.acr-plan .curriculum-control-column {
+  width: 30%;
+}
 .topic-assessment {
-  min-width: 200px;
-  max-width: 360px;
   white-space: normal;
-}
-.topic-assessment > small {
-  display: block;
-  margin-top: 6px;
-}
-.topic-assessment summary {
-  margin-top: 6px;
-  color: var(--ink);
-  cursor: pointer;
+  overflow-wrap: anywhere;
 }
 .topic-assessment ul {
   padding-left: 18px;
-  margin: 8px 0 0;
+  margin: 0;
+  color: var(--ink);
 }
-.topic-assessment p {
-  margin: 6px 0;
+.topic-assessment li + li {
+  margin-top: 8px;
 }
 .acr-plan .module-row th,
 .acr-plan .module-row td {

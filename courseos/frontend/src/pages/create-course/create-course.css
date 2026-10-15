@@ -25,12 +25,11 @@
 }
 .create-workspace .create-layout {
   grid-template-columns: minmax(0, 1fr) 320px;
-  grid-template-areas: 'request examples' 'references guidance';
+  grid-template-areas: 'request examples' 'references references';
   gap: 20px 24px;
   align-items: start;
 }
-.create-workspace .create-layout > *,
-.create-workspace .create-guidance > .panel {
+.create-workspace .create-layout > * {
   min-width: 0;
   margin: 0;
 }
@@ -53,6 +52,9 @@
 }
 .create-workspace :is(input, textarea)::placeholder {
   color: var(--muted);
+}
+.create-workspace .create-upload {
+  margin: 16px 0;
 }
 .create-workspace .create-submit {
   display: flex;
@@ -139,43 +141,6 @@
 .create-workspace .example.selected .example-topic {
   color: var(--ink);
 }
-.create-workspace .create-guidance {
-  grid-area: guidance;
-}
-.create-workspace .create-guidance > .panel {
-  background: transparent;
-  padding: 18px;
-  border-radius: 16px;
-}
-.create-workspace .create-guidance h2 {
-  font-size: 16px;
-}
-.create-workspace .steps {
-  display: block;
-  margin-bottom: 16px;
-}
-.create-workspace .steps li {
-  padding-bottom: 14px;
-  gap: 10px;
-}
-.create-workspace .steps li:last-child {
-  padding-bottom: 0;
-}
-.create-workspace .steps li::after {
-  display: none;
-}
-.create-workspace .steps b {
-  width: 26px;
-  height: 26px;
-  font-size: 11px;
-}
-.create-workspace .steps strong {
-  font-weight: 550;
-}
-.create-workspace .template-choice {
-  padding-top: 14px;
-  margin-bottom: 0;
-}
 .create-workspace .panel {
   border-radius: 16px;
   box-shadow: none;
@@ -183,14 +148,6 @@
 .create-workspace > .panel {
   margin-top: 24px;
 }
-.create-workspace .create-guidance > .panel {
-  border: 0;
-  padding: 4px 0;
-}
-.create-workspace .template-choice {
-  border: 0;
-}
-
 @media (max-width: 1250px) {
   .create-workspace .create-layout {
     grid-template-columns: minmax(0, 1fr) 290px;
@@ -203,7 +160,7 @@
   }
   .create-workspace .create-layout {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'request' 'examples' 'references' 'guidance';
+    grid-template-areas: 'request' 'examples' 'references';
   }
   .create-workspace .example-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -14,7 +14,7 @@ export function VerdictBanner({
 }) {
   const { search } = useLocation();
   const verdict = programVerdict(snapshot);
-  const open = snapshot.audit.issues.filter((issue) => !issue.decision && issue.blocking);
+  const open = snapshot.audit.issues.filter((issue) => !issue.decision);
   const action =
     verdict.kind === 'approved'
       ? { label: 'Перейти к материалам', to: materialsHref }
@@ -29,14 +29,6 @@ export function VerdictBanner({
           {verdict.kind === 'approved' && <CheckCircle2 size={20} aria-hidden="true" />}
           {verdict.title}
         </h2>
-        {verdict.kind === 'blocked' && verdict.first?.evidence && (
-          <p className="verdict-evidence">{verdict.first.evidence}</p>
-        )}
-        {verdict.kind === 'decide' && verdict.first && (
-          <p className="verdict-evidence">
-            Первый: {verdict.first.message}. {verdict.first.evidence}
-          </p>
-        )}
         {verdict.kind === 'ready' && (
           <p className="verdict-evidence">
             Блокирующих вопросов нет.
@@ -44,14 +36,20 @@ export function VerdictBanner({
             методиста.
           </p>
         )}
-        {open.length > 1 && (
+        {open.length > 0 && (
           <ol
             className="verdict-queue"
             aria-label={`Очередь решений: ${questionCount(open.length)}`}
           >
             {open.map((issue) => (
               <li key={issue.id}>
-                <Link to={{ search, hash: `#issue-${issue.id}` }}>{issue.message}</Link>
+                <div className="verdict-issue-heading">
+                  <span className={`verdict-issue-label ${issue.blocking ? 'blocking' : ''}`}>
+                    {issue.blocking ? 'Блокирует утверждение' : 'К сведению'}
+                  </span>
+                  <Link to={{ search, hash: `#issue-${issue.id}` }}>{issue.message}</Link>
+                </div>
+                {issue.evidence && <p className="verdict-evidence">{issue.evidence}</p>}
               </li>
             ))}
           </ol>

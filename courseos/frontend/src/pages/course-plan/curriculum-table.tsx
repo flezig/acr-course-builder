@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Decimal from 'decimal.js';
 import { ChevronDown } from 'lucide-react';
 import type { Skeleton, Topic } from '../../entities/course/model/schema';
+import { assessmentLabels } from '../../entities/course/model/presets';
 import { hourTotals } from '../../entities/course/model/rules';
 import {
   contactAndRemoteHours,
@@ -110,6 +111,15 @@ export function CurriculumTable({ skeleton, focused }: { skeleton: Skeleton; foc
         aria-label="Учебный план"
       >
         <table>
+          <colgroup>
+            <col className="curriculum-topic-column" />
+            <col />
+            {general && <col />}
+            {visible.map((kind) => (
+              <col key={kind} />
+            ))}
+            <col className="curriculum-control-column" />
+          </colgroup>
           <thead>
             <tr>
               <th>Наименование разделов и тем</th>
@@ -248,27 +258,27 @@ function ModuleRows({
 
 function TopicAssessment({ skeleton, topic }: { skeleton: Skeleton; topic: Topic }) {
   const assessments = skeleton.assessments.filter((assessment) => assessment.topic_id === topic.id);
+  // Несколько критериев одной итоговой работы не превращаем в несколько одинаковых работ.
+  const forms = new Set(
+    [
+      ...topic.control.split('+').map((form) => capitalize(form.split(/[:,]/)[0].trim())),
+      ...(topic.id === 'topic-final' && topic.control.trim()
+        ? []
+        : assessments.map((assessment) => assessmentLabels[assessment.type])),
+    ].filter((form) => form && form !== '—'),
+  );
   return (
     <div className="topic-assessment">
-      <span>{topic.control || 'Форма проверки не указана'}</span>
-      {assessments.length > 0 ? (
-        <details>
-          <summary>Что проверяем и как оцениваем ({assessments.length})</summary>
-          <ul>
-            {assessments.map((assessment) => (
-              <li key={assessment.id}>
-                <p>
-                  <b>Что нужно сделать:</b> {assessment.action || 'Не указано'}
-                </p>
-                <p>
-                  <b>Критерий оценки:</b> {assessment.criterion || 'Не указан'}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </details>
+      {forms.size > 0 ? (
+        <ul>
+          {[...forms].map((form) => (
+            <li key={form}>
+              {topic.id === 'topic-final' ? form : `${form} по теме «${topic.title}»`}
+            </li>
+          ))}
+        </ul>
       ) : (
-        <small>Проверяемое действие и критерии для этой темы ещё не заданы.</small>
+        <span>—</span>
       )}
     </div>
   );

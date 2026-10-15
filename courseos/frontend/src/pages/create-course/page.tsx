@@ -92,6 +92,19 @@ export function CreateCoursePage() {
               placeholder="Для кого курс, чему нужно научить, сколько часов и какие ограничения важно учесть?"
             />
           </Field>
+          <ReferenceEditor
+            uploadOnly
+            references={form.watch('references')}
+            onChange={(value) => form.setValue('references', value, { shouldDirty: true })}
+          />
+          <ErrorMessage error={command.error} />
+          <div className="create-submit">
+            <button className="primary" disabled={command.isPending} type="submit">
+              {command.isPending ? 'Запрос сохраняется…' : 'Отправить запрос'}
+              <ArrowRight size={18} />
+            </button>
+            <small>Вы сможете проверить и изменить программу перед утверждением</small>
+          </div>
         </Panel>
         <section className="examples" aria-labelledby="examples-title">
           <h2 id="examples-title">Попробуйте на примере</h2>
@@ -129,66 +142,11 @@ export function CreateCoursePage() {
           subtitle="Сохраните требования, прошлую программу или полезный фрагмент."
         >
           <ReferenceEditor
+            hideUpload
             references={form.watch('references')}
             onChange={(value) => form.setValue('references', value, { shouldDirty: true })}
           />
-          <ErrorMessage error={command.error} />
-          <div className="create-submit">
-            <button className="primary" disabled={command.isPending} type="submit">
-              {command.isPending ? 'Запрос сохраняется…' : 'Отправить запрос'}
-              <ArrowRight size={18} />
-            </button>
-            <small>Вы сможете проверить и изменить программу перед утверждением</small>
-          </div>
         </Panel>
-        <aside className="create-guidance">
-          <Panel title="Сначала каркас">
-            <ol className="steps">
-              <li className="current">
-                <b>01</b>
-                <div>
-                  <strong>Запрос и уточнения</strong>
-                  <p>Только недостающие параметры</p>
-                </div>
-              </li>
-              <li>
-                <b>02</b>
-                <div>
-                  <strong>Пять объяснений</strong>
-                  <p>Основания, расчёты и ограничения</p>
-                </div>
-              </li>
-              <li>
-                <b>03</b>
-                <div>
-                  <strong>Ваше утверждение</strong>
-                  <p>Конкретная ревизия каркаса</p>
-                </div>
-              </li>
-              <li>
-                <b>04</b>
-                <div>
-                  <strong>Согласованный комплект</strong>
-                  <p>Материалы, проверка и правки</p>
-                </div>
-              </li>
-            </ol>
-            <div className="template-choice">
-              <small>ОБРАЗЕЦ АЦР</small>
-              <strong>
-                {form.watch('template_id') === 'unknown'
-                  ? 'Выберем после уточнения типа'
-                  : form.watch('template_id') === 'acr_general'
-                    ? 'Общеразвивающая программа'
-                    : 'Повышение квалификации'}
-              </strong>
-              <p>
-                Основание выбора — указанный тип программы. Числа исходного образца не используются
-                как настройки.
-              </p>
-            </div>
-          </Panel>
-        </aside>
       </Form>
       {!!courses.data?.length && (
         <Panel title="Ваши сохранённые курсы">
