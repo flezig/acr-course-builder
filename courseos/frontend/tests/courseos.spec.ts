@@ -22,6 +22,7 @@ async function createPython(page: Page, incomplete = false) {
 }
 async function approveAndWait(page: Page) {
   await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page
     .getByRole('checkbox', {
       name: 'Я проверил цель, результаты, часы, оценивание и основания. Утверждаю эту ревизию.',
@@ -243,7 +244,9 @@ test('Длинная новая программа500часов, прокрут�
   await page.getByLabel('topic-16 Практика', { exact: true }).fill('1');
   await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
   await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page.getByRole('link', { name: 'Отчёт проверки программы' }).click();
+  await page.getByRole('link', { name: 'Замечания и следующий шаг', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Сумма часов тем не совпадает с объёмом курса' }),
   ).toBeVisible();
@@ -261,7 +264,9 @@ test('Конфликт двух вкладок сохраняет чернови
 }) => {
   const id = await createPython(page);
   await page.getByRole('button', { name: 'Редактировать программу' }).click();
-  await page.getByRole('textbox', { name: 'Цель', exact: true }).fill('Мой несохранённый черновик первой вкладки');
+  await page
+    .getByRole('textbox', { name: 'Цель', exact: true })
+    .fill('Мой несохранённый черновик первой вкладки');
   const other = await context.newPage();
   await other.goto(`/courses/${id}/plan`);
   await other.getByRole('button', { name: 'Редактировать программу' }).click();

@@ -36,7 +36,7 @@ import {
   Panel,
   statuses,
 } from '../../shared/ui/ui';
-import { RationalePanel } from './rationale-panel';
+import { ReviewWorkspace } from './review-workspace';
 import { CalendarPanel } from './calendar-panel';
 import { SkeletonEditor } from './skeleton-editor';
 import { IntentBlockEditor, type IntentBlock } from './intent-block-editor';
@@ -272,7 +272,7 @@ export function PlanPage() {
           </Link>
         ))}
       </nav>
-      <div className="plan-metrics" aria-label="Показатели программы">
+      <div className="plan-metrics" aria-label="Показатели программы" hidden={tab === 'review'}>
         <div>
           <small>Объём программы</small>
           <strong>
@@ -306,15 +306,17 @@ export function PlanPage() {
       )}
       <ErrorMessage error={query.error} />
       {editing && (
-        <SkeletonEditor
-          snapshot={snapshot}
-          focusTarget={target}
-          close={() => setEditing(false)}
-          saved={() => {
-            setEditing(false);
-            setSaved('Изменения сохранены. Проверки пересчитаны.');
-          }}
-        />
+        <div id="program-editor">
+          <SkeletonEditor
+            snapshot={snapshot}
+            focusTarget={target}
+            close={() => setEditing(false)}
+            saved={() => {
+              setEditing(false);
+              setSaved('Изменения сохранены. Проверки пересчитаны.');
+            }}
+          />
+        </div>
       )}
       <div className={`plan-layout ${tab !== 'intent' ? 'single-column' : ''}`}>
         <div>
@@ -628,140 +630,123 @@ export function PlanPage() {
             />
           </div>
           <div id="review" hidden={tab !== 'review'}>
-            <RationalePanel snapshot={snapshot} />
-            <Panel
-              title="Замечания к программе"
-              subtitle="Автоматические проверки и замечания методиста. Исправление создаёт новую ревизию и пересчитывает проверки."
-              className="review-panel"
-            >
-              {issues.length === 0 && (
-                <Notice tone="success">
-                  Вычислимых ошибок не обнаружено. Проверьте содержание и основания перед
-                  утверждением.
-                </Notice>
-              )}
-              {issues.map((issue) => (
-                <article
-                  className={`review-issue ${target === `issue-${issue.id}` ? 'field-highlight' : ''}`}
-                  id={`issue-${issue.id}`}
-                  key={issue.id}
-                  tabIndex={-1}
-                >
-                  <div className="toolbar">
-                    <Badge tone={issue.blocking ? 'amber' : 'neutral'}>
-                      {issue.blocking ? 'Нужны исправления' : 'К сведению'}
-                    </Badge>
-                    <span className="check-origin">
-                      {issue.check_type === 'rule'
-                        ? 'Автоматическая проверка'
-                        : issue.check_type === 'human'
-                          ? 'Оценка методиста'
-                          : 'Модельная проверка'}
-                    </span>
-                  </div>
-                  <h3>{issue.message}</h3>
-                  <p className="issue-place">{issuePlace(issue.element_id)}</p>
-                  <p>{issue.suggested_fix}</p>
-                  <details>
-                    <summary>Причина и подробности</summary>
-                    <p>Ожидается: {issue.expected}</p>
-                    <p>Фактически: {issue.actual}</p>
+            <ReviewWorkspace
+              key={`${snapshot.course_id}-${view.is_latest ? 'latest' : snapshot.course_version}`}
+              snapshot={snapshot}
+              target={target}
+              visible={tab === 'review'}
+              isLatest={view.is_latest}
+              active={active}
+              editing={editing || !!blockEditing}
+              confirmed={approveConfirmed}
+              openEditor={() => {
+                if (blockEditing) navigate(`${location.pathname}${location.search}#intent`);
+                requestAnimationFrame(() => {
+                  const editor = document.querySelector<HTMLElement>(
+                    '#program-editor, .intent-editor',
+                  );
+                  editor?.scrollIntoView({ block: 'start' });
+                  editor?.querySelector<HTMLElement>('textarea, input, button')?.focus();
+                });
+              }}
+              issuePlace={issuePlace}
+              issueHref={issueHref}
+              materialsHref={href('materials')}
+              approval={
+                <>
+                  <Panel title="Утверждение программы" className="approval-panel">
+                    <p>
+                      Утверждается ревизия <b>{snapshot.skeleton_version}</b> с её основаниями и
+                      решениями.
+                    </p>
+                    {blocking.length > 0 ? (
+                      <p className="approval-blocked">
+                        <AlertCircle size={16} />
+                        Утверждение недоступно. Исправьте {remarkCount(blocking.length)}.
+                        <Link to={`#issue-${blocking[0].id}`}>Разобрать замечание</Link>
+                      </p>
+                    ) : !snapshot.approval_applicable ? (
+                      <label className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={approveConfirmed}
+                          onChange={(event) => setApproveConfirmed(event.target.checked)}
+                        />
+                        Я проверил цель, результаты, часы, оценивание и основания. Утверждаю эту
+                        ревизию.
+                      </label>
+                    ) : (
+                      <Notice tone="success">
+                        Программа утверждена. Материалы создаются по этой программе.
+                      </Notice>
+                    )}
+                    <button
+                      className="primary"
+                      disabled={
+                        !view.is_latest ||
+                        active ||
+                        editing ||
+                        !!blockEditing ||
+                        blocking.length > 0 ||
+                        snapshot.approval_applicable ||
+                        !approveConfirmed ||
+                        command.isPending
+                      }
+                      onClick={() =>
+                        command.mutate({
+                          action: 'approve',
+                          expected_version: snapshot.course_version,
+                          payload: {
+                            skeleton_version: snapshot.skeleton_version,
+                            skeleton_hash: snapshot.skeleton_hash,
+                          },
+                        })
+                      }
+                    >
+                      {command.isPending ? 'Сохраняем утверждение…' : 'Утвердить программу'}
+                      <ArrowRight size={17} />
+                    </button>
+                    {snapshot.approval_applicable && snapshot.materials.length > 0 && (
+                      <Link className="button secondary" to={href('materials')}>
+                        Проверить материалы <ArrowRight size={16} />
+                      </Link>
+                    )}
+                    {editing && <small>Сначала сохраните или закройте редактор.</small>}
+                    <ErrorMessage error={command.error} />
+                    <Link className="text-link" to={href('audit')}>
+                      Отчёт проверки программы
+                    </Link>
+                    <details>
+                      <summary>Сведения о ревизии и утверждении</summary>
+                      <code>
+                        course_id: {snapshot.course_id}
+                        <br />
+                        course_version: {snapshot.course_version}
+                        <br />
+                        skeleton_version: {snapshot.skeleton_version}
+                        <br />
+                        SHA-256: {snapshot.skeleton_hash}
+                      </code>
+                      {snapshot.approvals.map((a) => (
+                        <p key={a.approved_at}>
+                          {a.actor_id} · ревизия {a.skeleton_version} ·{' '}
+                          {new Date(a.approved_at).toLocaleString('ru-RU')}
+                        </p>
+                      ))}
+                    </details>
+                  </Panel>
+                  <details className="operation-log">
+                    <summary>Журнал операций</summary>
+                    <JobPanel
+                      job={view.job}
+                      version={view.latest_version}
+                      readonly={!view.is_latest}
+                      compact
+                    />
                   </details>
-                  <Link className="button secondary" to={issueHref(issue.element_id, issue.id)}>
-                    Перейти к исправлению
-                    <ArrowRight size={15} />
-                  </Link>
-                </article>
-              ))}
-            </Panel>
-            <Panel title="Утверждение программы" className="approval-panel">
-              <p>
-                Утверждается ревизия <b>{snapshot.skeleton_version}</b> с её основаниями и
-                решениями.
-              </p>
-              {blocking.length > 0 ? (
-                <p className="approval-blocked">
-                  <AlertCircle size={16} />
-                  Утверждение недоступно. Исправьте {remarkCount(blocking.length)}.
-                </p>
-              ) : !snapshot.approval_applicable ? (
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={approveConfirmed}
-                    onChange={(event) => setApproveConfirmed(event.target.checked)}
-                  />
-                  Я проверил цель, результаты, часы, оценивание и основания. Утверждаю эту ревизию.
-                </label>
-              ) : (
-                <Notice tone="success">
-                  Программа утверждена. Материалы создаются по этой программе.
-                </Notice>
-              )}
-              <button
-                className="primary"
-                disabled={
-                  !view.is_latest ||
-                  active ||
-                  editing ||
-                  !!blockEditing ||
-                  blocking.length > 0 ||
-                  snapshot.approval_applicable ||
-                  !approveConfirmed ||
-                  command.isPending
-                }
-                onClick={() =>
-                  command.mutate({
-                    action: 'approve',
-                    expected_version: snapshot.course_version,
-                    payload: {
-                      skeleton_version: snapshot.skeleton_version,
-                      skeleton_hash: snapshot.skeleton_hash,
-                    },
-                  })
-                }
-              >
-                {command.isPending ? 'Сохраняем утверждение…' : 'Утвердить программу'}
-                <ArrowRight size={17} />
-              </button>
-              {snapshot.approval_applicable && snapshot.materials.length > 0 && (
-                <Link className="button secondary" to={href('materials')}>
-                  Проверить материалы <ArrowRight size={16} />
-                </Link>
-              )}
-              {editing && <small>Сначала сохраните или закройте редактор.</small>}
-              <ErrorMessage error={command.error} />
-              <Link className="text-link" to={href('audit')}>
-                Отчёт проверки программы
-              </Link>
-              <details>
-                <summary>Сведения о ревизии и утверждении</summary>
-                <code>
-                  course_id: {snapshot.course_id}
-                  <br />
-                  course_version: {snapshot.course_version}
-                  <br />
-                  skeleton_version: {snapshot.skeleton_version}
-                  <br />
-                  SHA-256: {snapshot.skeleton_hash}
-                </code>
-                {snapshot.approvals.map((a) => (
-                  <p key={a.approved_at}>
-                    {a.actor_id} · ревизия {a.skeleton_version} ·{' '}
-                    {new Date(a.approved_at).toLocaleString('ru-RU')}
-                  </p>
-                ))}
-              </details>
-            </Panel>
-            <details className="operation-log">
-              <summary>Журнал операций</summary>
-              <JobPanel
-                job={view.job}
-                version={view.latest_version}
-                readonly={!view.is_latest}
-                compact
-              />
-            </details>
+                </>
+              }
+            />
           </div>
         </div>
         <aside className="explanations" hidden={tab !== 'intent'}>

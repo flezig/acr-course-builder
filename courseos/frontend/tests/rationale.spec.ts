@@ -33,9 +33,10 @@ test('Основания в интерфейсе, JSON и MD относятся 
       .detail.replace(/(\d) ч(?=[\s.,]|$)/g, '$1 уч. ч.'),
   );
   await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Почему курс устроен так' })).toBeVisible();
   await page.getByRole('button', { name: /^Практика/ }).click();
-  await page.getByLabel('Выберите решение', { exact: true }).selectOption('activity-topic-4');
+  await page.locator('[data-decision-id="activity-topic-4"]').click();
   const basis = page.locator('[id="basis-activity-topic-4"]');
   await basis.getByText('Источники и подробности', { exact: false }).click();
   await expect(basis).toContainText('Примеры с подцелями');
@@ -47,6 +48,7 @@ test('Основания в интерфейсе, JSON и MD относятся 
   await page.getByRole('button', { name: 'Скачать пояснения · MD', exact: true }).click();
   const old = await contents(await oldDownload);
   expect(old).toContain(stored.skeleton_hash);
+  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page.getByRole('checkbox', { name: /Я проверил цель/ }).check();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Проверить материалы', exact: true })).toBeVisible({
@@ -73,10 +75,12 @@ test('Основания в интерфейсе, JSON и MD относятся 
   await expect(
     page.getByRole('button', { name: 'Утвердить программу', exact: true }),
   ).toBeDisabled();
+  await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await page.getByRole('button', { name: /^Цель и участники/ }).click();
-  await page.getByLabel('Выберите решение', { exact: true }).selectOption('goal');
+  await page.locator('.rationale-decision-list button').filter({ hasText: /^Цель/ }).click();
   await expect(page.locator('[id="basis-goal"]')).toContainText('Проверить заново');
   await page.goto(`/courses/${id}/plan?version=${stored.course_version}#review`);
+  await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   const archiveDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Скачать пояснения · MD', exact: true }).click();
   expect(await contents(await archiveDownload)).toBe(old);

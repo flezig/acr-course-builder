@@ -118,7 +118,13 @@ function LayoutContent() {
           const details = target.closest('details');
           if (details) details.open = true;
           const isPlanSection = ['intent', 'curriculum', 'calendar', 'review'].includes(target.id);
-          if (isPlanSection && location.pathname.endsWith('/plan')) {
+          const isAuditSection = ['audit-checks', 'audit-issues', 'audit-observation'].includes(
+            target.id,
+          );
+          if (
+            (isPlanSection && location.pathname.endsWith('/plan')) ||
+            (isAuditSection && location.pathname.endsWith('/audit'))
+          ) {
             window.scrollTo(0, 0);
             return;
           }

@@ -19,7 +19,10 @@ test('Course OS: замечания, версии и адаптивность 14
   const status = page.locator('.course-meta');
   await expect(status).toContainText('Нужны исправления');
   await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Утвердить программу', exact: true })).toBeDisabled();
+  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
+  ).toBeDisabled();
   await page.getByRole('link', { name: 'О программе', exact: true }).click();
   const measurements = [];
   for (const width of [1440, 1280, 768, 390]) {
@@ -62,6 +65,7 @@ test('Course OS: замечания, версии и адаптивность 14
   await expect(page.locator(`[id="${issueId}"]`)).toBeFocused();
   await page.goto(planUrl);
   await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page.getByText('Журнал операций', { exact: true }).click();
   await page.getByRole('button', { name: /Журнал/ }).click();
   await expect(page.locator('.job-detail')).toBeVisible();

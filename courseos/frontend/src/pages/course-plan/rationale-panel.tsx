@@ -26,12 +26,7 @@ import {
 import './rationale-panel.css';
 
 export function RationalePanel({ snapshot }: { snapshot: Snapshot }) {
-  return (
-    <RationaleBrowser
-      key={`${snapshot.course_id}-${snapshot.course_version}`}
-      snapshot={snapshot}
-    />
-  );
+  return <RationaleBrowser key={snapshot.course_id} snapshot={snapshot} />;
 }
 
 function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
@@ -40,6 +35,7 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
   const [query, setQuery] = useState('');
   const [onlyReview, setOnlyReview] = useState(false);
   const [selectedId, setSelectedId] = useState('goal');
+  const [showDetail, setShowDetail] = useState(false);
   const coverage = useMemo(() => rationaleCoverage(s), [s]);
   const signature = useMemo(() => rationaleSignature(s), [s]);
   const items = useMemo(
@@ -68,8 +64,8 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
           .includes(search)),
   );
   const selected = filtered.find((item) => item.element.id === selectedId) || filtered[0];
-  const index = selected ? filtered.indexOf(selected) : -1;
   const changeGroup = (value: typeof group) => {
+    setShowDetail(false);
     setGroup(value);
     setSelectedId('');
   };
@@ -124,6 +120,7 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
             placeholder="Найти тему, задание или решение"
             value={query}
             onChange={(event) => {
+              setShowDetail(false);
               setQuery(event.target.value);
               setGroup('all');
               setSelectedId('');
@@ -139,7 +136,10 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
           <input
             type="checkbox"
             checked={onlyReview}
-            onChange={(event) => setOnlyReview(event.target.checked)}
+            onChange={(event) => {
+              setOnlyReview(event.target.checked);
+              setShowDetail(false);
+            }}
           />
           Только требующие проверки
         </label>
@@ -159,181 +159,184 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
       )}
       {selected ? (
         <>
-          <div className="rationale-picker">
-            <label>
-              <span>{group === 'all' ? 'Найденные пояснения' : 'Выберите решение'}</span>
-              <select
-                aria-label="Выберите решение"
-                value={selected.element.id}
-                onChange={(event) => setSelectedId(event.target.value)}
-              >
-                {filtered.map((item, i) => (
-                  <option key={item.element.id} value={item.element.id}>
-                    {i + 1}. {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="rationale-pagination">
+          <div className={`rationale-browser-layout ${showDetail ? 'show-detail' : ''}`}>
+            <nav className="rationale-decision-list" aria-label="Список решений">
+              {filtered.map((item) => (
+                <button
+                  key={item.element.id}
+                  data-decision-id={item.element.id}
+                  aria-current={selected.element.id === item.element.id ? 'true' : undefined}
+                  onClick={() => {
+                    setSelectedId(item.element.id);
+                    setShowDetail(true);
+                    requestAnimationFrame(() =>
+                      document.getElementById(`basis-${item.element.id}`)?.focus(),
+                    );
+                  }}
+                >
+                  <strong>{item.name}</strong>
+                  <span>{item.summary.label}</span>
+                </button>
+              ))}
+            </nav>
+            <article
+              tabIndex={-1}
+              className="rationale-card"
+              key={selected.element.id}
+              id={`basis-${selected.element.id}`}
+              aria-labelledby="rationale-decision-title"
+            >
               <button
-                aria-label="Предыдущее пояснение"
-                disabled={index === 0}
-                onClick={() => setSelectedId(filtered[index - 1].element.id)}
+                className="review-back link-button"
+                onClick={() => {
+                  setShowDetail(false);
+                  requestAnimationFrame(() =>
+                    document
+                      .querySelector<HTMLButtonElement>(
+                        '.rationale-decision-list button[aria-current]',
+                      )
+                      ?.focus(),
+                  );
+                }}
               >
-                <ArrowLeft size={17} />
+                <ArrowLeft size={15} />К списку решений
               </button>
-              <span aria-live="polite">
-                {index + 1} из {filtered.length}
-              </span>
-              <button
-                aria-label="Следующее пояснение"
-                disabled={index === filtered.length - 1}
-                onClick={() => setSelectedId(filtered[index + 1].element.id)}
-              >
-                <ArrowRight size={17} />
-              </button>
-            </div>
-          </div>
-          <article
-            className="rationale-card"
-            key={selected.element.id}
-            id={`basis-${selected.element.id}`}
-            aria-labelledby="rationale-decision-title"
-          >
-            <div className="rationale-card-heading">
-              <h3 id="rationale-decision-title">{selected.name}</h3>
-              <Badge tone={selected.summary.tone}>{selected.summary.label}</Badge>
-            </div>
-            <div className="rationale-answer">
-              <h4>Что выбрано</h4>
-              <p>{selected.decision}</p>
-            </div>
-            <div className="rationale-answer">
-              <h4>Почему</h4>
-              <p>{selected.summary.why}</p>
-            </div>
-            <div className="rationale-next-step">
-              <h4>{selected.summary.needsReview ? 'Что ещё проверить' : 'Следующий шаг'}</h4>
-              <p>{selected.summary.next}</p>
-            </div>
-            {selected.element.related.some((id) =>
-              items.some((item) => item.element.id === id),
-            ) && (
-              <details className="rationale-related">
-                <summary>Связанные решения</summary>
-                <div>
-                  {selected.element.related.map((id) => {
-                    const related = items.find((item) => item.element.id === id);
-                    return related ? (
-                      <button
-                        key={id}
-                        onClick={() => {
-                          setGroup(related.group);
-                          setQuery('');
-                          setOnlyReview(false);
-                          setSelectedId(id);
-                        }}
-                      >
-                        {related.name}
-                        <ArrowRight size={14} aria-hidden="true" />
-                      </button>
-                    ) : null;
-                  })}
-                </div>
-              </details>
-            )}
-            {!!selected.records.length && (
-              <details className="rationale-evidence">
-                <summary>
-                  Источники и подробности <span>{selected.records.length}</span>
-                </summary>
-                {selected.records.map((record) => {
-                  const source = sourceById(s, record.source_id);
-                  return (
-                    <section className="rationale-source" key={record.id}>
-                      <div className="rationale-source-heading">
-                        <h4>{basisLabels[record.kind]}</h4>
-                        <Badge>{statusLabels[record.status]}</Badge>
-                      </div>
-                      <p>
-                        <strong>На что опираемся: </strong>
-                        {record.source_id === 'request'
-                          ? 'Ваш запрос при создании этой версии курса.'
-                          : source?.name || 'Подтверждающий источник не указан.'}
-                      </p>
-                      {record.fragment && <blockquote>{readable(record.fragment)}</blockquote>}
-                      {record.applicability && (
+              <div className="rationale-card-heading">
+                <h3 id="rationale-decision-title">{selected.name}</h3>
+                <Badge tone={selected.summary.tone}>{selected.summary.label}</Badge>
+              </div>
+              <div className="rationale-answer">
+                <h4>Что выбрано</h4>
+                <p>{selected.decision}</p>
+              </div>
+              <div className="rationale-answer">
+                <h4>Почему</h4>
+                <p>{selected.summary.why}</p>
+              </div>
+              <div className="rationale-next-step">
+                <h4>{selected.summary.needsReview ? 'Что ещё проверить' : 'Следующий шаг'}</h4>
+                <p>{selected.summary.next}</p>
+              </div>
+              {selected.element.related.some((id) =>
+                items.some((item) => item.element.id === id),
+              ) && (
+                <details className="rationale-related">
+                  <summary>Связанные решения</summary>
+                  <div>
+                    {selected.element.related.map((id) => {
+                      const related = items.find((item) => item.element.id === id);
+                      return related ? (
+                        <button
+                          key={id}
+                          onClick={() => {
+                            setGroup(related.group);
+                            setQuery('');
+                            setOnlyReview(false);
+                            setSelectedId(id);
+                            setShowDetail(true);
+                          }}
+                        >
+                          {related.name}
+                          <ArrowRight size={14} aria-hidden="true" />
+                        </button>
+                      ) : null;
+                    })}
+                  </div>
+                </details>
+              )}
+              {!!selected.records.length && (
+                <details className="rationale-evidence">
+                  <summary>
+                    Источники и подробности <span>{selected.records.length}</span>
+                  </summary>
+                  {selected.records.map((record) => {
+                    const source = sourceById(s, record.source_id);
+                    return (
+                      <section className="rationale-source" key={record.id}>
+                        <div className="rationale-source-heading">
+                          <h4>{basisLabels[record.kind]}</h4>
+                          <Badge>{statusLabels[record.status]}</Badge>
+                        </div>
                         <p>
-                          <strong>Что это объясняет: </strong>
-                          {readable(record.applicability)}
+                          <strong>На что опираемся: </strong>
+                          {record.source_id === 'request'
+                            ? 'Ваш запрос при создании этой версии курса.'
+                            : source?.name || 'Подтверждающий источник не указан.'}
                         </p>
-                      )}
-                      {record.limitations && (
-                        <p>
-                          <strong>Границы объяснения: </strong>
-                          {readable(record.limitations)}
-                        </p>
-                      )}
-                      {!rationaleIsSupported(s, record, signature) && (
-                        <p className="rationale-source-note">
-                          Этого пока недостаточно, чтобы считать решение проверенным для вашей
-                          группы.
-                        </p>
-                      )}
-                      <details className="rationale-record">
-                        <summary>Полная запись проверки</summary>
-                        <dl>
-                          {[
-                            ['Решение', record.decision],
-                            ['Зачем предложено', record.purpose],
-                            ['Другие варианты', record.alternatives],
-                            ['Надёжность основания', record.trust],
-                            ['Что проверено', record.verification],
-                            ['Что проверить дальше', record.next_check],
-                            ['Кто проверил', record.reviewer || 'Проверяющий пока не указан'],
-                            ['Дата проверки', record.checked_at || 'Пока не указана'],
-                            ['Где в источнике', record.coordinate || 'Место не указано'],
-                          ].map(([label, value]) => (
-                            <div key={label}>
-                              <dt>{label}</dt>
-                              <dd>{readable(value)}</dd>
-                            </div>
-                          ))}
-                          <div>
-                            <dt>Когда добавлено</dt>
-                            <dd>
-                              {record.phase === 'design'
-                                ? 'При составлении плана'
-                                : 'При последующей проверке'}
-                            </dd>
-                          </div>
-                          {source && (
+                        {record.fragment && <blockquote>{readable(record.fragment)}</blockquote>}
+                        {record.applicability && (
+                          <p>
+                            <strong>Что это объясняет: </strong>
+                            {readable(record.applicability)}
+                          </p>
+                        )}
+                        {record.limitations && (
+                          <p>
+                            <strong>Границы объяснения: </strong>
+                            {readable(record.limitations)}
+                          </p>
+                        )}
+                        {!rationaleIsSupported(s, record, signature) && (
+                          <p className="rationale-source-note">
+                            Этого пока недостаточно, чтобы считать решение проверенным для вашей
+                            группы.
+                          </p>
+                        )}
+                        <details className="rationale-record">
+                          <summary>Полная запись проверки</summary>
+                          <dl>
+                            {[
+                              ['Решение', record.decision],
+                              ['Зачем предложено', record.purpose],
+                              ['Другие варианты', record.alternatives],
+                              ['Надёжность основания', record.trust],
+                              ['Что проверено', record.verification],
+                              ['Что проверить дальше', record.next_check],
+                              ['Кто проверил', record.reviewer || 'Проверяющий пока не указан'],
+                              ['Дата проверки', record.checked_at || 'Пока не указана'],
+                              ['Где в источнике', record.coordinate || 'Место не указано'],
+                            ].map(([label, value]) => (
+                              <div key={label}>
+                                <dt>{label}</dt>
+                                <dd>{readable(value)}</dd>
+                              </div>
+                            ))}
                             <div>
-                              <dt>Источник прочитан</dt>
+                              <dt>Когда добавлено</dt>
                               <dd>
-                                {source.provenance?.access === 'read'
-                                  ? 'Да, в указанном объёме'
-                                  : 'Чтение не подтверждено'}
-                                . {source.scope}
+                                {record.phase === 'design'
+                                  ? 'При составлении плана'
+                                  : 'При последующей проверке'}
                               </dd>
                             </div>
-                          )}
-                          <div>
-                            <dt>Код записи для сверки</dt>
-                            <dd>
-                              <code>
-                                {record.id} · версия {record.version}
-                              </code>
-                            </dd>
-                          </div>
-                        </dl>
-                      </details>
-                    </section>
-                  );
-                })}
-              </details>
-            )}
-          </article>
+                            {source && (
+                              <div>
+                                <dt>Источник прочитан</dt>
+                                <dd>
+                                  {source.provenance?.access === 'read'
+                                    ? 'Да, в указанном объёме'
+                                    : 'Чтение не подтверждено'}
+                                  . {source.scope}
+                                </dd>
+                              </div>
+                            )}
+                            <div>
+                              <dt>Код записи для сверки</dt>
+                              <dd>
+                                <code>
+                                  {record.id} · версия {record.version}
+                                </code>
+                              </dd>
+                            </div>
+                          </dl>
+                        </details>
+                      </section>
+                    );
+                  })}
+                </details>
+              )}
+            </article>
+          </div>
         </>
       ) : (
         <div className="rationale-empty" role="status">
