@@ -1486,6 +1486,28 @@ summary small {
 .diff-element p {
   font-size: 13px;
 }
+.diff-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+.diff-list li {
+  margin: 4px 0;
+}
+.line-diff {
+  font-size: 13px;
+  max-height: 420px;
+  overflow: auto;
+  margin-top: 12px;
+}
+.line-diff .added,
+.diff-list .added {
+  background: rgba(34, 160, 90, 0.12);
+}
+.line-diff .removed,
+.diff-list .removed {
+  background: rgba(220, 60, 60, 0.12);
+}
 .preserved-row {
   display: flex;
   align-items: center;

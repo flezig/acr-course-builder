@@ -3,7 +3,9 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useApi, useCourse } from '../../entities/course/api/provider';
 import type { Material } from '../../entities/course/model/schema';
 import { canonicalJson } from '../../shared/lib/decimal';
+import { plural } from '../../shared/lib/plural';
 import { Badge, Empty, ErrorMessage, Loading, Notice, Panel } from '../../shared/ui/ui';
+import { changedSkeletonFields, compareAudits, diffLines } from './version-diff';
 function materialText(material?: Material) {
   if (!material) return 'Материал отсутствует';
   return [
@@ -71,137 +73,156 @@ export function ComparisonPage() {
     ['normalization_version', 'Нормализация'],
     ['template_version', 'Шаблон'],
   ] as const;
+  const skeletonChanges = changedSkeletonFields(base.skeleton, after.skeleton, skeletonFields);
+  const audit = compareAudits(base.audit, after.audit);
+  const auditChanged =
+    base.audit.technical_ready !== after.audit.technical_ready ||
+    audit.added.length > 0 ||
+    audit.resolved.length > 0;
+  const hasChanges = skeletonChanged || changed.length > 0 || removed.length > 0;
+  const issuesLabel = (n: number) => `${n} ${plural(n, ['замечание', 'замечания', 'замечаний'])}`;
+  const auditStatus = (snapshot: typeof after) =>
+    `${snapshot.audit.technical_ready ? 'Технически полный черновик' : 'Нужна проверка'} · ${issuesLabel(snapshot.audit.issues.length)}`;
   return (
     <>
       <header className="page-heading">
         <h1>
           Версия {base.course_version} → {after.course_version}
         </h1>
-        <p>{change?.request || 'Сравнение содержимого сохранённых snapshots'}</p>
+        <p>
+          {change
+            ? `Причина: ${change.request}`
+            : 'Причина появления новой версии не записана — сравнение по сохранённым версиям.'}
+        </p>
       </header>
       <div className="readiness">
-        <Badge tone="green">
-          {skeletonChanged || changed.length || removed.length
-            ? 'Есть изменения'
-            : 'Каркас и материалы без изменений'}
+        <Badge tone={hasChanges ? 'amber' : 'neutral'}>
+          {hasChanges ? 'Есть изменения' : 'Без изменений содержания'}
         </Badge>
-        <Badge>
-          Ревизия каркаса: {base.skeleton_version} → {after.skeleton_version}
-        </Badge>
+        {base.skeleton_version !== after.skeleton_version && (
+          <Badge>
+            Ревизия каркаса: {base.skeleton_version} → {after.skeleton_version}
+          </Badge>
+        )}
         <Badge tone={after.approval_applicable ? 'green' : 'amber'}>{approvalLabel}</Badge>
       </div>
-      <Panel title={skeletonChanged ? 'Изменения каркаса и оснований' : 'Каркас и основания'}>
-        {!skeletonChanged && <p>Каркас и требования не изменились.</p>}
-        {skeletonFields
-          .filter(
-            ([key]) => canonicalJson(base.skeleton[key]) !== canonicalJson(after.skeleton[key]),
-          )
-          .map(([key, label]) => (
+      {!hasChanges && !auditChanged && (
+        <Panel>
+          <p>
+            Версия {after.course_version} совпадает с версией {base.course_version}: каркас,
+            требования, материалы и результаты аудита ({issuesLabel(after.audit.issues.length)}) не
+            изменились.
+          </p>
+        </Panel>
+      )}
+      {skeletonChanged && (
+        <Panel title="Изменения каркаса и оснований">
+          {skeletonChanges.map(({ key, label, lines }) => (
             <div className="diff-element" key={key}>
               <h3>{label}</h3>
-              <div className="diff-grid">
-                <div>
-                  <span>ДО · R{base.skeleton_version}</span>
-                  <pre>{JSON.stringify(base.skeleton[key], null, 2)}</pre>
-                </div>
-                <div>
-                  <span>ПОСЛЕ · R{after.skeleton_version}</span>
-                  <pre>{JSON.stringify(after.skeleton[key], null, 2)}</pre>
-                </div>
-              </div>
+              <ul className="diff-list">
+                {lines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
             </div>
           ))}
-      </Panel>
-      <Panel title="Фактические изменения">
-        <div className="diff-grid">
-          <div>
-            <span>АУДИТ ДО · V{base.course_version}</span>
-            <p>
-              {base.audit.technical_ready ? 'Технически полный черновик' : 'Нужна проверка'} ·{' '}
-              {base.audit.issues.length} замечаний
-            </p>
-          </div>
-          <div>
-            <span>АУДИТ ПОСЛЕ · V{after.course_version}</span>
-            <p>
-              {after.audit.technical_ready ? 'Технически полный черновик' : 'Нужна проверка'} ·{' '}
-              {after.audit.issues.length} замечаний
-            </p>
-          </div>
-        </div>
-        {changed.map((material) => {
-          const old = base.materials.find((m) => m.id === material.id);
-          return (
-            <div className="diff-element" key={material.id}>
-              <h3>{material.title}</h3>
-              <small>
-                {material.id} ·{' '}
-                {change?.affected_ids.includes(material.id)
-                  ? 'В согласованном плане влияния'
-                  : 'Проверьте основание изменения'}
-              </small>
-              <div className="diff-grid">
-                <div>
-                  <span>ДО</span>
-                  <pre>{materialText(old)}</pre>
-                </div>
-                <div>
-                  <span>ПОСЛЕ</span>
-                  <pre>{materialText(material)}</pre>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        {skeletonChanged && (
           <Notice tone="warning">
             Изменились требования или план оценивания. Новая ревизия требует отдельного утверждения;
             обновление материалов выполняется после него.
           </Notice>
-        )}
-        {removed.map((material) => (
-          <div className="diff-element" key={material.id}>
-            <h3>Удалён материал: {material.title}</h3>
-            <pre>{material.content}</pre>
-          </div>
-        ))}
-        {!changed.length && !removed.length && <p>Содержимое материалов не изменилось.</p>}
-      </Panel>
-      <Panel
-        title="Сохранность незатронутых элементов"
-        subtitle="Проверка всех объявленных незатронутыми ID и SHA-256 содержимого."
-      >
-        {change?.preserved.map((item) => {
-          const old = base.materials.find((m) => m.id === item.id);
-          const actual = after.materials.find((m) => m.id === item.id);
-          const equal = !!old && !!actual && old.hash === actual.hash && item.equal;
-          return (
-            <div className="preserved-row" key={item.id}>
-              <div>
-                <strong>{actual?.title || item.id}</strong>
-                <small>
-                  {item.id}
-                  {actual?.manual ? ' · ручная правка сохранена' : ''}
-                </small>
-                <code>{actual?.hash}</code>
-              </div>
-              <Badge tone={equal ? 'green' : 'red'}>
-                {equal ? 'Содержание совпадает' : 'Расхождение'}
-              </Badge>
-              <Link
-                to={`/courses/${courseId}/materials?version=${base.course_version}&material=${item.id}`}
-              >
-                До ↗
-              </Link>
-              <Link
-                to={`/courses/${courseId}/materials?version=${after.course_version}&material=${item.id}`}
-              >
-                После ↗
-              </Link>
+        </Panel>
+      )}
+      {(changed.length > 0 || removed.length > 0 || auditChanged) && (
+        <Panel title="Фактические изменения">
+          {auditChanged && (
+            <div className="diff-element">
+              <h3>Аудит</h3>
+              <p>
+                {auditStatus(base)} → {auditStatus(after)}
+              </p>
+              <ul className="diff-list">
+                {audit.resolved.map((issue) => (
+                  <li className="removed" key={issue.id}>
+                    Закрыто: {issue.message}
+                  </li>
+                ))}
+                {audit.added.map((issue) => (
+                  <li className="added" key={issue.id}>
+                    Новое: {issue.message}
+                  </li>
+                ))}
+              </ul>
             </div>
-          );
-        }) || <p>План не содержал перечня незатронутых элементов.</p>}
-      </Panel>
+          )}
+          {changed.map((material) => {
+            const old = base.materials.find((m) => m.id === material.id);
+            return (
+              <div className="diff-element" key={material.id}>
+                <h3>{material.title}</h3>
+                <small>
+                  {material.id} ·{' '}
+                  {change?.affected_ids.includes(material.id)
+                    ? 'В согласованном плане влияния'
+                    : 'Проверьте основание изменения'}
+                </small>
+                <pre className="line-diff">
+                  {diffLines(materialText(old), materialText(material)).map((line, index) => (
+                    <span className={line.kind} key={index}>
+                      {line.kind === 'added' ? '+ ' : line.kind === 'removed' ? '− ' : '  '}
+                      {line.text}
+                      {'\n'}
+                    </span>
+                  ))}
+                </pre>
+              </div>
+            );
+          })}
+          {removed.map((material) => (
+            <div className="diff-element" key={material.id}>
+              <h3>Удалён материал: {material.title}</h3>
+              <pre>{material.content}</pre>
+            </div>
+          ))}
+        </Panel>
+      )}
+      {change && change.preserved.length > 0 && (
+        <Panel
+          title="Сохранность незатронутых элементов"
+          subtitle="Проверка всех объявленных незатронутыми ID и SHA-256 содержимого."
+        >
+          {change.preserved.map((item) => {
+            const old = base.materials.find((m) => m.id === item.id);
+            const actual = after.materials.find((m) => m.id === item.id);
+            const equal = !!old && !!actual && old.hash === actual.hash && item.equal;
+            return (
+              <div className="preserved-row" key={item.id}>
+                <div>
+                  <strong>{actual?.title || item.id}</strong>
+                  <small>
+                    {item.id}
+                    {actual?.manual ? ' · ручная правка сохранена' : ''}
+                  </small>
+                  <code>{actual?.hash}</code>
+                </div>
+                <Badge tone={equal ? 'green' : 'red'}>
+                  {equal ? 'Содержание совпадает' : 'Расхождение'}
+                </Badge>
+                <Link
+                  to={`/courses/${courseId}/materials?version=${base.course_version}&material=${item.id}`}
+                >
+                  До ↗
+                </Link>
+                <Link
+                  to={`/courses/${courseId}/materials?version=${after.course_version}&material=${item.id}`}
+                >
+                  После ↗
+                </Link>
+              </div>
+            );
+          })}
+        </Panel>
+      )}
       <div className="actions">
         <Link
           className="button primary"

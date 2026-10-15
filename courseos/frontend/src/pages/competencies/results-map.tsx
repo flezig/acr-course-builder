@@ -28,6 +28,7 @@ import { kindLabels } from '../../entities/course/model/presets';
 import { SkeletonEditor } from '../course-plan/skeleton-editor';
 import { buildMap, relatedChain, type MapNode } from './map-model';
 import { MapLinkEditor, type LinkRequest } from './map-link-editor';
+import { plural } from '../../shared/lib/plural';
 
 const columnIcons = [FileText, Target, BookOpen, ClipboardCheck];
 const layers = ['Требования', 'Результаты', 'Обучение', 'Оценивание'];
@@ -41,8 +42,6 @@ const gapFilters = {
   unlinked: 'Не связан с результатами',
 };
 type GapFilter = keyof typeof gapFilters;
-const plural = (n: number, forms: string[]) =>
-  forms[n % 100 >= 11 && n % 100 <= 14 ? 2 : n % 10 === 1 ? 0 : n % 10 >= 2 && n % 10 <= 4 ? 1 : 2];
 
 export function ResultsMap({
   snapshot,
