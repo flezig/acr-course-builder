@@ -175,15 +175,19 @@ export function ResultsMap({
   useEffect(() => {
     const el = viewport.current;
     if (!el) return;
+    // Блок растёт до полной высоты карты, чтобы не прокручивать её внутри страницы.
     const resize = () => {
       const availableHeight = Math.max(
         180,
         window.innerHeight - el.getBoundingClientRect().top - 24,
       );
-      el.style.setProperty('--map-viewport-height', `${availableHeight}px`);
+      const scrollbarHeight = el.offsetHeight - el.clientHeight;
+      const contentHeight = Math.ceil(height * zoom) + scrollbarHeight;
+      el.style.setProperty(
+        '--map-viewport-height',
+        `${Math.max(availableHeight, contentHeight)}px`,
+      );
     };
-    setZoom(Math.min(1, el.clientWidth / 1184));
-    el.scrollTo(0, 0);
     const observer = new ResizeObserver(resize);
     observer.observe(el);
     window.addEventListener('resize', resize);
@@ -192,6 +196,12 @@ export function ResultsMap({
       observer.disconnect();
       window.removeEventListener('resize', resize);
     };
+  }, [mode, noResults, height, zoom]);
+  useEffect(() => {
+    const el = viewport.current;
+    if (!el) return;
+    setZoom(Math.min(1, el.clientWidth / 1184));
+    el.scrollTo(0, 0);
   }, [mode, noResults]);
   useEffect(() => {
     const header = document.querySelector<HTMLElement>('.topbar');
