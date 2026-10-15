@@ -1,0 +1,113 @@
+import { test, expect } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+test('Course OS: замечания, версии и адаптивность 1440/1280/768/390', async ({ page }) => {
+  const reports = path.resolve('../reports/workspace-redesign');
+  await mkdir(reports, { recursive: true });
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await page
+    .getByRole('button', {
+      name: 'ИИ в работе учителя 36 часов · учителя · повышение квалификации',
+    })
+    .click();
+  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Замысел программы', exact: true })).toBeVisible();
+  const planUrl = page.url();
+  const status = page.getByRole('region', { name: 'Состояние программы' });
+  await expect(status).toContainText('Нужны исправления');
+  await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Утвердить каркас', exact: true })).toBeDisabled();
+  await page.getByRole('link', { name: 'Замысел', exact: true }).click();
+  const measurements = [];
+  for (const width of [1440, 1280, 768, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({
+      path: path.join(reports, `plan-${width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    });
+    await page.screenshot({
+      path: path.join(reports, `viewport-${width}.png`),
+      animations: 'disabled',
+    });
+    const geometry = await page.evaluate(() => {
+      const title = document.querySelector('h1')!;
+      const bounds = title.getBoundingClientRect();
+      return {
+        viewport: innerWidth,
+        document: document.documentElement.scrollWidth,
+        titleFont: getComputedStyle(title).fontSize,
+        titleWidth: bounds.width,
+        sidebar: getComputedStyle(document.querySelector('.sidebar')!).width,
+      };
+    });
+    measurements.push(geometry);
+    expect(geometry.document).toBeLessThanOrEqual(width);
+    await expect(page.getByLabel('Версия курса')).toBeVisible();
+    await expect(status.getByRole('link', { name: 'Открыть замечание' })).toBeVisible();
+    if (width <= 800) {
+      await page.getByRole('button', { name: 'Открыть навигацию' }).click();
+      await expect(page.getByRole('dialog', { name: 'Навигация CourseOS' })).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('button', { name: 'Открыть навигацию' })).toBeFocused();
+    }
+  }
+  await status.getByRole('link', { name: 'Открыть замечание' }).click();
+  const issueId = decodeURIComponent(new URL(page.url()).hash.slice(1));
+  await expect(page.locator(`[id="${issueId}"]`)).toBeVisible();
+  await expect(page.locator(`[id="${issueId}"]`)).toBeFocused();
+  await page.goto(planUrl);
+  await page.getByRole('link', { name: 'Проверка и утверждение', exact: true }).click();
+  await page.getByText('Журнал операций', { exact: true }).click();
+  await page.getByRole('button', { name: /Журнал/ }).click();
+  await expect(page.locator('.job-detail')).toBeVisible();
+  await page.getByRole('link', { name: 'Замысел', exact: true }).click();
+  await page.locator('.explanation summary').first().click();
+  await expect(page.locator('.explanation').first()).toHaveAttribute('open', '');
+  await page.getByRole('button', { name: 'Редактировать каркас' }).click();
+  await expect(page.getByRole('heading', { name: 'Редактирование каркаса' })).toBeVisible();
+  await page.getByRole('button', { name: 'Закрыть редактор', exact: true }).click();
+  await page.getByRole('button', { name: 'Редактировать каркас' }).click();
+  await page.getByLabel('Цель', { exact: true }).fill('Уточнённая цель обучения');
+  await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
+  await expect(page.getByRole('heading', { name: 'Редактирование каркаса' })).toHaveCount(0);
+  await page.getByLabel('Версия курса').selectOption('1');
+  await expect(page.getByRole('button', { name: 'Редактировать каркас' })).toBeDisabled();
+  await page.goto('/');
+  await page
+    .getByRole('button', {
+      name: 'ИИ в работе учителя 36 часов · учителя · повышение квалификации',
+    })
+    .click();
+  const longTitle =
+    'Искусственный интеллект в профессиональной деятельности учителя: проектирование образовательных материалов и проверка результатов обучения';
+  await page.getByLabel('Название / ИТ-тема').fill(longTitle);
+  await page.getByRole('button', { name: 'Создать каркас', exact: true }).click();
+  await expect(page.getByRole('heading', { name: longTitle, exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Замысел программы', exact: true })).toBeVisible();
+  for (const width of [1440, 1280, 768, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(page.getByRole('heading', { name: longTitle, exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      width,
+    );
+    await page.screenshot({
+      path: path.join(reports, `long-title-${width}.png`),
+      animations: 'disabled',
+    });
+    if (width <= 800) await page.getByRole('button', { name: 'Открыть навигацию' }).click();
+    const program = page.locator('.program-trigger > span');
+    await expect(program).toHaveText(longTitle);
+    expect(await program.evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(
+      true,
+    );
+    if (width <= 800) await page.getByRole('button', { name: 'Закрыть навигацию' }).click();
+  }
+  expect(errors).toEqual([]);
+  await writeFile(path.join(reports, 'measurements.json'), JSON.stringify(measurements, null, 2));
+});

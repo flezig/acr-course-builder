@@ -1,0 +1,1674 @@
+/* Workspace tokens and responsive presentation; workflows remain in global.css. */
+:root,
+.plan-shell {
+  --ink: #222936;
+  --muted: #616b7c;
+  --border: #e2e6ed;
+  --surface: #fff;
+  --bg: #f6f7fa;
+  --page-gradient: none;
+  --accent: #262626;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--bg);
+}
+.app-shell,
+.main-shell {
+  background: var(--bg);
+  min-width: 0;
+}
+.main-shell {
+  flex: 1;
+}
+*:focus-visible {
+  outline: 3px solid #555555 !important;
+  outline-offset: 3px;
+}
+button,
+.button {
+  border-radius: 8px;
+  box-shadow: none;
+}
+button.primary,
+.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+button.primary:hover:not(:disabled),
+.button.primary:hover {
+  background: #111111;
+  border-color: #111111;
+}
+button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
+}
+a.text-link,
+.issue-link {
+  color: var(--accent);
+}
+.app-shell .sidebar {
+  width: 260px;
+  padding: 24px 16px 16px;
+  font-family: inherit;
+  border-color: var(--border);
+}
+.sidebar .brand {
+  margin: 0 8px 24px;
+}
+.sidebar .brand-logo {
+  width: 140px;
+  max-width: 100%;
+}
+.sidebar .workspace-switcher {
+  margin-bottom: 16px;
+}
+.sidebar .workspace {
+  padding: 8px;
+  gap: 10px;
+}
+.sidebar .workspace strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.sidebar .workspace small {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.sidebar .workspace-avatar {
+  flex: 0 0 32px;
+  background: #efefef;
+  color: var(--accent);
+}
+.sidebar .new-course {
+  min-height: 40px;
+  margin: 0 8px 24px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #d9dce7;
+  color: #454b60;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 550;
+}
+.sidebar .new-course:hover {
+  background: #f4f4f4;
+  border-color: #cbcbcb;
+}
+.sidebar .sidebar-label {
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+.sidebar .program-section {
+  margin: 0 8px 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar .program-trigger {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border-color: var(--border);
+  min-height: 60px;
+}
+.sidebar .program-trigger > span {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.sidebar details[open] > summary {
+  background: #f5f5f5;
+}
+.sidebar summary:hover {
+  background: #f6f7fa;
+}
+.sidebar nav {
+  gap: 4px;
+}
+.sidebar .nav-item {
+  position: relative;
+  padding: 11px 12px;
+  min-height: 44px;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #596376;
+}
+.sidebar .nav-item.active {
+  color: #484848;
+  background: #efefef;
+}
+.sidebar .nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+}
+.sidebar .nav-item.active:hover {
+  background: #e7e7e7;
+}
+.sidebar .nav-item:not(.active):not(.disabled):hover {
+  background: #f4f5f8;
+  color: var(--ink);
+}
+.sidebar .nav-item svg {
+  width: 19px;
+  height: 19px;
+}
+.sidebar .sidebar-bottom {
+  margin-top: auto;
+  padding: 32px 8px 0;
+}
+.sidebar .sidebar-note {
+  background: #f6f7fa;
+  border: 1px solid #eceef3;
+  padding: 10px;
+  border-radius: 8px;
+  color: var(--muted);
+}
+.sidebar .sidebar-note strong {
+  font-size: 11px;
+  font-weight: 600;
+}
+.sidebar .sidebar-note p {
+  display: block;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+.sidebar .reset-button {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 8px 2px;
+  min-height: 36px;
+  color: #727789;
+  margin: 6px 0 8px;
+}
+.sidebar .reset-button:hover {
+  background: #fff2f0;
+  color: #a34238;
+}
+.sidebar .user-profile {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  gap: 10px;
+  margin-top: 0;
+}
+.sidebar .user-profile > span {
+  width: 32px;
+  height: 32px;
+  background: #efefef;
+  color: #5c5c5c;
+  font-size: 12px;
+}
+.sidebar .user-profile strong {
+  font-size: 12px;
+  color: var(--ink);
+}
+.sidebar .user-profile small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.topbar,
+.plan-shell .topbar {
+  min-height: 64px;
+  height: auto;
+  padding: 12px 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: white;
+  border-bottom: 1px solid var(--border);
+}
+.breadcrumb {
+  color: var(--muted);
+  font-size: 12px;
+  flex: 1;
+}
+.breadcrumb span {
+  margin: 0 8px;
+}
+.topbar-actions {
+  gap: 8px;
+}
+.topbar .badge,
+.plan-shell .topbar .badge.amber {
+  font-size: 11px;
+  padding: 4px 8px;
+  color: #646a7c;
+  background: #f2f3f7;
+  border-radius: 5px;
+}
+.mode-select {
+  font-size: 12px;
+}
+.versionbar,
+.plan-shell .versionbar {
+  padding: 0 0 0 16px;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  min-height: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.versionbar > div {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.versionbar label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.versionbar select,
+.plan-shell .versionbar select {
+  padding: 6px 8px;
+  background: #fff;
+  border: 1px solid #dcdfea;
+  border-radius: 6px;
+  color: #373e54;
+  font-size: 12px;
+  min-height: 34px;
+  cursor: pointer;
+}
+.versionbar .badge {
+  font-size: 10px;
+  font-weight: 500;
+}
+.plan-shell main {
+  padding: 32px 32px 48px;
+  max-width: 1512px;
+}
+.plan-workspace .course-heading {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 24px;
+}
+.course-banner {
+  min-width: 0;
+  flex: 1;
+}
+.plan-workspace .course-banner .eyebrow {
+  color: #70798b;
+  font-size: 10px;
+  letter-spacing: 1.3px;
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+.plan-workspace .course-banner h1 {
+  max-width: 860px;
+  font-size: 32px;
+  font-weight: 650;
+  letter-spacing: -0.85px;
+  line-height: 1.24;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.plan-workspace .course-banner p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 12px 0 0;
+}
+.plan-workspace button,
+.plan-workspace .button {
+  border-radius: 8px;
+  min-height: 40px;
+  font-size: 13px;
+  padding: 9px 14px;
+}
+.plan-workspace .edit-skeleton {
+  align-self: flex-start;
+  margin-top: 26px;
+  box-shadow: none;
+  background: white;
+  border-color: #d9ddea;
+  color: #4e576b;
+  font-weight: 550;
+  white-space: normal;
+  flex-shrink: 0;
+}
+.plan-workspace .edit-skeleton:hover:not(:disabled) {
+  background: #f0f1f8;
+  border-color: #b9bed5;
+}
+.plan-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+.plan-status.needs-attention {
+  background: #fffbf1;
+  border: 1px solid #efdfb6;
+}
+.status-icon {
+  margin-top: 3px;
+  color: #9b741e;
+}
+.plan-status:not(.needs-attention) .status-icon {
+  color: var(--accent);
+}
+.plan-next {
+  gap: 4px;
+}
+.plan-next strong {
+  font-size: 14px;
+  color: #38332b;
+}
+.plan-next span {
+  font-size: 13px;
+  color: #646054;
+  line-height: 1.5;
+}
+.plan-workspace .job-compact {
+  margin-top: 6px;
+}
+.job-compact .job-line {
+  gap: 6px 12px;
+}
+.job-compact .job-line strong {
+  font-size: 12px;
+  color: #746b58;
+  line-height: 1.5;
+}
+.plan-workspace .job-compact .link-button {
+  color: #6c624b;
+  min-height: 24px;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.status-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.plan-workspace .review-action {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  font-weight: 550;
+  white-space: nowrap;
+  margin: 0;
+}
+.issue-link {
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 2px 4px;
+}
+.plan-workspace .plan-nav {
+  display: flex;
+  flex-wrap: wrap;
+  position: static;
+  gap: 0 24px;
+  margin: 20px 0 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+.plan-workspace .plan-nav a {
+  padding: 12px 2px;
+  font-size: 13px;
+  min-height: 44px;
+  color: var(--muted);
+}
+.plan-workspace .plan-nav a[aria-current] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.plan-workspace .plan-nav a:hover {
+  background: #efefef;
+  color: var(--accent);
+}
+.plan-metrics {
+  display: grid;
+  grid-template-columns: 0.9fr 1.35fr 1fr;
+  padding: 20px 0;
+  margin: 0 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+.plan-metrics > div {
+  width: auto;
+  padding: 0 24px;
+  min-width: 0;
+  border-color: var(--border);
+}
+.plan-metrics > div:first-child {
+  width: auto;
+  min-width: 0;
+  padding-left: 0;
+}
+.plan-metrics small {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.plan-metrics strong,
+.plan-metrics > div:first-child strong {
+  font-size: 28px;
+  line-height: 1.2;
+  letter-spacing: -0.7px;
+  font-weight: 600;
+}
+.plan-metrics strong span {
+  white-space: nowrap;
+  font-size: 12px;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+.plan-workspace .plan-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+}
+.plan-workspace .panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px;
+  margin-bottom: 24px;
+}
+.plan-workspace .panel-heading {
+  margin-bottom: 24px;
+}
+.plan-workspace .panel-heading h2 {
+  font-size: 20px;
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.plan-workspace .program-intent {
+  font-size: 15px;
+  line-height: 1.7;
+}
+.plan-workspace .program-intent .panel-heading {
+  margin-bottom: 28px;
+}
+.plan-workspace .program-intent .goal h3,
+.plan-workspace .program-intent .outcomes h3 {
+  font-size: 16px;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.plan-workspace .program-intent .goal p,
+.plan-workspace .program-intent .task-list li,
+.plan-workspace .program-intent .outcome-group li,
+.plan-workspace .program-intent .outcome-intro {
+  font-size: 15px;
+  line-height: 1.7;
+}
+.plan-workspace .program-intent .goal .goal-statement {
+  color: #3d4657;
+  font-size: 16px;
+}
+.plan-workspace .program-intent .goal p {
+  color: var(--muted);
+}
+.plan-workspace .program-intent .task-list {
+  margin-top: 16px;
+}
+.plan-workspace .program-intent .outcomes {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #eceef3;
+}
+.plan-workspace .program-intent .outcome-group {
+  margin-top: 20px;
+}
+.plan-workspace .program-intent .outcome-group h4 {
+  font-size: 13px;
+  color: #555d75;
+}
+.plan-workspace .program-intent .outcome-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 20px;
+}
+.plan-workspace .explanations .panel {
+  padding: 20px;
+  background: #fdfdfd;
+}
+.plan-workspace .explanations .panel-heading h2 {
+  font-size: 16px;
+  letter-spacing: -0.2px;
+}
+.plan-workspace .explanations .panel-heading p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.plan-workspace .explanation {
+  padding: 18px 0;
+  border-color: var(--border);
+}
+.plan-workspace .explanation summary {
+  gap: 12px;
+  border-radius: 4px;
+}
+.plan-workspace .explanation summary:hover h3 {
+  color: var(--accent);
+}
+.plan-workspace .explanation h3 {
+  color: #414b5d;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.plan-workspace .explanation p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.65;
+  margin: 8px 0;
+}
+.plan-workspace .explanation .badge {
+  font-size: 10px;
+  border-radius: 4px;
+  white-space: normal;
+}
+.plan-workspace .explanation .badge.amber {
+  background: #fbf0d9;
+  color: #806023;
+}
+.plan-workspace .explanation .badge.green {
+  background: #eef4ef;
+  color: #476b51;
+}
+.explanation-chevron {
+  transition: transform 0.15s;
+}
+.plan-workspace .explanation[open] {
+  background: #f7f7f7;
+  padding: 18px 10px;
+  margin: 0 -10px;
+  border-radius: 6px;
+}
+.plan-workspace .explanation[open] .explanation-chevron {
+  color: var(--accent);
+  transform: rotate(180deg);
+}
+.audit-issue {
+  scroll-margin-top: 24px;
+}
+footer {
+  color: var(--muted);
+}
+@media (max-width: 1200px) and (min-width: 801px) {
+  .topbar,
+  .plan-shell .topbar {
+    padding: 12px 24px;
+    gap: 12px;
+  }
+  .breadcrumb {
+    font-size: 11px;
+  }
+  .topbar-actions > .badge {
+    display: none;
+  }
+  .plan-shell main {
+    padding: 28px 24px 40px;
+  }
+  .plan-workspace .course-heading {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .course-banner {
+    flex-basis: 100%;
+  }
+  .plan-workspace .edit-skeleton {
+    margin-top: 0;
+  }
+  .plan-workspace .plan-layout {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 20px;
+  }
+  .plan-workspace .panel {
+    padding: 24px;
+  }
+  .plan-workspace .explanations .panel {
+    padding: 18px;
+  }
+}
+@media (max-width: 1050px) {
+  .plan-workspace .plan-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plan-workspace .explanations {
+    display: block;
+  }
+}
+@media (max-width: 800px) {
+  .app-shell .sidebar {
+    position: fixed;
+    width: min(280px, calc(100vw - 32px));
+    padding: 24px 16px 16px;
+  }
+  .topbar,
+  .plan-shell .topbar {
+    padding: 10px 20px;
+    gap: 12px;
+    flex-wrap: wrap;
+    min-height: 60px;
+  }
+  .topbar .breadcrumb {
+    display: none;
+  }
+  .topbar-actions {
+    margin-left: auto;
+  }
+  .topbar .badge {
+    display: inline-flex;
+  }
+  .versionbar,
+  .plan-shell .versionbar {
+    padding: 0;
+    border-left: 0;
+  }
+  .versionbar label {
+    font-size: 12px;
+  }
+  .mobile-menu {
+    min-height: 36px;
+    padding: 4px;
+    color: var(--ink);
+  }
+  .plan-shell main {
+    padding: 28px 24px 40px;
+  }
+  .plan-workspace .course-heading {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .course-banner {
+    flex-basis: 100%;
+  }
+  .plan-workspace .edit-skeleton {
+    margin-top: 0;
+  }
+  .plan-workspace .course-banner h1 {
+    font-size: 30px;
+  }
+  .plan-workspace .plan-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plan-workspace .explanations {
+    display: block;
+  }
+  .plan-workspace .explanations > #review {
+    display: block;
+  }
+}
+@media (max-width: 600px) {
+  .topbar,
+  .plan-shell .topbar {
+    padding: 8px 16px;
+    gap: 8px;
+  }
+  .versionbar,
+  .plan-shell .versionbar {
+    flex-basis: 100%;
+    border-top: 1px solid #eceef3;
+    padding-top: 8px;
+  }
+  .versionbar > div {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .plan-shell main {
+    padding: 24px 16px 32px;
+  }
+  .plan-workspace .course-heading {
+    margin-bottom: 20px;
+    gap: 14px;
+  }
+  .plan-workspace .course-banner h1 {
+    font-size: 26px;
+    line-height: 1.28;
+    letter-spacing: -0.65px;
+  }
+  .plan-workspace .course-banner p {
+    font-size: 13px;
+    margin-top: 10px;
+  }
+  .plan-workspace .course-banner .eyebrow {
+    font-size: 9px;
+  }
+  .plan-status {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 16px;
+    gap: 10px;
+  }
+  .status-content {
+    flex-basis: calc(100% - 32px);
+  }
+  .status-actions {
+    width: 100%;
+    align-items: stretch;
+    padding-top: 4px;
+    gap: 8px;
+  }
+  .plan-workspace .review-action {
+    width: 100%;
+    min-height: 44px;
+  }
+  .issue-link {
+    text-align: center;
+    font-size: 12px;
+    padding: 6px;
+  }
+  .plan-workspace .plan-nav {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 0 16px;
+    margin-top: 16px;
+  }
+  .plan-workspace .plan-nav a {
+    font-size: 12px;
+    padding: 12px 0;
+    text-align: center;
+    white-space: normal;
+  }
+  .plan-metrics {
+    grid-template-columns: 1fr 1.3fr;
+    padding: 16px 0;
+    gap: 16px 0;
+    margin-bottom: 20px;
+  }
+  .plan-metrics > div {
+    padding: 0 12px;
+  }
+  .plan-metrics > div:first-child {
+    padding: 0 12px 0 0;
+  }
+  .plan-metrics > div:nth-child(2) {
+    padding: 0 0 0 16px;
+    border-left: 1px solid var(--border);
+  }
+  .plan-metrics > div:last-child {
+    grid-column: 1 / -1;
+    padding: 12px 0 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .plan-metrics small {
+    font-size: 11px;
+  }
+  .plan-metrics strong,
+  .plan-metrics > div:first-child strong {
+    font-size: 26px;
+  }
+  .plan-metrics > div:last-child strong {
+    font-size: 22px;
+  }
+  .plan-workspace .panel,
+  .plan-workspace .explanations .panel {
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  .plan-workspace .panel-heading h2 {
+    font-size: 19px;
+  }
+  .plan-workspace .program-intent .goal .goal-statement {
+    font-size: 15px;
+  }
+  .plan-workspace .program-intent .task-list li,
+  .plan-workspace .program-intent .outcome-group li {
+    font-size: 14px;
+  }
+  .calendar-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .calendar-panel .calendar-heading {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .explanation-chevron {
+    transition: none;
+  }
+}
+/* Keep the programme itself above the fold at desktop sizes. */
+.plan-next {
+  display: block;
+}
+.plan-next strong {
+  display: inline;
+}
+.plan-next .status-count {
+  display: inline-block;
+  margin-left: 10px;
+  color: #806023;
+  font-size: 11px;
+}
+.plan-next > span {
+  display: block;
+  margin-top: 4px;
+}
+@media (min-width: 801px) {
+  .topbar,
+  .plan-shell .topbar {
+    min-height: 60px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .plan-shell main {
+    padding-top: 24px;
+  }
+  .plan-workspace .course-heading {
+    margin-bottom: 20px;
+  }
+  .plan-workspace .course-banner p {
+    margin-top: 8px;
+  }
+  .plan-status {
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+  .plan-workspace .plan-nav {
+    margin-top: 16px;
+  }
+  .plan-metrics {
+    padding-top: 16px;
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+  }
+}
+
+/* Programme workspace: a compact header and one working view at a time. */
+[hidden] {
+  display: none !important;
+}
+:root,
+.plan-shell {
+  --accent: #262626;
+  --bg: #f7f8fa;
+}
+.app-shell .sidebar {
+  width: 248px;
+  padding-top: 24px;
+  position: sticky;
+}
+.sidebar .brand {
+  margin-bottom: 22px;
+}
+.sidebar-collapse {
+  position: absolute;
+  top: 24px;
+  right: 12px;
+  min-height: 28px;
+  padding: 5px;
+  border: 0;
+  color: #717689;
+  background: transparent;
+}
+.sidebar .brand-logo {
+  width: 132px;
+}
+.plan-shell main {
+  padding: 28px 32px 48px;
+  max-width: 1600px;
+}
+.plan-workspace .course-heading {
+  margin-bottom: 18px;
+  gap: 20px;
+}
+.plan-workspace .course-banner .eyebrow {
+  font-size: 10px;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  color: #6c7281;
+}
+.course-banner .eyebrow span {
+  padding: 0 8px;
+  color: #c2c4ce;
+}
+.plan-workspace .course-banner h1 {
+  font-size: 30px;
+  line-height: 1.3;
+  letter-spacing: -0.8px;
+  font-weight: 650;
+}
+.course-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 10px;
+  color: #646b79;
+  font-size: 14px;
+}
+.course-meta > span + span::before {
+  content: '·';
+  margin-right: 14px;
+  color: #a9aeba;
+}
+.course-meta > .badge::before {
+  content: none;
+}
+.plan-workspace .course-meta .badge {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 550;
+}
+.course-meta .badge.amber {
+  color: #866017;
+  background: #fff1d8;
+}
+.plan-workspace .edit-skeleton {
+  margin-top: 27px;
+  min-height: 36px;
+  padding: 8px 11px;
+  font-size: 12px;
+}
+.plan-status,
+.plan-status.needs-attention {
+  padding: 12px 16px;
+  border-radius: 8px;
+  min-height: 70px;
+  gap: 12px;
+}
+.plan-status.needs-attention {
+  background: #fffbf3;
+  border-color: #eddfc3;
+}
+.status-icon {
+  flex-shrink: 0;
+  margin: 0;
+}
+.plan-next strong {
+  font-size: 13px;
+}
+.plan-next .status-count {
+  font-size: 12px;
+  margin-left: 12px;
+  color: #826128;
+}
+.plan-next > span {
+  font-size: 13px;
+  margin-top: 2px;
+  line-height: 1.5;
+}
+.plan-workspace .review-action {
+  min-height: 36px;
+  padding: 8px 13px;
+  font-size: 12px;
+  margin: 0;
+}
+.plan-workspace .plan-nav {
+  gap: 28px;
+  margin-top: 15px;
+}
+.plan-workspace .plan-nav a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  padding: 12px 0;
+}
+.tab-count {
+  font-size: 10px;
+  color: #866017;
+  background: #f8ecd2;
+  border-radius: 4px;
+  padding: 0 5px;
+  line-height: 18px;
+}
+.plan-metrics {
+  display: flex;
+  align-items: center;
+  padding: 16px 0;
+  margin-bottom: 20px;
+  gap: 0;
+}
+.plan-metrics > div,
+.plan-metrics > div:first-child {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 0 26px;
+  border: 0;
+  border-right: 1px solid var(--border);
+}
+.plan-metrics > div:first-child {
+  padding-left: 0;
+}
+.plan-metrics > div:last-child {
+  border-right: 0;
+}
+.plan-metrics small {
+  margin: 0;
+  font-size: 12px;
+}
+.plan-metrics strong,
+.plan-metrics > div:first-child strong {
+  font-size: 20px;
+  letter-spacing: -0.5px;
+  font-weight: 600;
+}
+.plan-metrics strong span {
+  font-size: 12px;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.plan-workspace .plan-layout {
+  grid-template-columns: minmax(0, 1fr) 304px;
+  gap: 22px;
+}
+.plan-workspace .plan-layout.single-column {
+  grid-template-columns: minmax(0, 1fr);
+}
+.plan-workspace .panel {
+  padding: 24px;
+  border-radius: 9px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 2px #24294103;
+}
+.plan-workspace .panel-heading,
+.plan-workspace .program-intent .panel-heading {
+  margin-bottom: 22px;
+}
+.plan-workspace .panel-heading h2 {
+  font-size: 18px;
+  letter-spacing: -0.35px;
+}
+.plan-workspace .program-intent {
+  line-height: 1.6;
+}
+.block-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.plan-workspace .intent-block h3 {
+  color: var(--ink);
+  font-size: 15px;
+  margin: 0;
+  font-weight: 600;
+}
+.plan-workspace .block-edit {
+  border: 0;
+  background: transparent;
+  color: #686868;
+  min-height: 28px;
+  padding: 3px 2px;
+  font-size: 12px;
+  font-weight: 450;
+  gap: 5px;
+}
+.plan-workspace .block-edit:hover:not(:disabled) {
+  color: var(--accent);
+  background: #f0f0f0;
+}
+.plan-workspace .intent-block .goal-statement {
+  font-size: 16px;
+  line-height: 1.65;
+  margin: 0;
+  color: #424958;
+}
+.intent-block + .intent-block {
+  padding-top: 20px;
+  margin-top: 20px;
+  border-top: 1px solid #eceef2;
+}
+.audience-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 12px 0 0;
+}
+.audience-facts dt {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.audience-facts dd {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #424958;
+  margin: 0;
+}
+.plan-workspace .program-intent .outcomes {
+  margin-top: 20px;
+  padding-top: 20px;
+}
+.result-count {
+  font-size: 12px;
+  font-weight: 500;
+  background: #efefef;
+  color: var(--accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+.plan-workspace .program-intent .outcome-intro {
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+.plan-workspace .program-intent .outcome-group {
+  margin-top: 14px;
+}
+.plan-workspace .program-intent .outcome-group h4 {
+  margin: 0 0 5px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #747474;
+  font-weight: 550;
+}
+.plan-workspace .program-intent .outcome-group ul {
+  margin-top: 0;
+}
+.plan-workspace .program-intent .outcome-group li {
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 4px 0;
+  padding-left: 2px;
+}
+.plan-workspace .program-intent .outcome-note {
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 16px;
+}
+.intent-tasks {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.intent-tasks summary {
+  font-weight: 500;
+}
+.intent-tasks summary span {
+  float: right;
+  color: #9296a3;
+}
+.plan-workspace .explanations .panel {
+  padding: 20px;
+  background: #fff;
+}
+.plan-workspace .explanations .panel-heading {
+  margin-bottom: 6px;
+}
+.plan-workspace .explanations .panel-heading h2 {
+  font-size: 15px;
+}
+.plan-workspace .explanations .panel-heading p {
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+.plan-workspace .explanation {
+  padding: 14px 0;
+}
+.check-origin {
+  font-size: 10px;
+  line-height: 1.5;
+  color: #767676;
+  font-weight: 450;
+}
+.plan-workspace .explanation h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 3px 0 0;
+  color: #373b4b;
+}
+.plan-workspace .explanation p {
+  margin: 6px 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.plan-workspace .explanation summary {
+  align-items: flex-start;
+  gap: 8px;
+}
+.explanation-chevron {
+  margin-top: 18px;
+  flex-shrink: 0;
+}
+.plan-workspace .explanation[open] {
+  padding: 14px 8px;
+  margin: 0 -8px;
+}
+.plan-workspace .explanation .badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  line-height: 1.5;
+}
+.plan-workspace .explanation .badge.green {
+  color: #37664e;
+  background: #edf6f0;
+}
+.save-feedback {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #37664e;
+  font-size: 13px;
+  margin: 0 0 16px;
+}
+.intent-editor {
+  padding-top: 8px;
+}
+.intent-editor .field {
+  margin-bottom: 12px;
+}
+.intent-editor textarea,
+.intent-editor input {
+  font-size: 15px;
+}
+.intent-editor .actions {
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+.intent-editor .actions small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.field-highlight {
+  outline: 2px solid #c68b30;
+  outline-offset: 4px;
+  background-color: #fffbf2 !important;
+  border-radius: 5px;
+}
+.context-remark {
+  padding: 8px 0;
+  color: #896522;
+  font-size: 12px;
+}
+.section-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 13px;
+  margin: -4px 0 12px;
+}
+.plan-workspace .curriculum-panel {
+  padding: 22px 24px;
+}
+.plan-workspace .plan-table {
+  max-width: 100%;
+}
+.plan-table table {
+  min-width: 720px;
+}
+.plan-table th,
+.plan-table td {
+  padding: 12px 10px;
+}
+.plan-table tbody th {
+  font-weight: 500;
+}
+.plan-workspace .plan-table td {
+  font-size: 14px;
+}
+.topic-details summary {
+  min-height: 30px;
+}
+.review-issue {
+  padding: 20px 0;
+  border-top: 1px solid var(--border);
+}
+.review-issue h3 {
+  font-size: 16px;
+  margin: 10px 0 4px;
+}
+.review-issue p {
+  font-size: 14px;
+  color: #575e6d;
+  line-height: 1.65;
+}
+.review-issue .issue-place {
+  color: var(--accent);
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+.review-issue details {
+  font-size: 13px;
+  margin: 10px 0;
+  color: var(--muted);
+}
+.review-issue .button {
+  margin-top: 8px;
+}
+.approval-blocked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #8c661f;
+}
+.approval-panel > p {
+  font-size: 14px;
+}
+.approval-panel .checkbox {
+  margin: 18px 0;
+  max-width: 750px;
+}
+.approval-panel > details {
+  margin-top: 20px;
+  font-size: 12px;
+}
+.operation-log {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 2px;
+}
+.calendar-load {
+  margin: 20px 0;
+  padding: 18px;
+  background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.load-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.load-heading h3 {
+  font-size: 15px;
+  margin: 0;
+}
+.load-heading p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+.week-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.plan-workspace .week-switch button {
+  min-height: 28px;
+  padding: 2px 8px;
+}
+.load-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+.load-day {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 10px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  gap: 5px;
+  font-size: 12px;
+}
+.load-day > small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.load-day > strong {
+  font-size: 13px;
+  font-weight: 550;
+}
+.load-bar {
+  height: 4px;
+  border-radius: 3px;
+  background: #ededed;
+  margin: 8px 0;
+}
+.load-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #828282;
+}
+.load-day.day-off {
+  background: #f2f3f6;
+  color: #777d8a;
+}
+.load-day.day-conflict {
+  border-color: #d5a95c;
+  background: #fffaf0;
+}
+.load-note,
+.load-conflict {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 0;
+}
+.load-conflict {
+  color: #8b611c;
+}
+@media (min-width: 801px) {
+  .sidebar-collapsed .sidebar {
+    width: 72px;
+    padding: 70px 10px 16px;
+  }
+  .sidebar-collapsed .sidebar-collapse {
+    top: 24px;
+    right: 22px;
+  }
+  .sidebar-collapsed .sidebar .brand,
+  .sidebar-collapsed .workspace-switcher,
+  .sidebar-collapsed .program-section,
+  .sidebar-collapsed .sidebar-bottom,
+  .sidebar-collapsed .new-course > span,
+  .sidebar-collapsed .nav-item > span {
+    display: none;
+  }
+  .sidebar-collapsed .new-course,
+  .sidebar-collapsed .nav-item {
+    justify-content: center;
+    padding: 12px;
+    min-width: 0;
+  }
+}
+@media (max-width: 1200px) {
+  .plan-shell main {
+    padding: 24px;
+  }
+  .plan-workspace .course-heading {
+    flex-wrap: nowrap;
+    gap: 16px;
+  }
+  .course-banner {
+    flex-basis: auto;
+  }
+  .plan-workspace .edit-skeleton {
+    margin-top: 27px;
+  }
+  .plan-metrics > div {
+    gap: 4px 10px;
+    padding: 0 16px;
+  }
+}
+@media (max-width: 1100px) {
+  .plan-workspace .plan-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plan-workspace .explanations {
+    display: block;
+  }
+  .load-days {
+    gap: 5px;
+  }
+  .load-day {
+    padding: 10px 6px;
+  }
+}
+@media (max-width: 800px) {
+  .sidebar-collapse {
+    display: none;
+  }
+  .app-shell .sidebar {
+    position: fixed;
+    width: min(280px, calc(100vw - 32px));
+  }
+  .plan-workspace .course-heading {
+    flex-wrap: wrap;
+  }
+  .plan-workspace .edit-skeleton {
+    margin-top: 0;
+  }
+  .plan-workspace .course-banner h1 {
+    font-size: 28px;
+  }
+  .plan-workspace .plan-nav {
+    gap: 20px;
+  }
+  .plan-workspace .plan-nav a {
+    font-size: 13px;
+  }
+  .plan-status {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .plan-workspace .review-action {
+    margin-left: 30px;
+  }
+  .load-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+@media (max-width: 600px) {
+  .plan-shell main {
+    padding: 20px 16px 32px;
+  }
+  .plan-workspace .course-banner .eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.3px;
+  }
+  .course-banner .eyebrow span {
+    padding: 0 3px;
+  }
+  .plan-workspace .course-banner h1 {
+    font-size: 26px;
+  }
+  .course-meta {
+    font-size: 13px;
+    gap: 6px 10px;
+  }
+  .plan-workspace .plan-nav {
+    grid-template-columns: 1fr 1fr;
+    gap: 0 12px;
+  }
+  .plan-workspace .plan-nav a {
+    justify-content: center;
+    padding: 10px 0;
+    font-size: 12px;
+  }
+  .plan-next .status-count {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
+  .plan-workspace .review-action {
+    width: 100%;
+    margin-left: 0;
+  }
+  .plan-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 0;
+  }
+  .plan-metrics > div,
+  .plan-metrics > div:first-child {
+    display: block;
+    padding: 0 8px;
+    border: 0;
+  }
+  .plan-metrics > div:first-child {
+    padding-left: 0;
+  }
+  .plan-metrics > div:nth-child(2) {
+    border-left: 1px solid var(--border);
+  }
+  .plan-metrics > div:last-child {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0 0;
+    border-top: 1px solid var(--border);
+  }
+  .plan-metrics small {
+    font-size: 11px;
+  }
+  .plan-metrics strong,
+  .plan-metrics > div:first-child strong {
+    font-size: 22px;
+    margin-top: 5px;
+  }
+  .plan-workspace .panel,
+  .plan-workspace .explanations .panel {
+    padding: 18px;
+  }
+  .audience-facts {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .block-heading {
+    gap: 6px;
+    align-items: flex-start;
+  }
+  .block-edit svg {
+    display: none;
+  }
+  .load-days {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .load-day {
+    padding: 12px;
+  }
+  .intent-editor .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

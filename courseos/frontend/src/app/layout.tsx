@@ -1,0 +1,357 @@
+import { useEffect, useRef, useState } from 'react';
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
+import {
+  Plus,
+  LayoutList,
+  Network,
+  Files,
+  ShieldCheck,
+  GitCompareArrows,
+  ChevronDown,
+  Menu,
+  X,
+  RotateCcw,
+  FlaskConical,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useApi, useCourse, useCourses } from '../entities/course/api/provider';
+import { UnsavedProvider } from '../shared/lib/use-unsaved';
+import { Badge } from '../shared/ui/ui';
+import { DismissibleDetails } from '../shared/ui/dismissible-details';
+import courseosLogo from '../shared/assets/courseos-logo.png';
+export function Layout() {
+  return (
+    <UnsavedProvider>
+      <LayoutContent />
+    </UnsavedProvider>
+  );
+}
+function LayoutContent() {
+  const { api, setMode } = useApi();
+  const courses = useCourses();
+  const course = useCourse();
+  const { courseId } = useParams();
+  const [search] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const client = useQueryClient();
+  const previous = useRef('');
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem('courseos-sidebar-collapsed') === 'true',
+  );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const menuRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const panel = sidebarRef.current;
+    const focusable = () =>
+      Array.from(panel?.querySelectorAll<HTMLElement>('a[href], button, summary') || []).filter(
+        (element) => element.getClientRects().length > 0,
+      );
+    focusable()[0]?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMenuOpen(false);
+      }
+      if (event.key === 'Tab') {
+        const items = focusable();
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.body.style.overflow = oldOverflow;
+      document.removeEventListener('keydown', handleKey);
+      menuRef.current?.focus();
+    };
+  }, [menuOpen]);
+  const snapshot = course.data?.snapshot;
+  const versionSuffix = search.get('version') ? `?version=${search.get('version')}` : '';
+  useEffect(() => {
+    const positionKey = `courseos-scroll-${location.pathname}${location.search}`;
+    const save = () => sessionStorage.setItem(positionKey, String(window.scrollY));
+    const frame = requestAnimationFrame(() => {
+      if (location.hash) {
+        const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+        if (target) {
+          const details = target.closest('details');
+          if (details) details.open = true;
+          const isPlanSection = ['intent', 'curriculum', 'calendar', 'review'].includes(target.id);
+          if (isPlanSection && location.pathname.endsWith('/plan')) {
+            window.scrollTo(0, 0);
+            return;
+          }
+          const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          target.scrollIntoView({
+            block: isPlanSection ? 'start' : 'center',
+            behavior: isPlanSection && !reducedMotion ? 'smooth' : 'instant',
+          });
+          target.setAttribute('tabindex', '-1');
+          target.focus({ preventScroll: true });
+        }
+      } else if (previous.current !== `${location.pathname}${location.search}`) {
+        window.scrollTo(0, Number(sessionStorage.getItem(positionKey) || 0));
+      }
+      previous.current = `${location.pathname}${location.search}`;
+    });
+    window.addEventListener('scroll', save);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', save);
+    };
+  }, [location, snapshot?.course_version]);
+  const reset = async () => {
+    if (window.confirm('Удалить все демонстрационные курсы, версии и задачи в этом браузере?')) {
+      await api.reset();
+      client.removeQueries({ queryKey: ['demo'] });
+      navigate('/');
+    }
+  };
+  return (
+    <div
+      className={`app-shell${collapsed ? ' sidebar-collapsed' : ''}${location.pathname.endsWith('/plan') ? ' plan-shell' : ''}`}
+    >
+      <a className="skip-link" href="#main">
+        Перейти к содержимому
+      </a>
+      {menuOpen && (
+        <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+      )}
+      <aside
+        ref={sidebarRef}
+        id="course-navigation"
+        className={`sidebar ${menuOpen ? 'is-open' : ''}`}
+        role={menuOpen ? 'dialog' : undefined}
+        aria-modal={menuOpen || undefined}
+        aria-label="Навигация CourseOS"
+      >
+        <button
+          className="sidebar-close"
+          onClick={() => setMenuOpen(false)}
+          aria-label="Закрыть навигацию"
+        >
+          <X size={20} />
+        </button>
+        <button
+          className="sidebar-collapse"
+          aria-label={collapsed ? 'Развернуть навигацию' : 'Свернуть навигацию'}
+          aria-expanded={!collapsed}
+          onClick={() => {
+            setCollapsed(!collapsed);
+            localStorage.setItem('courseos-sidebar-collapsed', String(!collapsed));
+          }}
+        >
+          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+        </button>
+        <Link to="/" className="brand" aria-label="CourseOS — на главную">
+          <svg className="brand-logo" viewBox="185 288 1406 326" role="img" aria-label="CourseOS">
+            <image href={courseosLogo} width="1774" height="887" />
+          </svg>
+        </Link>
+        <DismissibleDetails className="workspace-switcher" dismissKey={location.key}>
+          <summary className="workspace">
+            <span className="workspace-avatar">А</span>
+            <div>
+              <strong>Академия цифрового развития</strong>
+              <small>Пространство методиста</small>
+            </div>
+            <ChevronDown size={16} className="switcher-chevron" />
+          </summary>
+          <div className="workspace-current">
+            Академия цифрового развития<small>Текущее рабочее пространство</small>
+          </div>
+        </DismissibleDetails>
+        <NavLink to="/" className="new-course">
+          <Plus size={18} />
+          <span>Создать курс</span>
+        </NavLink>
+        <div className="program-section">
+          <div className="sidebar-label">Текущая программа</div>
+          <DismissibleDetails
+            className="program-switcher"
+            key={courseId || 'new'}
+            dismissKey={location.key}
+          >
+            <summary className="program-trigger" aria-label="Выбрать курс">
+              <span>
+                {courses.data?.find((item) => item.course_id === courseId)?.title ||
+                  'Выберите сохранённый курс'}
+              </span>
+              <ChevronDown size={16} className="switcher-chevron" />
+            </summary>
+            <div className="program-options">
+              {courses.data?.length ? (
+                courses.data.map((item) => (
+                  <button
+                    key={item.course_id}
+                    aria-current={item.course_id === courseId ? 'true' : undefined}
+                    onClick={(event) => {
+                      event.currentTarget.closest('details')?.removeAttribute('open');
+                      navigate(`/courses/${item.course_id}/plan`);
+                    }}
+                  >
+                    {item.title}
+                  </button>
+                ))
+              ) : (
+                <p>Пока нет сохранённых курсов</p>
+              )}
+            </div>
+          </DismissibleDetails>
+        </div>
+        <nav aria-label="Экраны курса">
+          {[
+            { path: 'plan', title: 'Каркас и учебный план', Icon: LayoutList },
+            { path: 'map', title: 'Карта результатов', Icon: Network },
+            { path: 'materials', title: 'Материалы и выгрузки', Icon: Files },
+            { path: 'audit', title: 'Проверка программы', Icon: ShieldCheck },
+            { path: 'compare', title: 'Сравнение версий', Icon: GitCompareArrows },
+          ].map(({ path, title, Icon }) =>
+            courseId ? (
+              <NavLink
+                key={path}
+                title={title}
+                aria-label={title}
+                to={`/courses/${courseId}/${path}${versionSuffix}`}
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              >
+                <Icon size={20} strokeWidth={1.75} />
+                <span>{title}</span>
+              </NavLink>
+            ) : (
+              <span className="nav-item disabled" key={path}>
+                <Icon size={20} strokeWidth={1.75} />
+                <span>{title}</span>
+              </span>
+            ),
+          )}
+        </nav>
+        <div className="sidebar-bottom">
+          <div className="sidebar-note">
+            <FlaskConical size={18} />
+            <strong>{api.mode === 'demo' ? 'Демонстрационный режим' : 'Реальный API'}</strong>
+            <p>
+              {api.mode === 'demo'
+                ? 'Данные и задачи сохраняются в этом браузере. Генерация моделируется.'
+                : 'Данные приходят с настроенного backend. При сбое demo не подставляется.'}
+            </p>
+          </div>
+          {api.mode === 'demo' && (
+            <button className="reset-button" onClick={() => void reset()}>
+              <RotateCcw size={14} />
+              Сбросить демоданные
+            </button>
+          )}
+          <div className="user-profile">
+            <span>М</span>
+            <div>
+              <strong>Методист</strong>
+              <small>Проверка и принятие решений</small>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <div className="main-shell">
+        <header className="topbar">
+          <button
+            ref={menuRef}
+            className="mobile-menu"
+            aria-label="Открыть навигацию"
+            aria-expanded={menuOpen}
+            aria-controls="course-navigation"
+            onClick={() => setMenuOpen(true)}
+          >
+            <Menu size={20} />
+            <span>CourseOS</span>
+          </button>
+          <span className="breadcrumb">
+            Программы <span>/</span> {courseId ? 'Карточка программы' : 'Новый курс'}
+          </span>
+          <div className="topbar-actions">
+            <Badge tone={api.mode === 'demo' ? 'amber' : 'green'}>
+              {api.mode === 'demo' ? 'Демоданные' : 'LIVE · Данные сервера'}
+            </Badge>
+            <label className="mode-select">
+              <span className="sr-only">Режим работы</span>
+              <select
+                aria-label="Режим работы"
+                value={api.mode}
+                onChange={(e) => {
+                  setMode(e.target.value as 'demo' | 'live');
+                  navigate('/');
+                }}
+              >
+                <option value="demo">Demo</option>
+                <option value="live">Live API</option>
+              </select>
+              <ChevronDown size={13} />
+            </label>
+          </div>
+          {courseId && (
+            <div className="versionbar">
+              <div>
+                <label>
+                  Версия{' '}
+                  <select
+                    aria-label="Версия курса"
+                    value={search.get('version') || 'latest'}
+                    onChange={(e) => {
+                      const next = new URLSearchParams(search);
+                      e.target.value === 'latest'
+                        ? next.delete('version')
+                        : next.set('version', e.target.value);
+                      navigate(`${location.pathname}?${next}`);
+                    }}
+                  >
+                    <option value="latest">Актуальная {course.data?.latest_version || ''}</option>
+                    {course.data?.versions.map((version) => (
+                      <option key={version} value={version}>
+                        Архив v{version}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {snapshot && <Badge>Каркас r{snapshot.skeleton_version}</Badge>}
+                {snapshot?.provenance === 'previous_live' && (
+                  <Badge>Ранее полученный реальный результат</Badge>
+                )}
+              </div>
+            </div>
+          )}
+        </header>
+        <main id="main" tabIndex={-1}>
+          <Outlet key={api.mode} />
+        </main>
+        <footer>
+          CourseOS · Черновики для содержательной проверки и решения методиста{' '}
+          <span>Локальный frontend · 0.1.0</span>
+        </footer>
+      </div>
+    </div>
+  );
+}
