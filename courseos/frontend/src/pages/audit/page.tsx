@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw, ArrowLeft } from 'lucide-react';
+import { skeletonElements } from '../../entities/course/model/rationale';
+import { materialLabels } from '../../entities/course/model/presets';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
 import {
   Badge,
@@ -27,6 +29,33 @@ export function AuditPage() {
   const snapshot = view.snapshot;
   if (!snapshot) return <Empty title="Проверять пока нечего">Завершите уточнения.</Empty>;
   const suffix = view.is_latest ? '' : `?version=${snapshot.course_version}`;
+  const sectionNames: Record<string, string> = {
+    calendar: 'Календарь',
+    legal: 'Нормативные основания',
+    goal: 'Цель программы',
+    requirements: 'Параметры программы',
+    map: 'Карта результатов',
+    hours: 'Объём программы',
+    audience: 'Аудитория',
+    entry_level: 'Входной уровень',
+    constraints: 'Ограничения',
+  };
+  const elements = skeletonElements(snapshot.skeleton);
+  const targetName = (id: string) => {
+    const assessment = snapshot.skeleton.assessments.find(
+      (item) => item.id === id || `criterion:${item.id}` === id,
+    );
+    return (
+      sectionNames[id] ||
+      snapshot.materials.find((item) => item.id === id)?.title ||
+      snapshot.sources.find((item) => item.id === id)?.name ||
+      snapshot.skeleton.explanations.find((item) => item.id === id)?.title ||
+      (assessment &&
+        (id === assessment.id ? materialLabels[assessment.type] : 'Критерий проверки')) ||
+      elements.find((item) => item.id === id)?.title ||
+      'Связанный раздел'
+    );
+  };
   const target = (id: string) =>
     id.startsWith('outcome') ||
     id.startsWith('assessment') ||
@@ -39,7 +68,7 @@ export function AuditPage() {
     <>
       <header className="page-heading heading-action">
         <div>
-          <div className="eyebrow">COURSE AUDIT · ВЕРСИЯ {snapshot.course_version}</div>
+          <div className="eyebrow">ПРОВЕРКА ПРОГРАММЫ · ВЕРСИЯ {snapshot.course_version}</div>
           <h1>Проверка программы и материалов</h1>
           <p>Расчёты и структурные проверки отделены от содержательной экспертизы.</p>
         </div>
@@ -123,13 +152,15 @@ export function AuditPage() {
               Ожидается: {issue.expected}. Фактически: {issue.actual}.
             </p>
             <p>{issue.suggested_fix}</p>
-            <Link to={target(issue.element_id)}>Открыть {issue.element_id} и исправить ↗</Link>
+            <Link to={target(issue.element_id)}>
+              Открыть «{targetName(issue.element_id)}» и исправить ↗
+            </Link>
           </div>
         ))}
       </Panel>
       <Panel
         title="Замечание методиста"
-        subtitle="Наблюдение хранится отдельно от утверждённого содержимого. Блокирующее замечание остановит продолжение даже при прежнем hash."
+        subtitle="Наблюдение хранится отдельно от утверждённого содержимого. Блокирующее замечание остановит продолжение, даже если утверждённая версия не менялась."
       >
         <form
           onSubmit={form.handleSubmit(async (values) => {
