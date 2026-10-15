@@ -35,10 +35,12 @@ export function ExportPanel({ snapshot }: { snapshot: Snapshot }) {
       <div className="export-grid">
         <div className="export-card">
           <FileText size={25} />
-          <strong>Описание курса · Markdown</strong>
+          <strong>Программа курса и обоснования · Markdown (.md)</strong>
           <p>
-            Цель, учебный план, задания и пояснения к решениям. В конце — что ещё нужно проверить.
-            Версия {snapshot.course_version}.
+            Текстовое описание курса: аудитория, цель, результаты обучения, темы и часы,
+            практические задания, способы оценки и условия расписания. Также — обоснования решений,
+            источники, ограничения и вопросы для проверки методистом. Версия{' '}
+            {snapshot.course_version}.
           </p>
           <button
             disabled={pending}
@@ -51,7 +53,7 @@ export function ExportPanel({ snapshot }: { snapshot: Snapshot }) {
             }
           >
             <Download size={15} />
-            Скачать MD
+            Скачать описание курса (.md)
           </button>
         </div>
         {snapshot.export_manifest.map((file) => (
@@ -59,18 +61,27 @@ export function ExportPanel({ snapshot }: { snapshot: Snapshot }) {
             {file.format === 'json' ? <FileJson size={25} /> : <FileText size={25} />}
             <strong>
               {file.format === 'docx'
-                ? 'Программа по шаблону АЦР · DOCX'
+                ? 'Программа по шаблону АЦР · .docx'
                 : file.format === 'pptx'
-                  ? 'Слайды лекций · PPTX'
+                  ? 'Планы лекций и слайды по модулям · .pptx'
                   : file.format === 'json'
                     ? 'Полные данные курса · JSON'
                     : 'Курс для учебной платформы · LMS'}
             </strong>
+            {file.format === 'docx' && (
+              <p>
+                Программа в формате Word по шаблону АЦР: учебный план, рабочие программы и
+                обязательные разделы выбранного образца.
+              </p>
+            )}
+            {file.format === 'pptx' && (
+              <p>Планы лекций, слайды и пояснения преподавателя по модулям курса.</p>
+            )}
             <Badge tone={file.status === 'ready' ? 'green' : 'neutral'}>
               {file.status === 'ready' ? 'Файл доступен' : 'Не создан'}
             </Badge>
             <p>{file.reason}</p>
-            <small>Snapshot v{file.course_version}</small>
+            <small>Версия курса {file.course_version}</small>
             <button
               disabled={file.status !== 'ready' || pending}
               onClick={() => void download(file.format, file.file_id, file.filename)}
