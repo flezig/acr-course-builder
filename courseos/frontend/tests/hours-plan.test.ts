@@ -67,6 +67,46 @@ describe('Часы как в образцах АЦР', () => {
     for (const budget of skeleton.time_budgets!) expect(budget.note.trim()).not.toBe('');
   });
 
+  it.each([...ids, 'generic-16', 'generic-500'])(
+    '%s: каждый результат нового черновика имеет два разных типа оценочных средств',
+    async (id) => {
+      const requirements = id.startsWith('generic-')
+        ? {
+            ...requirementsFor('python'),
+            title: 'Управление учебными проектами',
+            total_hours: id.split('-')[1],
+          }
+        : requirementsFor(id);
+      const result = await api.command({
+        action: 'start',
+        payload: requirements,
+        request_id: crypto.randomUUID(),
+      });
+      vi.advanceTimersByTime(500);
+      const snapshot = (await api.get(result.course_id)).snapshot!;
+      expect(snapshot.skeleton.outcomes.length).toBeGreaterThan(0);
+      for (const outcome of snapshot.skeleton.outcomes) {
+        const assessments = snapshot.skeleton.assessments.filter((a) =>
+          a.outcome_ids.includes(outcome.id),
+        );
+        expect(new Set(assessments.map((a) => a.type)).size, outcome.id).toBeGreaterThanOrEqual(2);
+        for (const assessment of assessments) {
+          expect(assessment.action.trim()).not.toBe('');
+          expect(assessment.criterion.trim()).not.toBe('');
+          expect(
+            snapshot.skeleton.topics.some(
+              (topic) => topic.id === assessment.topic_id && topic.outcome_ids.includes(outcome.id),
+            ),
+          ).toBe(true);
+        }
+      }
+      expect(snapshot.audit.checks.find((check) => check.id === 'coverage')!.status).toBe('passed');
+      expect(
+        generalRequirements(snapshot).find((check) => check.id === 'outcomes-assessments')!.status,
+      ).toBe('passed');
+    },
+  );
+
   it.each(ids)('%s: в выгрузках MD и JSON нет «≈» и часов мельче 0,5', async (id) => {
     const result = await api.command({
       action: 'start',
@@ -172,12 +212,13 @@ describe('Находки агента и вердикт', () => {
     expect(verdict.title).toBe(`Блокирует: ${verdict.first!.message}`);
     expect(verdict.first!.evidence).toBeTruthy();
     const ids = snapshot.audit.issues.map((i) => i.id);
-    expect(ids).toEqual(
-      expect.arrayContaining(['calendar-unknown', 'audit-outcome-5', 'professional-standard']),
-    );
-    expect(snapshot.audit.issues.find((i) => i.id === 'audit-outcome-5')!.message).toBe(
-      'Результат 5 проверяется одним оценочным средством из двух нужных',
-    );
+    expect(ids).toEqual(expect.arrayContaining(['calendar-unknown', 'professional-standard']));
+    expect(ids).not.toContain('audit-outcome-5');
+    expect(
+      snapshot.skeleton.assessments
+        .filter((a) => a.outcome_ids.includes('outcome-5'))
+        .map((a) => a.type),
+    ).toEqual(['practical', 'project']);
     const command = (action: 'apply_finding' | 'dismiss_finding', issue_id: string) =>
       api.command({
         action,
@@ -192,7 +233,6 @@ describe('Находки агента и вердикт', () => {
     });
     for (const [action, id] of [
       ['apply_finding', 'calendar-unknown'],
-      ['apply_finding', 'audit-outcome-5'],
       ['dismiss_finding', 'professional-standard'],
     ] as const) {
       await command(action, id);

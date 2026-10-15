@@ -158,18 +158,14 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
       ? outcomes.flatMap((outcome, index) => {
           const current = bankModuleAssessments[index];
           return [
-            ...(current
-              ? [
-                  {
-                    id: `assessment-${index + 1}-a`,
-                    topic_id: `topic-${current.topic}`,
-                    outcome_ids: [outcome.id],
-                    type: current.type,
-                    action: current.action,
-                    criterion: current.criterion,
-                  },
-                ]
-              : []),
+            {
+              id: `assessment-${index + 1}-a`,
+              topic_id: `topic-${current.topic}`,
+              outcome_ids: [outcome.id],
+              type: current.type,
+              action: current.action,
+              criterion: current.criterion,
+            },
             {
               id: `assessment-${index + 1}-b`,
               topic_id: 'topic-final',

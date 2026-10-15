@@ -70,8 +70,7 @@ export const bankTopics: ScenarioTopic[] = [
       'Диаграммы слушатели уже строят в Excel, поэтому теории 2 ч; новое — matplotlib и записка руководителю, на неё уходит СРС.',
     content:
       'Графики matplotlib и seaborn, выбор вида графика, подписи и вывод на одной странице. Семинар: дашборд кредитного портфеля отделения для еженедельной планёрки.',
-    // Текущий контроль модуля в черновике агента не назначен: это намеренная находка демо.
-    control: '—',
+    control: 'Практическое задание',
     outcomes: [5],
     prerequisites: [4],
     dependency:
@@ -174,9 +173,15 @@ type BankAssessment = Pick<Skeleton['assessments'][number], 'type' | 'action' | 
   topic: number;
 };
 
-// Второе средство каждого результата — итоговый проект. Для результата 5 текущий контроль
-// в черновике отсутствует, агент предлагает его добавить в очереди решений.
-export const bankModuleAssessments: (BankAssessment | null)[] = [
+export const bankReportAssessment: BankAssessment = {
+  topic: 5,
+  type: 'practical',
+  action: 'Построить два графика по просрочке и написать вывод для руководителя',
+  criterion: 'Графики подписаны; вывод и рекомендация уложены в один абзац',
+};
+
+// Текущий контроль дополняет итоговый проект для каждого результата.
+export const bankModuleAssessments: BankAssessment[] = [
   {
     topic: 1,
     type: 'test',
@@ -201,15 +206,8 @@ export const bankModuleAssessments: (BankAssessment | null)[] = [
     action: 'Решить задачу о различии доли просрочки в двух сегментах',
     criterion: 'Интервал посчитан верно; вывод содержит оговорку о выборке',
   },
-  null,
+  bankReportAssessment,
 ];
-
-export const bankAddedAssessment: BankAssessment = {
-  topic: 5,
-  type: 'practical',
-  action: 'Построить два графика по просрочке и написать вывод для руководителя',
-  criterion: 'Графики подписаны; вывод и рекомендация уложены в один абзац',
-};
 
 export const bankProjectActions = [
   'Пересчитать показатели отделения скриптом вместо формул Excel',

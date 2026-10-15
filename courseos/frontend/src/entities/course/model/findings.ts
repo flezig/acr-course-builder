@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 import type { Audit, Requirements, Skeleton } from './schema';
 import { isOnHourStep, isInternship, selfStudyAllowed } from './hours-plan';
 import { assessmentLabels } from './presets';
-import { bankAddedAssessment } from './bank-scenario';
+import { bankReportAssessment } from './bank-scenario';
 import { formatHours } from '../../../shared/lib/decimal';
 
 type Issue = Audit['issues'][number];
@@ -41,9 +41,9 @@ export function proposedAssessment(skeleton: Skeleton, outcomeId: string) {
   if (!topic) return null;
   const used = new Set(outcomeAssessments(skeleton, outcomeId).map((a) => a.type));
   const bankTemplate =
-    topic.id === `topic-${bankAddedAssessment.topic}` &&
+    topic.id === `topic-${bankReportAssessment.topic}` &&
     skeleton.requirements.audience.toLowerCase().includes('банк')
-      ? bankAddedAssessment
+      ? bankReportAssessment
       : null;
   const type = bankTemplate?.type || (used.has('practical') ? 'test' : 'practical');
   return {
