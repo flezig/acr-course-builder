@@ -65,12 +65,12 @@ test('Покрытие в каркасе: три состояния, фильт�
   await panel.getByLabel('Только с пробелами').check();
   await expect(row(1)).toBeVisible();
   await panel.getByLabel('Только с пробелами').uncheck();
-  await row(1)
-    .getByRole('link', { name: /Написать программу/ })
-    .click();
-  const chain = panel.locator('.coverage-chain').first();
+  // Строка уже раскрыта переходом к заданию выше; задания видны только в раскрытой строке.
+  await expect(row(1).getByRole('button', { name: 'Скрыть элементы контроля' })).toBeVisible();
+  const chain = panel
+    .locator('.coverage-chain')
+    .filter({ hasText: 'Цикл корректно обрабатывает список' });
   await expect(chain).toBeVisible();
-  await expect(chain).toContainText('Цикл корректно обрабатывает список');
   await chain.getByRole('button', { name: 'Открыть задание' }).click();
   await expect(page.locator('input[name="assessments.0.criterion"]')).toBeFocused();
   await page.getByRole('button', { name: 'Закрыть редактор', exact: true }).click();
