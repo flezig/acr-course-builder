@@ -1,20 +1,23 @@
 .ai-field-trigger {
   position: fixed;
   z-index: 60;
-  display: grid;
-  place-items: center;
-  width: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   height: 26px;
-  padding: 0;
-  border: 1px solid var(--border);
+  min-height: 0;
+  padding: 0 8px;
+  border: 1px solid var(--theme-purple-ink, #6b3fa0);
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--theme-purple-surface, #f3ecfb);
   color: var(--theme-purple-ink, #6b3fa0);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .ai-field-trigger:hover {
-  background: var(--theme-purple-surface, #f3ecfb);
+  filter: brightness(0.96);
 }
 
 .ai-field-dialog {

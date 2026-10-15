@@ -110,7 +110,7 @@ export function AiFieldEdit() {
       <button
         type="button"
         className="ai-field-trigger"
-        style={{ top: rect.top + 4, left: rect.right - 32 }}
+        style={{ top: rect.top + 4, left: rect.right - 62 }}
         title="Изменить с помощью ИИ"
         aria-label={`Изменить поле «${fieldLabel(anchor)}» с помощью ИИ`}
         // Не забираем фокус у поля, иначе кнопка исчезнет до клика.
@@ -120,7 +120,8 @@ export function AiFieldEdit() {
           setBaseValue(anchor.value);
         }}
       >
-        <Sparkles size={15} />
+        <Sparkles size={14} />
+        ИИ
       </button>
     );
 
