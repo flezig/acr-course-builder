@@ -440,3 +440,21 @@ test('Связи можно просмотреть до сохранения и 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: '../reports/results-review-mobile.png', fullPage: true });
 });
+
+test('Полная карта открывается по ширине и прокручивается по вертикали', async ({ page }) => {
+  await openMap(page, 'teachers', 'map');
+  const zoom = page.getByLabel('Масштаб', { exact: true });
+  const before = parseInt(await zoom.innerText());
+  const viewport = page.locator('.map-viewport');
+  const expectedScale = await viewport.evaluate((el) =>
+    Math.round(Math.min(1, el.clientWidth / 1184) * 100),
+  );
+  expect(before).toBe(expectedScale);
+  await viewport.evaluate((el) => {
+    el.scrollTop = 200;
+  });
+  expect(await viewport.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  await viewport.evaluate((el) => {
+    el.scrollTop = 0;
+  });
+});

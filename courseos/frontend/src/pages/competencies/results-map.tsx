@@ -177,11 +177,14 @@ export function ResultsMap({
     const el = viewport.current;
     if (!el) return;
     const resize = () => {
-      const availableHeight = Math.max(180, window.innerHeight - el.getBoundingClientRect().top - 24);
+      const availableHeight = Math.max(
+        180,
+        window.innerHeight - el.getBoundingClientRect().top - 24,
+      );
       el.style.setProperty('--map-viewport-height', `${availableHeight}px`);
-      setZoom(Math.min(1, el.clientWidth / 1184, availableHeight / height));
-      el.scrollTo(0, 0);
     };
+    setZoom(Math.min(1, el.clientWidth / 1184));
+    el.scrollTo(0, 0);
     const observer = new ResizeObserver(resize);
     observer.observe(el);
     window.addEventListener('resize', resize);
@@ -190,7 +193,7 @@ export function ResultsMap({
       observer.disconnect();
       window.removeEventListener('resize', resize);
     };
-  }, [mode, noResults, height]);
+  }, [mode, noResults]);
   useEffect(() => {
     const header = document.querySelector<HTMLElement>('.topbar');
     const toolbar = document.querySelector<HTMLElement>('.map-control-bar');
