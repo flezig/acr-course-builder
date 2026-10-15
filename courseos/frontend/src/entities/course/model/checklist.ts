@@ -3,6 +3,7 @@ import Decimal from 'decimal.js';
 import { outcomeAssessmentCount } from './findings';
 import type { Audit, Snapshot } from './schema';
 import { calendarCalculation, hourTotals } from './rules';
+import { rationaleCoverage } from './rationale';
 import { contactAndRemoteHours, isOnHourStep, weeklyLoad } from './hours-plan';
 import { generalSections, professionalSections, scenarioKind } from './factory';
 import { formatHours, sumHours } from '../../../shared/lib/decimal';
@@ -50,6 +51,8 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
   const professional = requirements.template_id === 'acr_professional';
   const standardConfirmed = skeleton.outcomes.some((o) => o.professional_standard_code);
   const unmarked = snapshot.sources.filter((source) => !source.status);
+  const unconfirmedSources = snapshot.sources.filter((source) => source.status === 'unconfirmed');
+  const rationale = rationaleCoverage(skeleton);
   const requisites = snapshot.sections.filter(
     (section) => section.title === 'Титульный лист' || section.title.includes('Кадров'),
   );
@@ -146,6 +149,18 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
           ? `${snapshot.sources.length} источников, у каждого указан статус проверки.`
           : 'Источники не приложены; утверждения помечены как неподтверждённые.',
       target: { screen: 'map', hash: 'sources' },
+    },
+    {
+      id: 'sources-reliable',
+      title: 'Решения опираются на достоверные источники',
+      // Автоматически видно только, есть ли у решения проверенный источник; применимость
+      // допущений к аудитории, заданиям и времени оценивает методист.
+      status:
+        unconfirmedSources.length + rationale.assumptions + rationale.gaps
+          ? 'manual_review'
+          : 'passed',
+      evidence: `Неподтверждённых источников: ${unconfirmedSources.length}; решений на допущениях: ${rationale.assumptions}; без основания или с устаревшим: ${rationale.gaps}.`,
+      target: { screen: 'plan', hash: 'review' },
     },
     {
       id: 'standard-exists',
@@ -585,4 +600,3 @@ function withFindingStatus(snapshot: Snapshot, items: ChecklistItem[]): Checklis
     };
   });
 }
-

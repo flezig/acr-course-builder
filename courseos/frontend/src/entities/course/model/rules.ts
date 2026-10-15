@@ -250,19 +250,6 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
     });
   const coverage = rationaleCoverage(skeleton);
   const inputSignature = rationaleSignature(skeleton);
-  if (coverage.assumptions + coverage.gaps)
-    issues.push({
-      id: 'rationale-review',
-      severity: 'warning',
-      check_type: 'human',
-      element_id: 'goal',
-      message: 'Основания каркаса требуют содержательной проверки',
-      expected: 'Проверка применимости к аудитории, заданиям и времени',
-      actual: `Допущения: ${coverage.assumptions}; пробелы/устаревшие: ${coverage.gaps}`,
-      suggested_fix:
-        'Откройте основания элементов; проверьте каждое решение и сохраните проверку в новой версии.',
-      blocking: false,
-    });
   const badClaims = elements
     .flatMap((e) => currentRationales(skeleton, e.id, inputSignature))
     .filter(
