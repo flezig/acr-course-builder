@@ -77,7 +77,6 @@ export function AuditPage() {
     <>
       <header className="page-heading heading-action">
         <div>
-          <div className="eyebrow">ПРОВЕРКА ПРОГРАММЫ · ВЕРСИЯ {snapshot.course_version}</div>
           <h1>Проверка программы и материалов</h1>
           <p>Расчёты и структурные проверки отделены от содержательной экспертизы.</p>
         </div>

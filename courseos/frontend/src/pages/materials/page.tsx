@@ -42,7 +42,6 @@ export function MaterialsPage() {
     <>
       <header className="page-heading heading-action">
         <div>
-          <div className="eyebrow">СОГЛАСОВАННЫЙ КОМПЛЕКТ · ВЕРСИЯ {snapshot.course_version}</div>
           <h1>Материалы программы</h1>
           <p>
             Техническое завершение, содержательная проверка и решение методиста — отдельные статусы.

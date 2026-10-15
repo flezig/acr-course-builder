@@ -74,7 +74,6 @@ export function ComparisonPage() {
   return (
     <>
       <header className="page-heading">
-        <div className="eyebrow">COURSE REVISION · ФАКТИЧЕСКОЕ СРАВНЕНИЕ</div>
         <h1>
           Версия {base.course_version} → {after.course_version}
         </h1>
