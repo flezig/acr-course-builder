@@ -34,9 +34,11 @@ function isIdentifiedList(value: unknown): value is Identified[] {
   return Array.isArray(value) && value.every((item) => typeof item?.id === 'string');
 }
 
+// Методисту служебный id ничего не говорит: показываем название, а у конфликтов,
+// где названия нет, — ожидаемое значение. id остаётся только запасным вариантом.
 function elementLabel(item: Identified) {
-  const name = item.title || item.description || item.text || item.name;
-  return typeof name === 'string' && name ? `${item.id} · ${name}` : item.id;
+  const name = item.title || item.description || item.text || item.name || item.expected;
+  return typeof name === 'string' && name ? name : item.id;
 }
 
 // Названия полей требований и календаря, которые методист видит в редакторе.
@@ -60,15 +62,46 @@ const fieldLabels: Record<string, string> = {
   confirmed: 'Подтверждён',
   same_units: 'Единые часы',
   references: 'Источники',
+  conclusion: 'Вывод',
+  detail: 'Пояснение',
+  evidence: 'Подтверждения',
+  status: 'Статус',
+  related_ids: 'Связанные элементы',
+  category: 'Категория',
+  expected: 'Ожидалось',
+  actual: 'Фактически',
+  calculation: 'Расчёт',
+  options: 'Варианты решения',
+  decision: 'Решение',
+  requirement_ids: 'Требования',
+};
+
+const statusLabels: Record<string, string> = {
+  verified: 'подтверждено',
+  needs_review: 'нужна проверка',
+  blocked: 'заблокировано',
+  open: 'открыт',
+  resolved: 'решён',
 };
 
 // Полные тексты источников занимают экраны; в сводке изменений хватает начала.
 const valueLimit = 160;
 
-function valueText(value: unknown) {
+// Подтверждения и варианты решения хранятся объектами; методисту нужен только их текст.
+function readableText(value: unknown): string {
+  if (Array.isArray(value)) return value.map(readableText).join('; ');
+  if (isPlainObject(value)) {
+    const text = value.text ?? value.title ?? value.after;
+    return typeof text === 'string' ? text : canonicalJson(value);
+  }
+  return String(value);
+}
+
+function valueText(value: unknown, key?: string) {
   if (value === null || value === undefined || value === '') return '—';
   if (typeof value === 'boolean') return value ? 'да' : 'нет';
-  const text = typeof value === 'object' ? canonicalJson(value) : String(value);
+  if (key === 'status' && typeof value === 'string') return statusLabels[value] ?? value;
+  const text = readableText(value);
   return text.length > valueLimit ? `${text.slice(0, valueLimit)}…` : text;
 }
 
@@ -103,7 +136,7 @@ export function describeSkeletonField(before: unknown, after: unknown): string[]
       );
       for (const key of fields)
         lines.push(
-          `${elementLabel(item)} — ${key}: ${valueText(old[key])} → ${valueText(item[key])}`,
+          `${elementLabel(item)} — ${fieldLabels[key] ?? key}: ${valueText(old[key], key)} → ${valueText(item[key], key)}`,
         );
     }
     for (const item of before)
