@@ -72,7 +72,7 @@ test('Course OS: замечания, версии и адаптивность 14
   await expect(page.getByRole('heading', { name: 'Редактирование каркаса' })).toBeVisible();
   await page.getByRole('button', { name: 'Закрыть редактор', exact: true }).click();
   await page.getByRole('button', { name: 'Редактировать каркас' }).click();
-  await page.getByLabel('Цель', { exact: true }).fill('Уточнённая цель обучения');
+  await page.getByRole('textbox', { name: 'Цель', exact: true }).fill('Уточнённая цель обучения');
   await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
   await expect(page.getByRole('heading', { name: 'Редактирование каркаса' })).toHaveCount(0);
   await page.getByLabel('Версия курса').selectOption('1');
@@ -103,9 +103,9 @@ test('Course OS: замечания, версии и адаптивность 14
     if (width <= 800) await page.getByRole('button', { name: 'Открыть навигацию' }).click();
     const program = page.locator('.program-trigger > span');
     await expect(program).toHaveText(longTitle);
-    expect(await program.evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(
-      true,
-    );
+    await expect(program).toHaveAttribute('title', longTitle);
+    await expect(program).toHaveCSS('-webkit-line-clamp', '2');
+    await expect(program).toHaveCSS('overflow', 'hidden');
     if (width <= 800) await page.getByRole('button', { name: 'Закрыть навигацию' }).click();
   }
   expect(errors).toEqual([]);
