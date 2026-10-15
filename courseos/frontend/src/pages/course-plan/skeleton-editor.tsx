@@ -11,7 +11,8 @@ import { hourKinds, hourLabels } from '../../shared/lib/decimal';
 import { useCommand } from '../../entities/course/api/provider';
 import { Form, Field, Panel, ErrorMessage, Notice } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
-import { materialLabels } from '../../entities/course/model/presets';
+import './skeleton-editor.css';
+import { kindLabels, assessmentLabels } from '../../entities/course/model/presets';
 export function SkeletonEditor({
   snapshot: currentSnapshot,
   close,
@@ -40,6 +41,26 @@ export function SkeletonEditor({
       }
     })(),
   });
+  const outcomes = useFieldArray({
+    control: form.control,
+    name: 'outcomes',
+    keyName: 'form_key',
+  });
+  const currentOutcomes = form.watch('outcomes');
+  const currentAssessments = form.watch('assessments');
+  const removeOutcome = (index: number) => {
+    const removedId = form.getValues(`outcomes.${index}.id`);
+    for (const collection of ['topics', 'activities', 'assessments'] as const) {
+      form.getValues(collection).forEach((item, itemIndex) => {
+        form.setValue(
+          `${collection}.${itemIndex}.outcome_ids`,
+          item.outcome_ids.filter((id) => id !== removedId),
+          { shouldDirty: true },
+        );
+      });
+    }
+    outcomes.remove(index);
+  };
   const assessments = useFieldArray({
     control: form.control,
     name: 'assessments',
@@ -133,12 +154,51 @@ export function SkeletonEditor({
           </Field>
         </div>
         <h3>Результаты обучения</h3>
-        {snapshot.skeleton.outcomes.map((outcome, index) => (
-          <Field key={outcome.id} label={outcome.id}>
-            <input {...form.register(`outcomes.${index}.description`)} required />
-          </Field>
+        {outcomes.fields.map((outcome, index) => (
+          <div className="outcome-editor" key={outcome.form_key}>
+            <Field label={`Результат ${index + 1}`}>
+              <textarea {...form.register(`outcomes.${index}.description`)} rows={2} required />
+            </Field>
+            <Field label={`Категория результата ${index + 1}`}>
+              <select {...form.register(`outcomes.${index}.kind`)}>
+                {Object.entries(kindLabels).map(([kind, label]) => (
+                  <option key={kind} value={kind}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <button
+              type="button"
+              className="link-button"
+              disabled={outcomes.fields.length <= 1}
+              onClick={() => removeOutcome(index)}
+            >
+              Удалить результат {index + 1}
+            </button>
+          </div>
         ))}
-        <div className="table-scroll">
+        <button
+          type="button"
+          onClick={() =>
+            outcomes.append({
+              id: `outcome-${crypto.randomUUID()}`,
+              kind: 'skill',
+              description: '',
+              requirement_id: 'request',
+              prerequisite: form.getValues('requirements.entry_level'),
+              depth: '',
+              professional_standard_code: null,
+            })
+          }
+        >
+          Добавить результат обучения
+        </button>
+        <p className="muted">
+          Новый результат свяжите с темами и оценочным средством. При удалении результата его связи
+          удаляются; задания и темы сохраняются.
+        </p>
+        <div className="table-scroll skeleton-topics-editor">
           <table>
             <thead>
               <tr>
@@ -155,25 +215,35 @@ export function SkeletonEditor({
                   <th>
                     <Field>
                       <input
-                        aria-label={`Название ${topic.id}`}
+                        aria-label={`Название темы ${index + 1}`}
                         {...form.register(`topics.${index}.title`)}
                         required
                       />
                     </Field>
                     <Field>
                       <textarea
-                        aria-label={`Содержание ${topic.id}`}
+                        aria-label={`Содержание темы ${index + 1}`}
+                        className="topic-content-input"
                         {...form.register(`topics.${index}.content`)}
                         rows={2}
                       />
                     </Field>
+                    <Field label={`Результаты темы ${index + 1}`}>
+                      <select multiple {...form.register(`topics.${index}.outcome_ids`)}>
+                        {currentOutcomes.map((outcome, outcomeIndex) => (
+                          <option key={outcome.id} value={outcome.id}>
+                            {outcome.description || `Результат ${outcomeIndex + 1}`}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
                   </th>
                   {hourKinds.map((kind) => (
-                    <td key={kind}>
+                    <td key={kind} data-label={hourLabels[kind]}>
                       <Field>
                         <input
                           className="hour-input"
-                          aria-label={`${topic.id} ${hourLabels[kind]}`}
+                          aria-label={`Тема ${index + 1}: ${hourLabels[kind]}`}
                           {...form.register(`topics.${index}.hours.${kind}`)}
                           inputMode="decimal"
                           required
@@ -181,11 +251,11 @@ export function SkeletonEditor({
                       </Field>
                     </td>
                   ))}
-                  <td>
+                  <td data-label="Заявлено">
                     <Field>
                       <input
                         className="hour-input"
-                        aria-label={`Заявленный объём ${topic.id}`}
+                        aria-label={`Заявленный объём темы ${index + 1}`}
                         {...form.register(`topics.${index}.planned_total`)}
                         inputMode="decimal"
                         required
@@ -199,28 +269,40 @@ export function SkeletonEditor({
         </div>
         <details className="assessment-plan-editor">
           <summary>План оценивания и критерии</summary>
+          <p className="muted">
+            Проверьте, каким заданием и по какому критерию оценивается каждый результат обучения.
+            Агент предлагает этот план до подготовки материалов.
+          </p>
           {assessments.fields.map((assessment, index) => (
             <div key={assessment.form_key} className="assessment-editor">
               <strong>
-                {assessment.id} · {assessment.type}
+                Оценочное средство {index + 1} ·{' '}
+                {assessmentLabels[currentAssessments[index]?.type || assessment.type]}
               </strong>
               <div className="form-grid">
                 <Field label="Вид оценочного средства">
                   <select {...form.register(`assessments.${index}.type`)}>
-                    {(['test', 'project', 'portfolio', 'exam', 'mentor_interview'] as const).map(
-                      (type) => (
-                        <option key={type} value={type}>
-                          {materialLabels[type]}
-                        </option>
-                      ),
-                    )}
+                    {(
+                      [
+                        'test',
+                        'practical',
+                        'project',
+                        'portfolio',
+                        'exam',
+                        'mentor_interview',
+                      ] as const
+                    ).map((type) => (
+                      <option key={type} value={type}>
+                        {assessmentLabels[type]}
+                      </option>
+                    ))}
                   </select>
                 </Field>
                 <Field label="Проверяемые результаты (можно выбрать несколько)">
                   <select multiple {...form.register(`assessments.${index}.outcome_ids`)}>
-                    {snapshot.skeleton.outcomes.map((outcome) => (
+                    {currentOutcomes.map((outcome, outcomeIndex) => (
                       <option key={outcome.id} value={outcome.id}>
-                        {outcome.description}
+                        {outcome.description || `Результат ${outcomeIndex + 1}`}
                       </option>
                     ))}
                   </select>
@@ -237,7 +319,7 @@ export function SkeletonEditor({
                 className="link-button"
                 onClick={() => assessments.remove(index)}
               >
-                Удалить средство {assessment.id}
+                Удалить оценочное средство {index + 1}
               </button>
             </div>
           ))}
@@ -247,7 +329,7 @@ export function SkeletonEditor({
               assessments.append({
                 id: `assessment-${crypto.randomUUID()}`,
                 topic_id: 'topic-final',
-                outcome_ids: [snapshot.skeleton.outcomes[0].id],
+                outcome_ids: [currentOutcomes[0].id],
                 type: 'project',
                 action: '',
                 criterion: '',
@@ -259,9 +341,14 @@ export function SkeletonEditor({
         </details>
         <details>
           <summary>Активности для освоения результатов</summary>
+          <p className="muted">
+            Это учебные задания, на которых слушатели осваивают результаты: например, практикум или
+            разбор кейса. Их предлагает агент; заполнять заново не нужно — измените, если требуется
+            другой способ обучения.
+          </p>
           {activities.fields.map((activity, index) => (
             <div className="assessment-editor" key={activity.form_key}>
-              <Field label={`Описание ${activity.id}`}>
+              <Field label={`Учебная активность ${index + 1}`}>
                 <input {...form.register(`activities.${index}.description`)} required />
               </Field>
               <Field label="Тема активности">
@@ -275,9 +362,9 @@ export function SkeletonEditor({
               </Field>
               <Field label="Осваиваемые результаты">
                 <select multiple {...form.register(`activities.${index}.outcome_ids`)}>
-                  {snapshot.skeleton.outcomes.map((outcome) => (
+                  {currentOutcomes.map((outcome, outcomeIndex) => (
                     <option key={outcome.id} value={outcome.id}>
-                      {outcome.description}
+                      {outcome.description || `Результат ${outcomeIndex + 1}`}
                     </option>
                   ))}
                 </select>
@@ -287,7 +374,7 @@ export function SkeletonEditor({
                 className="link-button"
                 onClick={() => activities.remove(index)}
               >
-                Удалить активность {activity.id}
+                Удалить активность {index + 1}
               </button>
             </div>
           ))}
@@ -297,7 +384,7 @@ export function SkeletonEditor({
               activities.append({
                 id: `activity-${crypto.randomUUID()}`,
                 topic_id: snapshot.skeleton.topics[0].id,
-                outcome_ids: [snapshot.skeleton.outcomes[0].id],
+                outcome_ids: [currentOutcomes[0].id],
                 description: '',
               })
             }

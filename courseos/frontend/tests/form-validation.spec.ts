@@ -73,7 +73,7 @@ test('Program editor validates table cells before saving and keeps the entered d
 }) => {
   await pythonCourse(page);
   await page.getByRole('button', { name: 'Редактировать программу', exact: true }).click();
-  const total = page.getByLabel('Заявленный объём topic-1', { exact: true });
+  const total = page.getByLabel('Заявленный объём темы 1', { exact: true });
   await total.fill('не число');
   await expect(total).toHaveAccessibleDescription(/Введите неотрицательное число/);
   await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
