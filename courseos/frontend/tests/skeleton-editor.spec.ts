@@ -30,9 +30,9 @@ test('Plan editor keeps content readable and outcome links consistent after addi
     .check();
   await topicResults.locator('summary').click();
   await expect(topicResults.locator('summary')).toContainText('Выбрано результатов:');
-  await page.getByText('План оценивания и критерии', { exact: true }).click();
+  await page.getByText('Оценочные материалы', { exact: true }).click();
   const assessmentResults = page
-    .getByLabel('Проверяемые результаты (можно выбрать несколько)')
+    .getByLabel('Проверяемые результаты обучения (можно выбрать несколько)')
     .first();
   await expect(assessmentResults.getByRole('checkbox').first()).toBeHidden();
   await assessmentResults.locator('summary').click();

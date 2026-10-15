@@ -271,10 +271,11 @@ export function SkeletonEditor({
           </table>
         </div>
         <details className="assessment-plan-editor">
-          <summary>План оценивания и критерии</summary>
+          <summary>Оценочные материалы</summary>
           <p className="muted">
             Проверьте, каким заданием и по какому критерию оценивается каждый результат обучения.
-            Агент предлагает этот план до подготовки материалов.
+            На этапе каркаса агент предлагает краткие описания заданий и критерии оценки. Полные
+            условия и материалы появятся после утверждения каркаса.
           </p>
           {assessments.fields.map((assessment, index) => (
             <div key={assessment.form_key} className="assessment-editor">
@@ -306,7 +307,7 @@ export function SkeletonEditor({
                   name={`assessments.${index}.outcome_ids`}
                   render={({ field }) => (
                     <OutcomePicker
-                      label="Проверяемые результаты (можно выбрать несколько)"
+                      label="Проверяемые результаты обучения (можно выбрать несколько)"
                       outcomes={currentOutcomes}
                       value={field.value}
                       onChange={field.onChange}
@@ -314,10 +315,10 @@ export function SkeletonEditor({
                   )}
                 />
               </div>
-              <Field label="Наблюдаемое действие">
+              <Field label="Задание">
                 <input {...form.register(`assessments.${index}.action`)} required />
               </Field>
-              <Field label="Критерий">
+              <Field label="Критерии оценки">
                 <input {...form.register(`assessments.${index}.criterion`)} required />
               </Field>
               <button

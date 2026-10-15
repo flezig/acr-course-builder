@@ -249,11 +249,11 @@ test('Общие элементы показывают все прямые св�
   );
   await page.getByRole('button', { name: 'Закрыть детали' }).click();
   await expect(page.locator('.assessment-column')).toContainText(
-    'Прослеживает значение переменной',
+    'Определить значение переменной после выполнения кода',
   );
   await page.locator('.outcome-list-item').nth(2).click();
   await expect(page.locator('.assessment-column')).not.toContainText(
-    'Прослеживает значение переменной',
+    'Определить значение переменной после выполнения кода',
   );
   await page
     .getByLabel('Сводка результатов')
