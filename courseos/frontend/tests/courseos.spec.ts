@@ -85,7 +85,7 @@ test('Полный путь: уточнения, правка каркаса, а
     page.getByRole('heading', { name: 'Проверка программы', exact: true }),
   ).toBeVisible();
   await expect(page.getByText('Итог с итоговой аттестацией равен объёму')).toBeVisible();
-  await page.getByRole('button', { name: 'Вернуться к месту просмотра' }).click();
+  await page.goBack();
   await page
     .getByRole('button', { name: 'Практикум: Знакомство с Python Семинар', exact: true })
     .click();

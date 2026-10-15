@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { CheckCircle2, AlertTriangle, CircleDashed, RefreshCw } from 'lucide-react';
 import {
   generalRequirements,
   observationChecklist,
@@ -33,7 +33,6 @@ const checklistStatuses: Record<ChecklistItem['status'], string> = {
 export function AuditPage() {
   const query = useCourse();
   const command = useCommand();
-  const navigate = useNavigate();
   const location = useLocation();
   const section = location.hash.slice(1);
   const tab =
@@ -98,10 +97,6 @@ export function AuditPage() {
           Повторить проверку
         </button>
       </header>
-      <button className="link-button" onClick={() => navigate(-1)}>
-        <ArrowLeft size={15} />
-        Вернуться к месту просмотра
-      </button>
       <nav className="audit-nav" aria-label="Разделы проверки программы">
         {(
           [
