@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import Decimal from 'decimal.js';
 import { ChevronDown } from 'lucide-react';
 import type { Skeleton, Topic } from '../../entities/course/model/schema';
@@ -257,6 +258,7 @@ function ModuleRows({
 }
 
 function TopicAssessment({ skeleton, topic }: { skeleton: Skeleton; topic: Topic }) {
+  const location = useLocation();
   const assessments = skeleton.assessments.filter((assessment) => assessment.topic_id === topic.id);
   // Несколько критериев одной итоговой работы не превращаем в несколько одинаковых работ.
   const forms = new Set(
@@ -271,11 +273,39 @@ function TopicAssessment({ skeleton, topic }: { skeleton: Skeleton; topic: Topic
     <div className="topic-assessment">
       {forms.size > 0 ? (
         <ul>
-          {[...forms].map((form) => (
-            <li key={form}>
-              {topic.id === 'topic-final' ? form : `${form} по теме «${topic.title}»`}
-            </li>
-          ))}
+          {[...forms].map((form) => {
+            const matching = assessments.filter(
+              (assessment) =>
+                assessmentLabels[assessment.type].toLowerCase() === form.toLowerCase(),
+            );
+            const targets = (matching.length ? matching : assessments).flatMap((assessment) => {
+              const outcome = skeleton.outcomes.find((outcome) =>
+                assessment.outcome_ids.includes(outcome.id),
+              );
+              return outcome ? [{ assessment, outcome }] : [];
+            });
+            const label = topic.id === 'topic-final' ? form : `${form} по теме «${topic.title}»`;
+            return (
+              <li key={form}>
+                {targets.length
+                  ? targets.map(({ assessment, outcome }, index) => (
+                      <span key={assessment.id}>
+                        {index > 0 && ' · '}
+                        <Link
+                          to={{
+                            search: location.search,
+                            hash: `#coverage-${outcome.id}-${assessment.id}`,
+                          }}
+                          title={assessment.action}
+                        >
+                          {targets.length > 1 ? `${label}: задание ${index + 1}` : label}
+                        </Link>
+                      </span>
+                    ))
+                  : label}
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <span>—</span>

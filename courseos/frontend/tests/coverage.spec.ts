@@ -55,6 +55,9 @@ test('Покрытие в каркасе: три состояния, фильт�
   await expect(row(1)).toContainText('Соответствие требует проверки');
   await expect(row(2)).toContainText('Нет проверочного задания');
   await expect(row(3)).toContainText('Не указаны критерии');
+  await page.locator('.topic-assessment a[href$="-check-complete"]').first().click();
+  await expect(panel.locator('[id$="-check-complete"]')).toBeVisible();
+  await expect(panel.locator('[id$="-check-complete"]')).toBeFocused();
   await panel.getByRole('button', { name: /Недостаточно оценочных средств/ }).click();
   await expect(row(1)).toBeVisible();
   await expect(row(2)).toBeVisible();
@@ -81,6 +84,15 @@ test('Покрытие в каркасе: три состояния, фильт�
     await expect(panel).toBeVisible();
     await panel.locator('.table-scroll').evaluate((element) => element.scrollTo(0, 0));
     await expect(panel.locator('td').first()).toHaveCSS('text-align', 'left');
+    expect(
+      await panel
+        .locator('.table-scroll')
+        .evaluate(
+          (element) =>
+            element.scrollWidth <= element.clientWidth &&
+            element.scrollHeight <= element.clientHeight,
+        ),
+    ).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

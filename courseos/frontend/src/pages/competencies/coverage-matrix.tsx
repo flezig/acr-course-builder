@@ -40,6 +40,16 @@ export function CoverageMatrix({
       setOnlyGaps(false);
     }
   }, [location.hash, snapshot.skeleton]);
+  useEffect(() => {
+    if (!location.hash.startsWith('#coverage-')) return;
+    const frame = requestAnimationFrame(() => {
+      const assignment = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      if (!assignment || assignment.closest('[hidden]')) return;
+      assignment.scrollIntoView({ block: 'center' });
+      assignment.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [location.hash, expanded, filter, onlyGaps]);
   const summaries: { key: Filter; label: string; count: number }[] = [
     { key: 'all', label: 'Всего результатов', count: rows.length },
     {
@@ -141,7 +151,7 @@ export function CoverageMatrix({
                         {open ? 'Скрыть цепочку' : 'Формулировка и цепочка'}
                       </button>
                     </th>
-                    <td>
+                    <td data-label="Где формируется">
                       {topics.length ? (
                         topics.map((topic) => (
                           <Link
@@ -166,7 +176,7 @@ export function CoverageMatrix({
                         </details>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Как проверяется">
                       <strong>
                         {assessments.length
                           ? `Связано ${assessments.length} ${assessments.length % 100 >= 11 && assessments.length % 100 <= 14 ? 'заданий' : assessments.length % 10 === 1 ? 'задание' : assessments.length % 10 >= 2 && assessments.length % 10 <= 4 ? 'задания' : 'заданий'}`
@@ -186,7 +196,7 @@ export function CoverageMatrix({
                         </a>
                       ))}
                     </td>
-                    <td>
+                    <td data-label="Критерии достижения">
                       {criteria.length ? (
                         <details>
                           <summary className="coverage-criterion">{criteria[0]}</summary>
@@ -205,7 +215,7 @@ export function CoverageMatrix({
                         <span className="gap-count">Не у всех заданий указан критерий</span>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Пробелы">
                       {gaps.length ? (
                         <ul className="coverage-gaps">
                           {gaps.map((gap) => (
