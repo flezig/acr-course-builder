@@ -109,39 +109,48 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+// Одно изменение в каркасе: путь до поля и строки «было»/«стало», которые
+// показываются как в диффе GitHub. У добавленного элемента нет «было», у удалённого — «стало».
+export type FieldChange = { path: string; removed?: string; added?: string };
+
+const joinPath = (...parts: string[]) => parts.filter(Boolean).join(' — ');
+
 // Изменения одного поля каркаса в виде, понятном методисту: что добавлено, удалено
 // и какие поля поменялись. Вложенные объекты вроде требований раскрываются по полям.
-export function describeSkeletonField(before: unknown, after: unknown): string[] {
+export function describeSkeletonField(before: unknown, after: unknown): FieldChange[] {
   if (isPlainObject(before) && isPlainObject(after)) {
     return [...new Set([...Object.keys(before), ...Object.keys(after)])]
       .filter((key) => canonicalJson(before[key]) !== canonicalJson(after[key]))
       .flatMap((key) =>
-        describeSkeletonField(before[key], after[key]).map(
-          (line) => `${fieldLabels[key] ?? key}: ${line}`,
-        ),
+        describeSkeletonField(before[key], after[key]).map((change) => ({
+          ...change,
+          path: joinPath(fieldLabels[key] ?? key, change.path),
+        })),
       );
   }
   if (isIdentifiedList(before) && isIdentifiedList(after)) {
     const beforeById = new Map(before.map((item) => [item.id, item]));
     const afterIds = new Set(after.map((item) => item.id));
-    const lines: string[] = [];
+    const changes: FieldChange[] = [];
     for (const item of after) {
       const old = beforeById.get(item.id);
       if (!old) {
-        lines.push(`Добавлено: ${elementLabel(item)}`);
+        changes.push({ path: '', added: elementLabel(item) });
         continue;
       }
       const fields = [...new Set([...Object.keys(old), ...Object.keys(item)])].filter(
         (key) => canonicalJson(old[key]) !== canonicalJson(item[key]),
       );
       for (const key of fields)
-        lines.push(
-          `${elementLabel(item)} — ${fieldLabels[key] ?? key}: ${valueText(old[key], key)} → ${valueText(item[key], key)}`,
-        );
+        changes.push({
+          path: joinPath(elementLabel(item), fieldLabels[key] ?? key),
+          removed: valueText(old[key], key),
+          added: valueText(item[key], key),
+        });
     }
     for (const item of before)
-      if (!afterIds.has(item.id)) lines.push(`Удалено: ${elementLabel(item)}`);
-    return lines;
+      if (!afterIds.has(item.id)) changes.push({ path: '', removed: elementLabel(item) });
+    return changes;
   }
   if (Array.isArray(before) && Array.isArray(after)) {
     const added = after.filter(
@@ -151,11 +160,15 @@ export function describeSkeletonField(before: unknown, after: unknown): string[]
       (item) => !after.some((a) => canonicalJson(a) === canonicalJson(item)),
     );
     return [
-      ...added.map((item) => `Добавлено: ${valueText(item)}`),
-      ...removed.map((item) => `Удалено: ${valueText(item)}`),
+      ...removed.map((item) => ({ path: '', removed: valueText(item) })),
+      ...added.map((item) => ({ path: '', added: valueText(item) })),
     ];
   }
-  return [`${valueText(before)} → ${valueText(after)}`];
+  // Отдельное текстовое поле показываем целиком: правка часто стоит в конце
+  // формулировки, и обрезка спрятала бы именно её.
+  if (typeof before === 'string' && typeof after === 'string')
+    return [{ path: '', removed: before || '—', added: after || '—' }];
+  return [{ path: '', removed: valueText(before), added: valueText(after) }];
 }
 
 export function changedSkeletonFields<K extends keyof Skeleton>(
@@ -165,7 +178,11 @@ export function changedSkeletonFields<K extends keyof Skeleton>(
 ) {
   return fields
     .filter(([key]) => canonicalJson(before[key]) !== canonicalJson(after[key]))
-    .map(([key, label]) => ({ key, label, lines: describeSkeletonField(before[key], after[key]) }));
+    .map(([key, label]) => ({
+      key,
+      label,
+      changes: describeSkeletonField(before[key], after[key]),
+    }));
 }
 
 // Замечания сопоставляются по id: так видно, какие закрыты, а какие появились,

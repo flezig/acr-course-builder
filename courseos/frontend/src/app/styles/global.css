@@ -1723,9 +1723,17 @@ summary small {
   font-size: 15px;
   margin: 0 0 6px;
 }
-.compare-skeleton-field ul {
-  margin: 0 0 16px;
-  padding-left: 18px;
+.compare-skeleton-field {
+  margin-bottom: 18px;
+}
+.compare-field-change {
+  margin-top: 10px;
+}
+.compare-field-change small {
+  color: var(--muted);
+}
+.compare-field-change .line-diff {
+  margin-top: 4px;
 }
 .compare-preserved {
   display: flex;

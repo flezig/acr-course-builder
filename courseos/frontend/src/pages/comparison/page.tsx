@@ -328,14 +328,20 @@ export function ComparisonPage() {
               </span>
             )}
           </summary>
-          {skeletonChanges.map(({ key, label, lines }) => (
+          {skeletonChanges.map(({ key, label, changes }) => (
             <div className="compare-skeleton-field" key={key}>
               <h3>{label}</h3>
-              <ul>
-                {lines.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
+              {changes.map((change, index) => (
+                <div className="compare-field-change" key={index}>
+                  {change.path && <small>{change.path}</small>}
+                  <div className="line-diff">
+                    {change.removed !== undefined && (
+                      <div className="removed">− {change.removed}</div>
+                    )}
+                    {change.added !== undefined && <div className="added">+ {change.added}</div>}
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
           {skeletonChanged ? (

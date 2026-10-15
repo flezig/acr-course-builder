@@ -10,13 +10,15 @@ describe('Сравнение каркаса', () => {
     };
     const after = { goal: 'Новая цель', audience: 'Аналитики', calendar: { start: '2026-10-20' } };
     expect(describeSkeletonField(before, after)).toEqual([
-      'Цель: Старая цель → Новая цель',
-      'Календарь: Начало: 2026-10-14 → 2026-10-20',
+      { path: 'Цель', removed: 'Старая цель', added: 'Новая цель' },
+      { path: 'Календарь — Начало', removed: '2026-10-14', added: '2026-10-20' },
     ]);
   });
 
-  it('обрезает длинные значения', () => {
-    const [line] = describeSkeletonField({ goal: 'а'.repeat(500) }, { goal: 'б' });
-    expect(line.length).toBeLessThan(200);
+  it('обрезает длинные элементы списков, но не текстовые поля', () => {
+    const [source] = describeSkeletonField([], ['а'.repeat(500)]);
+    expect(source.added!.length).toBeLessThan(200);
+    const [goal] = describeSkeletonField({ goal: 'а'.repeat(500) }, { goal: 'б' });
+    expect(goal.removed).toHaveLength(500);
   });
 });
