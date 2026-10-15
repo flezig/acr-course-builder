@@ -59,9 +59,12 @@ export function SkeletonEditor({
   useEffect(() => {
     if (!focusTarget) return;
     const index = snapshot.skeleton.topics.findIndex((topic) => topic.id === focusTarget);
-    if (focusTarget.startsWith('outcome-')) {
-      const assessment = snapshot.skeleton.assessments.findIndex((item) =>
-        item.outcome_ids.includes(focusTarget),
+    if (
+      snapshot.skeleton.outcomes.some((outcome) => outcome.id === focusTarget) ||
+      snapshot.skeleton.assessments.some((assessment) => assessment.id === focusTarget)
+    ) {
+      const assessment = snapshot.skeleton.assessments.findIndex(
+        (item) => item.id === focusTarget || item.outcome_ids.includes(focusTarget),
       );
       const details = document.querySelector<HTMLDetailsElement>('.assessment-plan-editor');
       if (details) details.open = true;

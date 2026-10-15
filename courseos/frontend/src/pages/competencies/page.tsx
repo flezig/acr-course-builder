@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ResultsMap } from './results-map';
-import { CoverageMatrix } from './coverage-matrix';
-import './coverage-matrix.css';
 import type { Snapshot, Requirements } from '../../entities/course/model/schema';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 import { ReferenceEditor } from '../../features/upload-reference/reference-editor';
@@ -21,6 +19,7 @@ import {
 export function MapPage() {
   const query = useCourse();
   const [search] = useSearchParams();
+  const location = useLocation();
   if (query.isPending) return <Loading />;
   if (!query.data) return <ErrorMessage error={query.error} />;
   const snapshot = query.data.snapshot;
@@ -30,12 +29,15 @@ export function MapPage() {
         Сначала завершите уточнение параметров.
       </Empty>
     );
+  if (location.hash === '#coverage')
+    return (
+      <Navigate
+        replace
+        to={`/courses/${snapshot.course_id}/plan${query.data.is_latest ? '' : `?version=${snapshot.course_version}`}#coverage`}
+      />
+    );
   return (
     <>
-      <CoverageMatrix
-        snapshot={snapshot}
-        planHref={`/courses/${snapshot.course_id}/plan${query.data.is_latest ? '' : `?version=${snapshot.course_version}`}`}
-      />
       <ResultsMap
         key={`map-${snapshot.course_id}`}
         snapshot={snapshot}

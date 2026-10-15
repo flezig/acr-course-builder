@@ -2,8 +2,8 @@
   width: 100%;
   font-size: 13px;
 }
-.coverage-matrix th,
-.coverage-matrix td {
+.coverage-panel .coverage-matrix th,
+.coverage-panel .coverage-matrix td {
   vertical-align: top;
   text-align: left;
 }
@@ -30,4 +30,95 @@
 .coverage-matrix .gap-count {
   font-weight: 650;
   color: var(--theme-amber-ink, #8a5a0f);
+}
+.coverage-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  scroll-margin-top: 100px;
+}
+.coverage-summary button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 4px;
+  padding: 12px;
+}
+.coverage-summary button strong {
+  font-size: 22px;
+}
+.coverage-summary button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft, var(--surface));
+}
+.coverage-filter {
+  margin-top: 16px;
+}
+.coverage-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+.coverage-panel .coverage-matrix {
+  table-layout: fixed;
+  min-width: 960px;
+}
+.coverage-matrix th {
+  width: 20%;
+}
+.coverage-matrix :is(td, th) {
+  overflow-wrap: anywhere;
+}
+.coverage-matrix .coverage-item {
+  display: block;
+  margin-top: 8px;
+}
+.coverage-item small {
+  display: block;
+  color: var(--muted);
+}
+.coverage-disclosure {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+  text-align: left;
+}
+.coverage-criterion {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: pointer;
+}
+.coverage-matrix details[open] > .coverage-criterion {
+  display: list-item;
+}
+.coverage-gaps {
+  margin: 0 0 8px;
+  padding-left: 16px;
+  color: var(--theme-amber-ink, #8a5a0f);
+}
+.coverage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.coverage-actions button,
+.coverage-chain button {
+  font-size: 12px;
+}
+.coverage-matrix .coverage-detail td {
+  padding: 20px;
+  background: var(--surface);
+}
+.coverage-chain {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  scroll-margin-top: 100px;
+}
+@media (max-width: 700px) {
+  .coverage-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

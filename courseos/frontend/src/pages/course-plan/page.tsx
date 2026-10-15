@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  ArrowRight,
-  Pencil,
-  ListChecks,
-  ChevronDown,
-  AlertCircle,
-  CheckCircle2,
-} from 'lucide-react';
+import { ArrowRight, Pencil, ChevronDown, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
 import { programVerdict, questionCount } from '../../entities/course/model/rules';
 import { kindLabels } from '../../entities/course/model/presets';
@@ -34,6 +27,7 @@ import { CalendarPanel } from './calendar-panel';
 import { SkeletonEditor } from './skeleton-editor';
 import { IntentBlockEditor, type IntentBlock } from './intent-block-editor';
 import { CurriculumTable, VolumeSummary, WeeklyLoadTable } from './curriculum-table';
+import { CoverageMatrix } from '../competencies/coverage-matrix';
 import { VerdictBanner } from './verdict-banner';
 import './decision.css';
 const conciseOutcomes: Record<string, string> = {
@@ -58,6 +52,7 @@ export function PlanPage() {
   const navigate = useNavigate();
   const command = useCommand();
   const [editing, setEditing] = useState(false);
+  const [coverageEditTarget, setCoverageEditTarget] = useState<string | undefined>();
   const [blockEditing, setBlockEditing] = useState<IntentBlock | null>(null);
   const [saved, setSaved] = useState('');
   const [correction, setCorrection] = useState('');
@@ -71,7 +66,10 @@ export function PlanPage() {
       ? 'review'
       : target === 'calendar'
         ? 'calendar'
-        : !target || target === 'curriculum' || target.startsWith('topic-')
+        : !target ||
+            target === 'curriculum' ||
+            target.startsWith('coverage') ||
+            target.startsWith('topic-')
           ? 'curriculum'
           : 'intent';
   useEffect(() => {
@@ -219,6 +217,7 @@ export function PlanPage() {
         <button
           className="secondary edit-skeleton"
           onClick={() => {
+            setCoverageEditTarget(undefined);
             setEditing(!editing);
             setSaved('');
           }}
@@ -278,7 +277,7 @@ export function PlanPage() {
         <div id="program-editor">
           <SkeletonEditor
             snapshot={snapshot}
-            focusTarget={target}
+            focusTarget={coverageEditTarget || target}
             close={() => setEditing(false)}
             saved={() => {
               setEditing(false);
@@ -498,12 +497,18 @@ export function PlanPage() {
             <Panel title="Учебный план" className="curriculum-panel">
               <VolumeSummary skeleton={skeleton} />
               <CurriculumTable skeleton={skeleton} focused={target} />
-              <h3 className="weekly-heading">Нагрузка по неделям</h3>
+            </Panel>
+            <CoverageMatrix
+              snapshot={snapshot}
+              planHref={href('plan')}
+              editable={canEdit}
+              edit={(id) => {
+                setCoverageEditTarget(id);
+                setEditing(true);
+              }}
+            />
+            <Panel title="Нагрузка по неделям">
               <WeeklyLoadTable skeleton={skeleton} />
-              <Link className="text-link" to={`${href('map')}#coverage`}>
-                <ListChecks size={16} />
-                Покрытие результатов темами и оценочными средствами <ArrowRight size={16} />
-              </Link>
             </Panel>
           </div>
           <div hidden={tab !== 'calendar'}>
