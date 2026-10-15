@@ -89,7 +89,9 @@ test('Program editor validates table cells before saving and keeps the entered d
 test('Source actions validate complete HTTP URLs inline, before adding a source', async ({
   page,
 }) => {
-  await page.goto('/');
+  await pythonCourse(page);
+  await page.getByRole('link', { name: 'Карта результатов', exact: true }).click();
+  await page.getByRole('button', { name: 'Добавить текст, PDF, DOCX или ссылку' }).click();
   const url = page.getByLabel('Ссылка', { exact: true });
   await url.fill('https://');
   await expect(url).toHaveAccessibleDescription(/Введите полную ссылку/);

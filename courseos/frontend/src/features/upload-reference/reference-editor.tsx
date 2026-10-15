@@ -9,13 +9,11 @@ export function ReferenceEditor({
   onChange,
   courseId,
   uploadOnly = false,
-  hideUpload = false,
 }: {
   references: Requirements['references'];
   onChange: (references: Requirements['references']) => void;
   courseId?: string;
   uploadOnly?: boolean;
-  hideUpload?: boolean;
 }) {
   const { api } = useApi();
   const [text, setText] = useState('');
@@ -219,7 +217,7 @@ export function ReferenceEditor({
         <button type="button" onClick={() => void add()}>
           <FileText size={16} /> Добавить источник
         </button>
-        {!hideUpload && uploadButton}
+        {uploadButton}
         {courseId && (
           <button type="button" disabled={pending || !url} onClick={() => void retrieve()}>
             Получить текст по ссылке

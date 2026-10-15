@@ -57,11 +57,6 @@ test('Полный путь: уточнения, правка каркаса, а
     .getByRole('button', { name: 'Первые шаги в Python 16 часов · школьники · общеразвивающая' })
     .click();
   await editDraft(page, (draft) => (draft.entry_level = ''));
-  await page.getByLabel('Название источника').fill('Требования проверочного прогона');
-  await page
-    .getByLabel('Текст референса', { exact: true })
-    .fill('Практика не менее восьми часов. Переменные, условия и циклы проверяются в проекте.');
-  await page.getByRole('button', { name: 'Добавить источник' }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Уточните 1 параметров' })).toBeVisible();
   await page.getByLabel('Какой входной уровень слушателей?').fill('Без опыта программирования');

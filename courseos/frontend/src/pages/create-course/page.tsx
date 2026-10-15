@@ -136,17 +136,6 @@ export function CreateCoursePage() {
             ))}
           </div>
         </section>
-        <Panel
-          className="create-references"
-          title="Референсы и основания"
-          subtitle="Сохраните требования, прошлую программу или полезный фрагмент."
-        >
-          <ReferenceEditor
-            hideUpload
-            references={form.watch('references')}
-            onChange={(value) => form.setValue('references', value, { shouldDirty: true })}
-          />
-        </Panel>
       </Form>
       {!!courses.data?.length && (
         <Panel title="Ваши сохранённые курсы">
