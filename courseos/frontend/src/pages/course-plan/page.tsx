@@ -358,7 +358,6 @@ export function PlanPage() {
                                 >
                                   <div>
                                     {outcomeText(outcome.description)}
-                                    {!sharedDepth && <small>{outcome.depth}</small>}
                                     {outcome.criteria && outcome.criteria.length > 0 && (
                                       <ul className="outcome-criteria" aria-label="Критерии">
                                         {outcome.criteria.map((criterion) => (
