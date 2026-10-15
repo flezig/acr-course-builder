@@ -75,11 +75,11 @@
 }
 .create-workspace .examples {
   grid-area: examples;
-  padding: 4px 0;
+  padding: 24px 0 4px;
 }
 .create-workspace .examples h2 {
-  font-size: 16px;
-  line-height: 1.4;
+  font-size: 20px;
+  line-height: 1.35;
 }
 .create-workspace .examples p {
   font-size: 13px;
@@ -146,12 +146,18 @@
   margin-top: 24px;
 }
 @media (max-width: 1250px) {
+  .create-workspace .examples {
+    padding-top: 19px;
+  }
   .create-workspace .create-layout {
     grid-template-columns: minmax(0, 1fr) 290px;
     column-gap: 18px;
   }
 }
 @media (max-width: 1000px) {
+  .create-workspace .examples {
+    padding-top: 4px;
+  }
   .create-workspace .create-heading::after {
     top: -190px;
   }
