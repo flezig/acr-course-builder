@@ -72,29 +72,6 @@ a.text-link,
   width: 140px;
   max-width: 100%;
 }
-.sidebar .workspace-switcher {
-  margin-bottom: 16px;
-}
-.sidebar .workspace {
-  padding: 8px;
-  gap: 10px;
-}
-.sidebar .workspace strong {
-  display: block;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--ink);
-}
-.sidebar .workspace small {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 3px;
-}
-.sidebar .workspace-avatar {
-  flex: 0 0 32px;
-  background: var(--theme-raised, #efefef);
-  color: var(--accent);
-}
 .sidebar .new-course {
   min-height: 40px;
   margin: 0 8px 24px;
@@ -199,18 +176,6 @@ a.text-link,
   color: var(--muted);
   margin: 6px 0 0;
 }
-.sidebar .reset-button {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 8px 2px;
-  min-height: 36px;
-  color: var(--theme-muted, #727789);
-  margin: 6px 0 8px;
-}
-.sidebar .reset-button:hover {
-  background: var(--theme-subtle, #fff2f0);
-  color: var(--theme-red-ink, #a34238);
-}
 .sidebar .user-profile {
   width: 100%;
   min-height: 0;
@@ -272,9 +237,6 @@ a.text-link,
   color: var(--theme-muted, #646a7c);
   background: var(--theme-subtle, #f2f3f7);
   border-radius: 5px;
-}
-.mode-select {
-  font-size: 12px;
 }
 .versionbar,
 .plan-shell .versionbar {
@@ -1394,9 +1356,10 @@ a.approval-hint {
     right: 22px;
   }
   .sidebar-collapsed .sidebar .brand,
-  .sidebar-collapsed .workspace-switcher,
   .sidebar-collapsed .program-section,
-  .sidebar-collapsed .sidebar-bottom,
+  .sidebar-collapsed .sidebar-note,
+  .sidebar-collapsed .user-profile > div,
+  .sidebar-collapsed .user-profile > .switcher-chevron,
   .sidebar-collapsed .new-course > span,
   .sidebar-collapsed .nav-item > span {
     display: none;

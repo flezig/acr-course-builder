@@ -1,3 +1,4 @@
+import { openSettings } from './profile-menu';
 import { answerDemoQuestions, chooseRecommendedAnswers } from './answer-demo-questions';
 import { test, expect, type Page } from '@playwright/test';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -287,6 +288,7 @@ test('HTTP-сбой: нет скрытого demo; request_id переживае
     payloads.push(route.request().postDataJSON().payload);
     await route.abort('failed');
   });
+  await openSettings(page);
   await page.getByLabel('Режим работы', { exact: true }).selectOption('live');
   await expect(page.getByText('LIVE · Данные сервера')).toBeVisible();
   await page

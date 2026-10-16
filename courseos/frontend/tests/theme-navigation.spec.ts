@@ -1,6 +1,7 @@
 import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect } from '@playwright/test';
 import { editDraft } from './create-draft';
+import { openProfileMenu } from './profile-menu';
 
 test('шапка проверки помещается в окно с обеими темами', async ({ page }) => {
   await page.goto('/');
@@ -12,7 +13,10 @@ test('шапка проверки помещается в окно с обеим
   const heading = page.locator('.heading-action');
   await expect(heading.getByRole('heading', { name: 'Проверка программы' })).toBeVisible();
   for (const theme of ['light', 'dark']) {
-    if (theme === 'dark') await page.getByRole('button', { name: 'Включить тёмную тему' }).click();
+    if (theme === 'dark') {
+      await openProfileMenu(page);
+      await page.getByRole('button', { name: 'Включить тёмную тему' }).click();
+    }
     for (const width of [1920, 1440, 1280, 1024, 820, 768, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       expect(
@@ -73,9 +77,11 @@ test('navigation fits laptop and phone heights; theme survives reload and naviga
     if (width <= 800) await page.keyboard.press('Escape');
   }
   await page.setViewportSize({ width: 1280, height: 720 });
+  await openProfileMenu(page);
   await page.getByRole('button', { name: 'Включить тёмную тему' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.reload();
+  await openProfileMenu(page);
   await expect(page.getByRole('button', { name: 'Включить светлую тему' })).toBeVisible();
   for (const name of [
     'Карта результатов',
@@ -83,16 +89,22 @@ test('navigation fits laptop and phone heights; theme survives reload and naviga
     'Материалы и выгрузки',
     'Сравнение версий',
   ]) {
-    await page.getByRole('link', { name, exact: true }).click();
+    // На странице проверки есть одноимённая кнопка-ссылка, поэтому ищем в боковой навигации.
+    await page
+      .getByRole('navigation', { name: 'Экраны программы' })
+      .getByRole('link', { name, exact: true })
+      .click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     const background = await page
       .locator('.sidebar')
       .evaluate((element) => getComputedStyle(element).backgroundColor);
     expect(background).toBe('rgb(16, 22, 34)');
   }
+  await openProfileMenu(page);
   await page.getByRole('button', { name: 'Включить светлую тему' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await page.reload();
+  await openProfileMenu(page);
   await expect(page.getByRole('button', { name: 'Включить тёмную тему' })).toBeVisible();
   expect(errors).toEqual([]);
 });

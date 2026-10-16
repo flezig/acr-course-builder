@@ -1,0 +1,21 @@
+.settings-dialog .sign-in-card {
+  display: grid;
+  gap: 16px;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+}
+.settings-dialog h2 {
+  margin: 0;
+}
+.settings-dialog .field small {
+  color: var(--muted);
+}
+.settings-dialog .panel {
+  margin: 0;
+}
+.settings-reset {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-self: start;
+}
