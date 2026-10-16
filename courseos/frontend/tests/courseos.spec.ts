@@ -309,7 +309,7 @@ test('HTTP-сбой: нет скрытого demo; request_id переживае
   await expect(page.getByRole('alert').filter({ hasText: 'Сервер недоступен' })).toBeVisible();
   expect(ids).toHaveLength(3);
   expect(ids[2]).not.toBe(ids[1]);
-  await expect(page.getByRole('heading', { name: 'Ваши сохранённые курсы' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Ваши программы' })).toHaveCount(0);
 });
 
 test('PDF/DOCX в demo показывают недоступность реальной обработки', async ({ page }) => {

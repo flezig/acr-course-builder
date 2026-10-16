@@ -21,7 +21,7 @@ export function ErrorMessage({ error }: { error: unknown }) {
 export function Loading() {
   return (
     <div className="loading">
-      <Loader2 className="spin" size={24} /> Загрузка сохранённого курса…
+      <Loader2 className="spin" size={24} /> Загрузка программы…
     </div>
   );
 }

@@ -31,7 +31,7 @@ const router = createBrowserRouter([
         element: (
           <div className="empty">
             <h1>Страница не найдена</h1>
-            <Link to="/">Создать или открыть курс</Link>
+            <Link to="/">Создать или открыть программу</Link>
           </div>
         ),
       },

@@ -151,7 +151,9 @@ function LayoutContent() {
     };
   }, [location, snapshot?.course_version]);
   const reset = async () => {
-    if (window.confirm('Удалить все демонстрационные курсы, версии и задачи в этом браузере?')) {
+    if (
+      window.confirm('Удалить все демонстрационные программы, версии и задачи в этом браузере?')
+    ) {
       await api.reset();
       client.removeQueries({ queryKey: ['demo'] });
       navigate('/');
@@ -213,7 +215,7 @@ function LayoutContent() {
         </DismissibleDetails>
         <NavLink to="/" className="new-course">
           <Plus size={18} />
-          <span>Создать курс</span>
+          <span>Создать программу</span>
         </NavLink>
         <div className="program-section">
           <div className="sidebar-label">Текущая программа</div>
@@ -222,10 +224,10 @@ function LayoutContent() {
             key={courseId || 'new'}
             dismissKey={location.key}
           >
-            <summary className="program-trigger" aria-label="Выбрать курс">
+            <summary className="program-trigger" aria-label="Выбрать программу">
               <span title={courses.data?.find((item) => item.course_id === courseId)?.title}>
                 {courses.data?.find((item) => item.course_id === courseId)?.title ||
-                  'Выберите сохранённый курс'}
+                  'Выберите программу'}
               </span>
               <ChevronDown size={16} className="switcher-chevron" />
             </summary>
@@ -244,12 +246,12 @@ function LayoutContent() {
                   </button>
                 ))
               ) : (
-                <p>Пока нет сохранённых курсов</p>
+                <p>Пока нет программ</p>
               )}
             </div>
           </DismissibleDetails>
         </div>
-        <nav aria-label="Экраны курса">
+        <nav aria-label="Экраны программы">
           {[
             { path: 'plan', title: 'Программа и учебный план', Icon: LayoutList },
             { path: 'map', title: 'Карта результатов', Icon: Network },

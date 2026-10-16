@@ -302,7 +302,7 @@ export function CreateCoursePage() {
         </section>
       </Form>
       {!!courses.data?.length && (
-        <Panel title="Ваши сохранённые курсы">
+        <Panel title="Ваши программы">
           <div className="course-list">
             {courses.data.map((course) => (
               <div className="course-item" key={course.course_id}>
@@ -322,11 +322,11 @@ export function CreateCoursePage() {
                 </button>
                 <button
                   className="course-delete"
-                  aria-label={`Удалить курс «${course.title}»`}
-                  title="Удалить курс"
+                  aria-label={`Удалить программу «${course.title}»`}
+                  title="Удалить программу"
                   disabled={deleteCourse.isPending}
                   onClick={() => {
-                    if (window.confirm(`Удалить курс «${course.title}» со всеми версиями?`))
+                    if (window.confirm(`Удалить программу «${course.title}» со всеми версиями?`))
                       deleteCourse.mutate(course.course_id);
                   }}
                 >

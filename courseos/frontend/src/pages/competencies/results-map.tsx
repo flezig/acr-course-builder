@@ -458,7 +458,7 @@ export function ResultsMap({
     <>
       <header className="results-heading">
         <div>
-          <h1>Карта связей</h1>
+          <h1>Карта результатов</h1>
           <p>Выберите результат: где он формируется, чем проверяется и каких связей не хватает.</p>
         </div>
       </header>

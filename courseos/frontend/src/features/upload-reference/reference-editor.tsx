@@ -83,7 +83,7 @@ export function ReferenceEditor({
         throw new Error(
           api.mode === 'demo'
             ? `«${file.name}»: извлечение PDF/DOCX требует backend. Вставьте текст. Сканы без текста и PPTX не поддерживаются.`
-            : 'Для загрузки сначала создайте курс, затем откройте источники в карте результатов.',
+            : 'Для загрузки сначала создайте программу, затем откройте источники в карте результатов.',
         );
       const source = await api.uploadReference(courseId, file);
       onChange([...references, source]);
