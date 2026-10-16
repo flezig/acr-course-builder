@@ -1,0 +1,70 @@
+.response-feedback {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+/* Внутри окна правки с ИИ отзыв — часть предложения, а не отдельная карточка. */
+.ai-page-dialog .response-feedback {
+  margin-top: 0;
+  padding: 10px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.response-feedback-question {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.response-feedback-question span {
+  flex: 1 1 200px;
+}
+
+.response-feedback-rating {
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.response-feedback-rating[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--theme-paper, #ffffff);
+}
+
+.response-feedback-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.response-feedback-reasons button {
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.response-feedback-reasons button[aria-pressed='true'] {
+  border-color: var(--theme-purple-ink, #6b3fa0);
+  background: var(--theme-purple-surface, #f3ecfb);
+  color: var(--theme-purple-ink, #6b3fa0);
+}
+
+.response-feedback textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.response-feedback .actions {
+  margin-top: 0;
+}

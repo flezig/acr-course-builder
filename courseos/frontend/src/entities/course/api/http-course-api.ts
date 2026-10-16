@@ -8,6 +8,7 @@ import {
   requirementsSchema,
   skeletonSchema,
 } from '../model/schema';
+import { feedbackSchema, type FeedbackInput } from '../model/feedback';
 import { HttpTransport, ApiError } from '../../../shared/api/http';
 import type { CommandEnvelope, CourseApi, ScopeEditRequest } from './contract';
 const resultSchema = z.object({
@@ -111,6 +112,16 @@ export class HttpCourseApi implements CourseApi {
       z.object({ skeleton: skeletonSchema, note: z.string() }),
       { method: 'POST', body: JSON.stringify(input) },
     );
+  }
+  recordFeedback(input: FeedbackInput) {
+    return this.transport.request(
+      `/courses/${encodeURIComponent(input.course_id)}/feedback`,
+      feedbackSchema,
+      { method: 'POST', body: JSON.stringify(input) },
+    );
+  }
+  listFeedback() {
+    return this.transport.request('/feedback', z.array(feedbackSchema));
   }
   async delete(id: string): Promise<void> {
     await this.transport.request(`/courses/${encodeURIComponent(id)}`, z.unknown(), {

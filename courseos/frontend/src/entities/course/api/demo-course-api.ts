@@ -39,6 +39,7 @@ import { contentHash, canonicalJson } from '../../../shared/lib/decimal';
 import { proposedAssessment, proposedCalendar } from '../model/findings';
 import { assessmentLabels } from '../model/presets';
 import { ApiError } from '../../../shared/api/http';
+import { feedbackSchema, type FeedbackInput, type ResponseFeedback } from '../model/feedback';
 import {
   withManifest,
   type CommandEnvelope,
@@ -48,6 +49,22 @@ import {
   type ScopeEditRequest,
 } from './contract';
 const storageKey = 'courseos-demo-v1';
+// Отзывы лежат под своим ключом: их не затрагивают миграции и очистка истории курсов.
+const feedbackStorageKey = 'courseos-feedback-demo';
+function loadFeedback(): ResponseFeedback[] {
+  const stored = localStorage.getItem(feedbackStorageKey);
+  if (!stored) return [];
+  let raw: unknown;
+  try {
+    raw = JSON.parse(stored);
+  } catch {
+    throw new ApiError(422, 'Отзывы в браузере не читаются. Сбросьте демо-данные в настройках.');
+  }
+  const parsed = feedbackSchema.array().safeParse(raw);
+  if (!parsed.success)
+    throw new ApiError(422, 'Неизвестный формат отзывов в браузере. Сбросьте демо-данные.');
+  return parsed.data;
+}
 interface StoredCourse {
   requirements: Requirements;
   snapshots: Snapshot[];
@@ -1187,10 +1204,29 @@ export class DemoCourseApi implements CourseApi {
       if (key?.startsWith('courseos-') && key.includes(`-demo-${id}`)) localStorage.removeItem(key);
     }
   }
+  async recordFeedback(input: FeedbackInput) {
+    const entry: ResponseFeedback = {
+      ...input,
+      id: crypto.randomUUID(),
+      mode: 'demo',
+      created_at: now(),
+    };
+    const entries = [...loadFeedback(), entry];
+    try {
+      localStorage.setItem(feedbackStorageKey, JSON.stringify(entries));
+    } catch {
+      throw new ApiError(413, 'Хранилище браузера заполнено, отзыв не сохранён.');
+    }
+    return entry;
+  }
+  async listFeedback() {
+    return loadFeedback();
+  }
   async reset() {
     await this.queue;
     const clear = () => {
       localStorage.removeItem(storageKey);
+      localStorage.removeItem(feedbackStorageKey);
       for (let index = localStorage.length - 1; index >= 0; index--) {
         const key = localStorage.key(index);
         if (

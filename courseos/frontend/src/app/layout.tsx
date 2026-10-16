@@ -25,6 +25,7 @@ import {
   Sun,
   Settings,
   LogIn,
+  ThumbsUp,
 } from 'lucide-react';
 import { useApi, useCourse, useCourses } from '../entities/course/api/provider';
 import { UnsavedProvider } from '../shared/lib/use-unsaved';
@@ -33,7 +34,14 @@ import { DismissibleDetails } from '../shared/ui/dismissible-details';
 import { SignInDialog } from '../features/methodist-sign-in/sign-in-dialog';
 import { SettingsDialog } from '../features/workspace-settings/settings-dialog';
 import { AiPageEdit } from '../features/ai-page-edit/ai-page-edit';
+import { FeedbackPrompt } from '../features/response-feedback/feedback-prompt';
 import courseosLogo from '../shared/assets/courseos-logo.png';
+// Страницы, содержимое которых собрала система: только их и просим оценить.
+const generatedPages = ['plan', 'map', 'audit', 'materials'] as const;
+function generatedPage(pathname: string) {
+  const page = pathname.split('/').at(-1);
+  return generatedPages.find((item) => item === page) ?? null;
+}
 export function Layout() {
   return (
     <UnsavedProvider>
@@ -151,6 +159,7 @@ function LayoutContent() {
       window.removeEventListener('scroll', save);
     };
   }, [location, snapshot?.course_version]);
+  const feedbackPage = generatedPage(location.pathname);
   const currentTitle =
     courses.data?.find((item) => item.course_id === courseId)?.title ||
     course.data?.requirements.title;
@@ -300,6 +309,13 @@ function LayoutContent() {
                 {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                 {theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
               </button>
+              <Link
+                to="/feedback"
+                onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}
+              >
+                <ThumbsUp size={16} />
+                Отзывы о генерации
+              </Link>
               <button
                 aria-haspopup="dialog"
                 onClick={(event) => {
@@ -330,7 +346,12 @@ function LayoutContent() {
             <span>CourseOS</span>
           </button>
           <span className="breadcrumb">
-            Программы <span>/</span> {courseId ? currentTitle || 'Программа' : 'Новая программа'}
+            Программы <span>/</span>{' '}
+            {courseId
+              ? currentTitle || 'Программа'
+              : location.pathname === '/feedback'
+                ? 'Отзывы о генерации'
+                : 'Новая программа'}
           </span>
           <div className="topbar-actions">
             <Badge tone={api.mode === 'demo' ? 'amber' : 'green'}>
@@ -376,6 +397,14 @@ function LayoutContent() {
         </header>
         <main id="main" tabIndex={-1}>
           <Outlet key={api.mode} />
+          {courseId && feedbackPage && snapshot && (
+            <FeedbackPrompt
+              key={`${courseId}-${snapshot.course_version}-${feedbackPage}`}
+              subject="generation"
+              section={feedbackPage}
+              question="Как вам то, что система сгенерировала на этой странице?"
+            />
+          )}
         </main>
         <AiPageEdit />
       </div>

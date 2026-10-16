@@ -120,7 +120,8 @@
   background: var(--surface);
   box-shadow: 0 6px 20px #00000014;
 }
-.sidebar .profile-options button {
+.sidebar .profile-options button,
+.sidebar .profile-options a {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -136,7 +137,9 @@
   font-weight: 400;
   text-align: left;
 }
-.sidebar .profile-options button:hover {
+.sidebar .profile-options button:hover,
+.sidebar .profile-options a:hover {
+  text-decoration: none;
   background: var(--theme-subtle, #f3f3f3);
 }
 @media (min-width: 801px) {

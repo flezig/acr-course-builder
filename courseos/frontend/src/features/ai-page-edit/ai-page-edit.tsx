@@ -6,6 +6,7 @@ import { useApi, useCommand, useCourse } from '../../entities/course/api/provide
 import type { EditScope, ScopeEditProposal } from '../../entities/course/api/contract';
 import type { Skeleton } from '../../entities/course/model/schema';
 import { ErrorMessage, Notice } from '../../shared/ui/ui';
+import { FeedbackPrompt } from '../response-feedback/feedback-prompt';
 import { wordDiff } from './word-diff';
 import './ai-page-edit.css';
 
@@ -337,6 +338,13 @@ export function AiPageEdit() {
             </button>
           </div>
           {undecided > 0 && <small className="muted">Осталось решить по полям: {undecided}.</small>}
+          <FeedbackPrompt
+            subject="ai_edit"
+            section={scope}
+            question="Насколько полезно это предложение ИИ?"
+            request={request}
+            responseNote={proposal.note}
+          />
         </div>
       )}
       <ErrorMessage error={propose.error || command.error} />

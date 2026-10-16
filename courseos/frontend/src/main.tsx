@@ -9,6 +9,7 @@ import { MapPage } from './pages/competencies/page';
 import { MaterialsPage } from './pages/materials/page';
 import { AuditPage } from './pages/audit/page';
 import { ComparisonPage } from './pages/comparison/page';
+import { FeedbackPage } from './pages/feedback/page';
 import '@fontsource-variable/golos-text';
 import './app/styles/global.css';
 import './app/styles/workspace.css';
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
       { path: '/courses/:courseId/materials', element: <MaterialsPage /> },
       { path: '/courses/:courseId/audit', element: <AuditPage /> },
       { path: '/courses/:courseId/compare', element: <ComparisonPage /> },
+      { path: '/feedback', element: <FeedbackPage /> },
       {
         path: '*',
         element: (

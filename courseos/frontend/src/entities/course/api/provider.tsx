@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import type { CommandEnvelope, CourseApi, CourseCommand } from './contract';
 import { ApiError } from '../../../shared/api/http';
 import { canonicalJson } from '../../../shared/lib/decimal';
+import type { FeedbackInput } from '../model/feedback';
 const ApiContext = createContext<{
   api: CourseApi;
   setMode: (mode: 'demo' | 'live') => void;
@@ -44,6 +45,18 @@ export function useCourse() {
 export function useCourses() {
   const { api } = useApi();
   return useQuery({ queryKey: [api.mode, 'courses'], queryFn: () => api.list() });
+}
+export function useFeedback() {
+  const { api } = useApi();
+  return useQuery({ queryKey: [api.mode, 'feedback'], queryFn: () => api.listFeedback() });
+}
+export function useRecordFeedback() {
+  const { api } = useApi();
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: (input: FeedbackInput) => api.recordFeedback(input),
+    onSuccess: () => query.invalidateQueries({ queryKey: [api.mode, 'feedback'] }),
+  });
 }
 export function useDeleteCourse() {
   const { api } = useApi();
