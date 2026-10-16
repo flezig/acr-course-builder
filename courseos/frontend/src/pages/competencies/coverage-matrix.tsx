@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import type { Snapshot } from '../../entities/course/model/schema';
 import { assessmentLabels } from '../../entities/course/model/presets';
@@ -121,7 +122,7 @@ export function CoverageMatrix({
             <tr>
               <th>Результат обучения</th>
               <th>Где формируется</th>
-              <th>Пробелы</th>
+              <th>Статус и замечания</th>
             </tr>
           </thead>
           <tbody>
@@ -163,17 +164,28 @@ export function CoverageMatrix({
                         <span>Нет связанных тем</span>
                       )}
                       {activities.length > 0 && (
-                        <details>
-                          <summary>Учебная активность / практика · {activities.length}</summary>
-                          {activities.map((activity) => (
-                            <p key={activity.id}>
-                              {activity.description || 'Описание активности не указано'}
-                            </p>
-                          ))}
+                        <details className="coverage-practice">
+                          <summary>
+                            Учебная практика
+                            <span className="coverage-practice-count">{activities.length}</span>
+                            <ChevronDown size={16} aria-hidden="true" />
+                          </summary>
+                          <ol className="coverage-practice-list">
+                            {activities.map((activity) => (
+                              <li key={activity.id}>
+                                <strong>
+                                  {snapshot.skeleton.topics.find(
+                                    (topic) => topic.id === activity.topic_id,
+                                  )?.title || 'Учебная активность'}
+                                </strong>
+                                <p>{activity.description || 'Описание активности не указано'}</p>
+                              </li>
+                            ))}
+                          </ol>
                         </details>
                       )}
                     </td>
-                    <td data-label="Пробелы">
+                    <td data-label="Статус и замечания">
                       {gaps.length ? (
                         <ul className="coverage-gaps">
                           {gaps.map((gap) => (
