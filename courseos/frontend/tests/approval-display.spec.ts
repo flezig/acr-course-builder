@@ -47,7 +47,7 @@ for (const width of [1440, 390, 320]) {
         await confirm.getByRole('button', { name: 'Подтвердить утверждение', exact: true }).click();
         await expect(panel).toContainText('Программа утверждена');
         await expect(approve).toHaveCount(0);
-        await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+        await page.getByRole('link', { name: 'Решения', exact: true }).click();
         await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
         await expect(page.getByRole('list', { name: 'История утверждений' })).toContainText(
           'Версия 1 утверждена',

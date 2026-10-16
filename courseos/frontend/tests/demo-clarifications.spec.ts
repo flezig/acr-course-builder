@@ -62,7 +62,7 @@ for (const preset of presets) {
     );
     expect(saved).toContain(question.label);
     expect(saved).toContain(customAnswer);
-    await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+    await page.getByRole('link', { name: 'Решения', exact: true }).click();
     await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
     await page.getByRole('button', { name: 'Темы и порядок', exact: true }).click();
     await page.locator(`[data-decision-id="topic-${question.topic}"]`).click();

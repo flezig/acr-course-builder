@@ -61,7 +61,7 @@ test('ссылка очереди на основание оставляет д�
     localStorage.setItem('courseos-demo-v1', JSON.stringify(stored));
   });
   await page.reload();
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения', exact: true }).click();
   const basisLink = page
     .locator('#issue-goal-basis')
     .getByRole('link', { name: 'Открыть место в программе' });

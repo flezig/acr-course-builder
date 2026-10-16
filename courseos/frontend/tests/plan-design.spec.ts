@@ -78,7 +78,7 @@ test('Overview, real tabs, contextual correction and responsive layout preserve 
   );
   for (const width of [1440, 1280, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const name of ['О программе', 'Учебный план', 'Календарь', 'Решения и утверждение']) {
+    for (const name of ['О программе', 'Учебный план', 'Календарь', 'Решения']) {
       await tab(page, name);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,

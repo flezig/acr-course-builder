@@ -14,7 +14,7 @@ async function create(page: Page, teacher = false) {
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения', exact: true }).click();
 }
 
 test('Decision queue: verdict counts, keyboard tabs, open place and keep with reason', async ({
@@ -59,7 +59,7 @@ test('Decision queue: verdict counts, keyboard tabs, open place and keep with re
   await expect(first).toContainText('Доказательство');
   await first.getByRole('link', { name: 'Открыть место в программе' }).click();
   await expect(page.getByLabel('Дата начала', { exact: true })).toBeFocused();
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения', exact: true }).click();
   await expect(page.getByRole('tab', { name: /^Решения/ })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -98,7 +98,7 @@ test('No remarks, explicit approval, rationale filters and archived restrictions
   await expect(page.locator('.verdict')).toContainText('Можно утверждать');
   const approve = page.getByRole('button', { name: 'Утвердить', exact: true });
   await expect(approve).toBeEnabled();
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения', exact: true }).click();
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await page.getByLabel('Найти пояснение').fill('План');
   await expect(page.locator('.rationale-decision-list button').first()).toBeVisible();

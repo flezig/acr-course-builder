@@ -241,7 +241,7 @@ export function PlanPage() {
             ['curriculum', 'Учебный план'],
             ['intent', 'О программе'],
             ['calendar', 'Календарь'],
-            ['review', 'Решения и утверждение'],
+            ['review', 'Решения'],
           ] as const
         ).map(([id, title]) => (
           <Link

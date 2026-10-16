@@ -28,7 +28,7 @@ async function createPython(page: Page, incomplete = false) {
 }
 // Находки, которые нельзя применить автоматически, методист оставляет с причиной.
 async function keepFindings(page: Page) {
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения', exact: true }).click();
   await page.getByRole('tab', { name: /^Решения/ }).click();
   const queue = page.locator('.decision-queue');
   while (await queue.getByRole('button', { name: 'Оставить как есть' }).count()) {
@@ -230,7 +230,7 @@ test('Длинная новая программа500часов, прокрут�
   await page.getByRole('button', { name: 'Редактировать программу' }).click();
   await page.getByLabel('Тема 16: Практика', { exact: true }).fill('1');
   await page.getByRole('button', { name: 'Сохранить новую версию' }).click();
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Сумма часов тем не совпадает с объёмом курса' }),
   ).toBeVisible();

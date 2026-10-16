@@ -36,7 +36,7 @@ test('Основания в интерфейсе, JSON и MD относятся 
       .find((e: { id: string }) => e.id === 'why-hours')
       .detail.replace(/(\d) ч(?=[\s.,]|$)/g, '$1 уч. ч.'),
   );
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения', exact: true }).click();
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Почему курс устроен так' })).toBeVisible();
   await page.getByRole('button', { name: 'Темы и порядок', exact: true }).click();
@@ -76,7 +76,7 @@ test('Основания в интерфейсе, JSON и MD относятся 
   await page.getByLabel('Аудитория', { exact: true }).fill('Взрослые слушатели');
   await page.getByRole('button', { name: 'Сохранить изменения', exact: true }).click();
   await expect(page.locator('.save-feedback')).toBeVisible();
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+  await page.getByRole('link', { name: 'Решения', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await page.getByRole('button', { name: /^Цель и участники/ }).click();
