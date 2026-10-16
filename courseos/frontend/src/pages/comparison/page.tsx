@@ -105,7 +105,7 @@ export function ComparisonPage() {
         {versionPicker}
         {versions.length > 1
           ? 'Выберите другую версию для сравнения.'
-          : 'Пока есть только одна версия курса — изменения появятся после первой правки.'}
+          : 'Пока есть только одна версия программы — изменения появятся после первой правки.'}
       </Empty>
     );
   const change = after.changes.find(
@@ -186,7 +186,7 @@ export function ComparisonPage() {
             Версия {base.course_version} → {after.course_version}
           </h1>
           <p>
-            {change ? `Причина: ${change.request}` : 'Сравнение сохранённых версий курса.'}
+            {change ? `Причина: ${change.request}` : 'Сравнение сохранённых версий программы.'}
             {!hasChanges &&
               !auditChanged &&
               ` Содержание версии ${after.course_version} совпадает с версией ${base.course_version}.`}

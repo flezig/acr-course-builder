@@ -1,3 +1,4 @@
+import { openSettings } from './profile-menu';
 import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect, type Page } from '@playwright/test';
 import type { Snapshot } from '../src/entities/course/model/schema';
@@ -176,6 +177,7 @@ test('исходное повреждённое хранилище скачив�
 }) => {
   await page.addInitScript(() => localStorage.setItem('courseos-demo-v1', '{сохранённая работа'));
   await page.goto('/');
+  await openSettings(page);
   const pending = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Скачать исходные данные и всю историю' }).click();
   const file = await pending;

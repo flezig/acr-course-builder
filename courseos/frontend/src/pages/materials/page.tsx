@@ -2,12 +2,41 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { Layers3 } from 'lucide-react';
 import { useCourse } from '../../entities/course/api/provider';
 import { materialLabels } from '../../entities/course/model/presets';
+import { programVerdict } from '../../entities/course/model/rules';
+import type { CourseView, Snapshot } from '../../entities/course/model/schema';
 import { Badge, Empty, ErrorMessage, Loading, Notice, Panel } from '../../shared/ui/ui';
 import { JobPanel } from '../../entities/job/job-panel';
 import { sectionCompleteness } from '../../entities/course/model/sections';
 import { StoragePanel } from '../../features/export-course/storage-panel';
 import { ExportPanel } from '../../features/export-course/export-panel';
 import { MaterialViewer } from './material-viewer';
+// Один статус вместо отдельных плашек задачи, технической полноты и выпуска:
+// методисту важно, на каком шаге пути сейчас программа.
+function programStatus(view: CourseView, snapshot: Snapshot | null) {
+  if (!snapshot)
+    return view.questions.length
+      ? { label: 'Ждёт ответов', tone: 'amber' }
+      : { label: 'Черновик', tone: 'neutral' };
+  const verdict = programVerdict(snapshot);
+  if (verdict.kind === 'approved') {
+    const building = ['queued', 'running'].includes(view.job.status);
+    return !building &&
+      snapshot.materials.length > 0 &&
+      snapshot.materials.every((material) => !material.stale)
+      ? { label: 'Материалы готовы', tone: 'green' }
+      : { label: 'Утверждена', tone: 'green' };
+  }
+  if (verdict.open > 0) return { label: 'Есть вопросы', tone: 'amber' };
+  if (!snapshot.audit.technical_ready) return { label: 'Черновик', tone: 'neutral' };
+  return { label: 'Готова к утверждению', tone: 'green' };
+}
+function ProgramStatus({ status }: { status: { label: string; tone: string } }) {
+  return (
+    <div className="readiness">
+      <Badge tone={status.tone}>Статус программы: {status.label}</Badge>
+    </div>
+  );
+}
 export function MaterialsPage() {
   const query = useCourse();
   const [search, setSearch] = useSearchParams();
@@ -22,11 +51,15 @@ export function MaterialsPage() {
           : view.job.partial_materials,
       }
     : null;
+  const status = programStatus(view, snapshot);
   if (!snapshot)
     return (
-      <Empty title="Материалы пока недоступны">
-        Завершите уточнения и утвердите структуру программы.
-      </Empty>
+      <>
+        <ProgramStatus status={status} />
+        <Empty title="Материалы пока недоступны">
+          Завершите уточнения и утвердите структуру программы.
+        </Empty>
+      </>
     );
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(search);
@@ -61,19 +94,14 @@ export function MaterialsPage() {
           </p>
         </div>
       </header>
-      <JobPanel job={view.job} version={view.latest_version} readonly={!view.is_latest} />
+      <ProgramStatus status={status} />
+      <JobPanel job={view.job} version={view.latest_version} readonly={!view.is_latest} compact />
       {active && snapshot.materials.length > 0 && (
         <Notice>
           Частично готовые материалы сохранены в задаче. Следующая версия ещё не опубликована;
           редактирование доступно после завершения.
         </Notice>
       )}
-      <div className="readiness">
-        <Badge tone={snapshot.audit.technical_ready ? 'green' : 'amber'}>
-          Технически: {snapshot.audit.technical_ready ? 'черновик полный' : 'не завершён'}
-        </Badge>
-        <Badge>Выпуск программы: не разрешён</Badge>
-      </div>
       <div className="tabs" role="tablist" aria-label="Разделы материалов">
         {[
           { id: 'content', label: 'Содержание' },

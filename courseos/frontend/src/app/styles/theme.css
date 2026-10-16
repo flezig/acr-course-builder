@@ -75,10 +75,6 @@
 :root[data-theme='dark'] .sidebar .nav-item.active::before {
   background: var(--theme-blue-ink);
 }
-:root[data-theme='dark'] .theme-toggle {
-  background: var(--theme-raised);
-  color: var(--theme-amber-ink);
-}
 :root[data-theme='dark'] .example-grid .example {
   border-radius: 16px;
 }
@@ -118,15 +114,6 @@
 :root[data-theme='dark'] .tabs button.active {
   background: var(--theme-raised);
   color: var(--theme-blue-ink);
-}
-.theme-toggle {
-  width: 34px;
-  min-height: 34px;
-  padding: 7px;
-  flex-shrink: 0;
-  color: var(--ink);
-  background: transparent;
-  border-color: var(--border);
 }
 :root[data-theme='dark'] .brand-logo {
   filter: invert(1);

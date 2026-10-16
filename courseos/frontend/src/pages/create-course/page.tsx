@@ -11,7 +11,6 @@ import {
 } from '../../entities/course/api/provider';
 import { inputSchema, type Requirements } from '../../entities/course/model/schema';
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
-import { StoragePanel } from '../../features/export-course/storage-panel';
 import { parameterDiscrepancies } from '../../entities/course/model/request-parameters';
 import { CreateReferences } from './create-references';
 import { ProfessionalStandardFields } from '../../features/professional-standard/professional-standard-fields';
@@ -302,7 +301,7 @@ export function CreateCoursePage() {
         </section>
       </Form>
       {!!courses.data?.length && (
-        <Panel title="Ваши сохранённые курсы">
+        <Panel title="Ваши программы">
           <div className="course-list">
             {courses.data.map((course) => (
               <div className="course-item" key={course.course_id}>
@@ -322,11 +321,11 @@ export function CreateCoursePage() {
                 </button>
                 <button
                   className="course-delete"
-                  aria-label={`Удалить курс «${course.title}»`}
-                  title="Удалить курс"
+                  aria-label={`Удалить программу «${course.title}»`}
+                  title="Удалить программу"
                   disabled={deleteCourse.isPending}
                   onClick={() => {
-                    if (window.confirm(`Удалить курс «${course.title}» со всеми версиями?`))
+                    if (window.confirm(`Удалить программу «${course.title}» со всеми версиями?`))
                       deleteCourse.mutate(course.course_id);
                   }}
                 >
@@ -337,7 +336,6 @@ export function CreateCoursePage() {
           </div>
         </Panel>
       )}
-      <StoragePanel />
       <ErrorMessage error={courses.error} />
       <ErrorMessage error={deleteCourse.error} />
     </div>

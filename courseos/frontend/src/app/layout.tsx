@@ -18,19 +18,20 @@ import {
   ChevronDown,
   Menu,
   X,
-  RotateCcw,
   FlaskConical,
   PanelLeftClose,
   PanelLeftOpen,
   Moon,
   Sun,
+  Settings,
+  LogIn,
 } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useApi, useCourse, useCourses } from '../entities/course/api/provider';
 import { UnsavedProvider } from '../shared/lib/use-unsaved';
 import { Badge } from '../shared/ui/ui';
 import { DismissibleDetails } from '../shared/ui/dismissible-details';
 import { SignInDialog } from '../features/methodist-sign-in/sign-in-dialog';
+import { SettingsDialog } from '../features/workspace-settings/settings-dialog';
 import { AiPageEdit } from '../features/ai-page-edit/ai-page-edit';
 import courseosLogo from '../shared/assets/courseos-logo.png';
 export function Layout() {
@@ -41,20 +42,20 @@ export function Layout() {
   );
 }
 function LayoutContent() {
-  const { api, setMode } = useApi();
+  const { api } = useApi();
   const courses = useCourses();
   const course = useCourse();
   const { courseId } = useParams();
   const [search] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const client = useQueryClient();
   const previous = useRef('');
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('courseos-sidebar-collapsed') === 'true',
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() =>
     document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
   );
@@ -150,13 +151,9 @@ function LayoutContent() {
       window.removeEventListener('scroll', save);
     };
   }, [location, snapshot?.course_version]);
-  const reset = async () => {
-    if (window.confirm('Удалить все демонстрационные курсы, версии и задачи в этом браузере?')) {
-      await api.reset();
-      client.removeQueries({ queryKey: ['demo'] });
-      navigate('/');
-    }
-  };
+  const currentTitle =
+    courses.data?.find((item) => item.course_id === courseId)?.title ||
+    course.data?.requirements.title;
   return (
     <div
       className={`app-shell${collapsed ? ' sidebar-collapsed' : ''}${location.pathname.endsWith('/plan') ? ' plan-shell' : ''}`}
@@ -198,22 +195,9 @@ function LayoutContent() {
             <image href={courseosLogo} width="1774" height="887" />
           </svg>
         </Link>
-        <DismissibleDetails className="workspace-switcher" dismissKey={location.key}>
-          <summary className="workspace">
-            <span className="workspace-avatar">А</span>
-            <div>
-              <strong>Академия цифрового развития</strong>
-              <small>Пространство методиста</small>
-            </div>
-            <ChevronDown size={16} className="switcher-chevron" />
-          </summary>
-          <div className="workspace-current">
-            Академия цифрового развития<small>Текущее рабочее пространство</small>
-          </div>
-        </DismissibleDetails>
         <NavLink to="/" className="new-course">
           <Plus size={18} />
-          <span>Создать курс</span>
+          <span>Создать программу</span>
         </NavLink>
         <div className="program-section">
           <div className="sidebar-label">Текущая программа</div>
@@ -222,10 +206,10 @@ function LayoutContent() {
             key={courseId || 'new'}
             dismissKey={location.key}
           >
-            <summary className="program-trigger" aria-label="Выбрать курс">
+            <summary className="program-trigger" aria-label="Выбрать программу">
               <span title={courses.data?.find((item) => item.course_id === courseId)?.title}>
                 {courses.data?.find((item) => item.course_id === courseId)?.title ||
-                  'Выберите сохранённый курс'}
+                  'Выберите программу'}
               </span>
               <ChevronDown size={16} className="switcher-chevron" />
             </summary>
@@ -244,37 +228,40 @@ function LayoutContent() {
                   </button>
                 ))
               ) : (
-                <p>Пока нет сохранённых курсов</p>
+                <p>Пока нет программ</p>
               )}
             </div>
           </DismissibleDetails>
         </div>
-        <nav aria-label="Экраны курса">
+        <nav aria-label="Экраны программы">
           {[
             { path: 'plan', title: 'Программа и учебный план', Icon: LayoutList },
             { path: 'map', title: 'Карта результатов', Icon: Network },
             { path: 'audit', title: 'Проверка программы', Icon: ShieldCheck },
             { path: 'materials', title: 'Материалы и выгрузки', Icon: Files },
             { path: 'compare', title: 'Сравнение версий', Icon: GitCompareArrows },
-          ].map(({ path, title, Icon }) =>
-            courseId ? (
-              <NavLink
-                key={path}
-                title={title}
-                aria-label={title}
-                to={`/courses/${courseId}/${path}${versionSuffix}`}
-                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-              >
-                <Icon size={20} strokeWidth={1.75} />
-                <span>{title}</span>
-              </NavLink>
-            ) : (
-              <span className="nav-item disabled" key={path}>
-                <Icon size={20} strokeWidth={1.75} />
-                <span>{title}</span>
-              </span>
-            ),
-          )}
+          ]
+            // Сравнивать нечего, пока у программы одна версия.
+            .filter(({ path }) => path !== 'compare' || (course.data?.versions.length ?? 0) > 1)
+            .map(({ path, title, Icon }) =>
+              courseId ? (
+                <NavLink
+                  key={path}
+                  title={title}
+                  aria-label={title}
+                  to={`/courses/${courseId}/${path}${versionSuffix}`}
+                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                >
+                  <Icon size={20} strokeWidth={1.75} />
+                  <span>{title}</span>
+                </NavLink>
+              ) : (
+                <span className="nav-item disabled" key={path}>
+                  <Icon size={20} strokeWidth={1.75} />
+                  <span>{title}</span>
+                </span>
+              ),
+            )}
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-note">
@@ -286,24 +273,47 @@ function LayoutContent() {
                 : 'Данные приходят с настроенного backend. При сбое demo не подставляется.'}
             </p>
           </div>
-          {api.mode === 'demo' && (
-            <button className="reset-button" onClick={() => void reset()}>
-              <RotateCcw size={14} />
-              Сбросить демоданные
-            </button>
-          )}
-          <button
-            className="user-profile"
-            aria-haspopup="dialog"
-            onClick={() => setSignInOpen(true)}
-          >
-            <span>М</span>
-            <div>
-              <strong>Методист</strong>
-              <small>Войти в аккаунт</small>
+          <DismissibleDetails className="profile-menu" dismissKey={location.key}>
+            <summary className="user-profile" aria-label="Меню методиста">
+              <span>М</span>
+              <div>
+                <strong>Методист</strong>
+                <small>Настройки и вход</small>
+              </div>
+              <ChevronDown size={16} className="switcher-chevron" />
+            </summary>
+            <div className="profile-options">
+              <button
+                aria-haspopup="dialog"
+                onClick={(event) => {
+                  event.currentTarget.closest('details')?.removeAttribute('open');
+                  setSettingsOpen(true);
+                }}
+              >
+                <Settings size={16} />
+                Настройки
+              </button>
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
+              >
+                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                {theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+              </button>
+              <button
+                aria-haspopup="dialog"
+                onClick={(event) => {
+                  event.currentTarget.closest('details')?.removeAttribute('open');
+                  setSignInOpen(true);
+                }}
+              >
+                <LogIn size={16} />
+                Войти в аккаунт
+              </button>
             </div>
-          </button>
+          </DismissibleDetails>
           <SignInDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
+          <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         </div>
       </aside>
       <div className="main-shell">
@@ -320,35 +330,12 @@ function LayoutContent() {
             <span>CourseOS</span>
           </button>
           <span className="breadcrumb">
-            Программы <span>/</span> {courseId ? 'Карточка программы' : 'Новый курс'}
+            Программы <span>/</span> {courseId ? currentTitle || 'Программа' : 'Новая программа'}
           </span>
           <div className="topbar-actions">
-            <button
-              className="theme-toggle"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
-              title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-            >
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
             <Badge tone={api.mode === 'demo' ? 'amber' : 'green'}>
               {api.mode === 'demo' ? 'Демо-режим' : 'LIVE · Данные сервера'}
             </Badge>
-            <label className="mode-select">
-              <span className="sr-only">Режим работы</span>
-              <select
-                aria-label="Режим работы"
-                value={api.mode}
-                onChange={(e) => {
-                  setMode(e.target.value as 'demo' | 'live');
-                  navigate('/');
-                }}
-              >
-                <option value="demo">Demo</option>
-                <option value="live">Live API</option>
-              </select>
-              <ChevronDown size={13} />
-            </label>
           </div>
           {/* Переключатель нужен, только когда есть прошлые версии: с одной версией
               он предлагал выбрать её же как «актуальную» и как «архив». */}

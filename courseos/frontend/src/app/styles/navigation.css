@@ -6,12 +6,6 @@
 .sidebar .brand {
   margin-bottom: 14px;
 }
-.sidebar .workspace-switcher {
-  margin-bottom: 10px;
-}
-.sidebar .workspace {
-  padding: 6px 8px;
-}
 .sidebar .new-course {
   margin-bottom: 14px;
 }
@@ -44,11 +38,6 @@
   font-size: 10px;
   line-height: 1.4;
 }
-.sidebar .reset-button {
-  min-height: 28px;
-  padding: 4px 0;
-  margin: 4px 0;
-}
 .sidebar .user-profile {
   padding-top: 8px;
 }
@@ -58,7 +47,6 @@
     padding-bottom: 10px;
   }
   .sidebar .brand,
-  .sidebar .workspace-switcher,
   .sidebar .new-course {
     margin-bottom: 8px;
   }
@@ -79,12 +67,6 @@
   .sidebar .sidebar-note {
     display: none;
   }
-  .sidebar .workspace small {
-    display: none;
-  }
-  .sidebar .workspace {
-    padding: 4px 8px;
-  }
   .sidebar .sidebar-label {
     margin-bottom: 4px;
   }
@@ -97,8 +79,8 @@
   }
 }
 @media (max-height: 520px) {
-  .sidebar .workspace-switcher,
-  .sidebar .user-profile {
+  /* Профиль ведёт к настройкам и теме, поэтому оставляем от него хотя бы аватар. */
+  .sidebar .user-profile > div {
     display: none;
   }
   .sidebar .brand-logo {
@@ -112,5 +94,56 @@
   .sidebar-collapsed .sidebar .nav-item,
   .sidebar-collapsed .sidebar .new-course {
     padding: 10px;
+  }
+}
+.sidebar .profile-menu {
+  position: relative;
+}
+.sidebar .profile-menu > summary {
+  list-style: none;
+}
+.sidebar .profile-menu > summary > div {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar .profile-options {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  z-index: 5;
+  display: grid;
+  width: max(100%, 200px);
+  padding: 4px;
+  margin-bottom: 4px;
+  border: 1px solid var(--theme-border, #eaeaea);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px #00000014;
+}
+.sidebar .profile-options button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 0;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+}
+.sidebar .profile-options button:hover {
+  background: var(--theme-subtle, #f3f3f3);
+}
+@media (min-width: 801px) {
+  /* В свёрнутой панели всё помещается по высоте, а меню профиля шире самой панели:
+     без этого прокрутка панели обрезала бы его, а контент страницы перекрывал. */
+  .sidebar-collapsed .sidebar {
+    z-index: 20;
+    overflow: visible;
   }
 }

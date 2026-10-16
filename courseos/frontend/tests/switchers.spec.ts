@@ -8,20 +8,21 @@ for (const mobile of [false, true]) {
     await page.goto('/');
     if (mobile) await page.getByRole('button', { name: 'Открыть навигацию' }).click();
     const program = page.locator('.program-switcher');
-    const workspace = page.locator('.workspace-switcher');
+    const profile = page.locator('.profile-menu');
 
     await program.locator('summary').click();
     await expect(program).toHaveAttribute('open', '');
     await program.locator('.program-options').click();
     await expect(program).toHaveAttribute('open', '');
-    await workspace.locator('summary').click();
+    await profile.locator('summary').click();
     await expect(program).not.toHaveAttribute('open');
-    await expect(workspace).toHaveAttribute('open', '');
-    await workspace.locator('.workspace-current').click();
-    await expect(workspace).toHaveAttribute('open', '');
+    await expect(profile).toHaveAttribute('open', '');
+    // Щелчок по краю списка, мимо пунктов: меню должно остаться открытым.
+    await profile.locator('.profile-options').click({ position: { x: 2, y: 2 } });
+    await expect(profile).toHaveAttribute('open', '');
     await page.keyboard.press('Escape');
-    await expect(workspace).not.toHaveAttribute('open');
-    await expect(workspace.locator('summary')).toBeFocused();
+    await expect(profile).not.toHaveAttribute('open');
+    await expect(profile.locator('summary')).toBeFocused();
     if (mobile) await expect(page.locator('.sidebar')).toHaveClass(/is-open/);
 
     await program.locator('summary').click();

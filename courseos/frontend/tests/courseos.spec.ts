@@ -1,3 +1,4 @@
+import { openSettings } from './profile-menu';
 import { answerDemoQuestions, chooseRecommendedAnswers } from './answer-demo-questions';
 import { test, expect, type Page } from '@playwright/test';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -56,7 +57,7 @@ async function approveAndWait(page: Page) {
     .getByRole('link', { name: 'Перейти к материалам', exact: true })
     .click();
   await expect(
-    page.locator('.job-panel').getByText('Нужна проверка', { exact: true }),
+    page.locator('.readiness').getByText('Статус программы: Материалы готовы', { exact: true }),
   ).toBeVisible();
 }
 test('Полный путь: уточнения, правка структуры программы, аудит, ручная правка и выгрузка JSON', async ({
@@ -287,6 +288,7 @@ test('HTTP-сбой: нет скрытого demo; request_id переживае
     payloads.push(route.request().postDataJSON().payload);
     await route.abort('failed');
   });
+  await openSettings(page);
   await page.getByLabel('Режим работы', { exact: true }).selectOption('live');
   await expect(page.getByText('LIVE · Данные сервера')).toBeVisible();
   await page
@@ -309,7 +311,7 @@ test('HTTP-сбой: нет скрытого demo; request_id переживае
   await expect(page.getByRole('alert').filter({ hasText: 'Сервер недоступен' })).toBeVisible();
   expect(ids).toHaveLength(3);
   expect(ids[2]).not.toBe(ids[1]);
-  await expect(page.getByRole('heading', { name: 'Ваши сохранённые курсы' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Ваши программы' })).toHaveCount(0);
 });
 
 test('PDF/DOCX в demo показывают недоступность реальной обработки', async ({ page }) => {

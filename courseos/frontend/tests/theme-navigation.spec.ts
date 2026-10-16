@@ -1,6 +1,7 @@
 import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect } from '@playwright/test';
 import { editDraft } from './create-draft';
+import { openProfileMenu } from './profile-menu';
 
 test('шапка проверки помещается в окно с обеими темами', async ({ page }) => {
   await page.goto('/');
@@ -12,7 +13,10 @@ test('шапка проверки помещается в окно с обеим
   const heading = page.locator('.heading-action');
   await expect(heading.getByRole('heading', { name: 'Проверка программы' })).toBeVisible();
   for (const theme of ['light', 'dark']) {
-    if (theme === 'dark') await page.getByRole('button', { name: 'Включить тёмную тему' }).click();
+    if (theme === 'dark') {
+      await openProfileMenu(page);
+      await page.getByRole('button', { name: 'Включить тёмную тему' }).click();
+    }
     for (const width of [1920, 1440, 1280, 1024, 820, 768, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       expect(
@@ -65,34 +69,43 @@ test('navigation fits laptop and phone heights; theme survives reload and naviga
     expect(
       await sidebar.evaluate((element) => element.scrollHeight - element.clientHeight),
     ).toBeLessThanOrEqual(1);
-    const lastLink = page.getByRole('link', { name: 'Сравнение версий', exact: true });
-    await expect(lastLink).toBeInViewport();
+    // У новой программы одна версия, поэтому пункта сравнения нет и последний пункт — материалы.
+    const navigation = page.getByRole('navigation', { name: 'Экраны программы' });
+    await expect(navigation.getByRole('link', { name: 'Сравнение версий' })).toHaveCount(0);
+    await expect(
+      navigation.getByRole('link', { name: 'Материалы и выгрузки', exact: true }),
+    ).toBeInViewport();
+    // Через профиль открываются настройки и тема, поэтому он тоже должен помещаться.
+    await expect(page.locator('.profile-menu summary')).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );
     if (width <= 800) await page.keyboard.press('Escape');
   }
   await page.setViewportSize({ width: 1280, height: 720 });
+  await openProfileMenu(page);
   await page.getByRole('button', { name: 'Включить тёмную тему' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.reload();
+  await openProfileMenu(page);
   await expect(page.getByRole('button', { name: 'Включить светлую тему' })).toBeVisible();
-  for (const name of [
-    'Карта результатов',
-    'Проверка программы',
-    'Материалы и выгрузки',
-    'Сравнение версий',
-  ]) {
-    await page.getByRole('link', { name, exact: true }).click();
+  for (const name of ['Карта результатов', 'Проверка программы', 'Материалы и выгрузки']) {
+    // На странице проверки есть одноимённая кнопка-ссылка, поэтому ищем в боковой навигации.
+    await page
+      .getByRole('navigation', { name: 'Экраны программы' })
+      .getByRole('link', { name, exact: true })
+      .click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     const background = await page
       .locator('.sidebar')
       .evaluate((element) => getComputedStyle(element).backgroundColor);
     expect(background).toBe('rgb(16, 22, 34)');
   }
+  await openProfileMenu(page);
   await page.getByRole('button', { name: 'Включить светлую тему' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await page.reload();
+  await openProfileMenu(page);
   await expect(page.getByRole('button', { name: 'Включить тёмную тему' })).toBeVisible();
   expect(errors).toEqual([]);
 });

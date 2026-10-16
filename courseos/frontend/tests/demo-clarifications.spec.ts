@@ -28,9 +28,13 @@ for (const preset of presets) {
     await chooseRecommendedAnswers(page);
     const question = demoClarifications[preset.id][0];
     const customAnswer = `Учебный вариант для ${preset.label}`;
-    await page.getByLabel(`Свой вариант: ${question.label}`, { exact: true }).fill('   ');
+    const customField = page.getByLabel(`Свой вариант: ${question.label}`, { exact: true });
+    // Поле своего ответа появляется только после выбора «Свой вариант».
+    await expect(customField).toHaveCount(0);
+    await page.getByRole('combobox', { name: question.label, exact: true }).selectOption('custom');
+    await customField.fill('   ');
     await expect(submit).toBeDisabled();
-    await page.getByLabel(`Свой вариант: ${question.label}`, { exact: true }).fill(customAnswer);
+    await customField.fill(customAnswer);
     if (preset.id === 'security') {
       await page
         .getByLabel('Какой тип программы нужен?', { exact: true })
