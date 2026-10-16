@@ -44,9 +44,7 @@ test('изменённый банковский запрос требует св
   await page.getByRole('button', { name: /^Анализ данных на Python/ }).click();
   const request = page.getByLabel('Запрос методиста');
   await request.fill(
-    (await request.inputValue())
-      .replace('72 часа', '48 часов')
-      .replace('четыре недели', 'три недели'),
+    (await request.inputValue()).replace('72 часа', '48 часов').replace('4 недели', 'три недели'),
   );
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByText('Устраните расхождения текста и сводки.')).toBeVisible();
