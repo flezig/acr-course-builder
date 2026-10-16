@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect, type Page } from '@playwright/test';
 
 // Скриншоты для сравнения «до/после» переделки карточки программы.
@@ -13,6 +14,7 @@ async function createBank(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: bank, exact: true }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.course-heading h1')).toHaveText('Анализ данных на Python');
 }
 

@@ -35,6 +35,7 @@ import { CurriculumTable, VolumeSummary } from './curriculum-table';
 import { CoverageMatrix } from '../competencies/coverage-matrix';
 import { VerdictBanner } from './verdict-banner';
 import './decision.css';
+import './clarifications.css';
 // Заготовка результата содержит хвост «и объясняет решение» — в таблицах он только удлиняет строку.
 function outcomeText(description: string) {
   return description.replace(/^(Выполняет учебную задачу «.+») и объясняет решение$/, '$1');
@@ -815,19 +816,22 @@ export function PlanPage() {
   );
 }
 function Clarifications({ view }: { view: CourseView }) {
+  const [customAnswers, setCustomAnswers] = useState<Record<string, boolean>>({});
   const form = useForm<Requirements>({
     mode: 'onChange',
     resolver: zodResolver(
       inputSchema.superRefine((values, ctx) => {
         for (const question of view.questions) {
-          const value = values[question.field as keyof Requirements];
+          const value = question.options
+            ? values.clarification_answers?.[question.field.split('.')[1]] || ''
+            : values[question.field as keyof Requirements];
           if (
             typeof value === 'string' &&
             (!value.trim() || (question.field === 'template_id' && value === 'unknown'))
           )
             ctx.addIssue({
               code: 'custom',
-              path: [question.field],
+              path: question.field.split('.'),
               message:
                 question.field === 'template_id'
                   ? 'Выберите тип программы.'
@@ -841,7 +845,7 @@ function Clarifications({ view }: { view: CourseView }) {
   const command = useCommand();
   return (
     <Panel
-      title={`Уточните ${view.questions.length} параметров`}
+      title="Агент уточняет"
       subtitle="Уже известные сведения сохраняются. До ответов структура программы и материалы не создаются."
     >
       <Form
@@ -855,36 +859,98 @@ function Clarifications({ view }: { view: CourseView }) {
           }),
         )}
       >
-        {view.questions.map((question) => (
-          <Field label={question.label} key={question.field}>
-            {question.field === 'template_id' ? (
-              <select {...form.register('template_id')} required>
-                <option value="unknown" disabled>
-                  Выберите тип
-                </option>
-                <option value="acr_professional">Повышение квалификации</option>
-                <option value="acr_general">Общеразвивающая</option>
-              </select>
-            ) : (
-              <input
-                {...form.register(question.field as 'total_hours')}
-                inputMode={question.field === 'total_hours' ? 'decimal' : undefined}
-                required
-                placeholder={
-                  question.field === 'entry_level'
-                    ? 'Например, третий курс ИСиП; основы сетей и Linux'
-                    : ''
-                }
-              />
-            )}
-          </Field>
-        ))}
-        <Notice>
-          Курс по кибербезопасности даёт начальные навыки; готовность к работе нельзя гарантировать
-          только объёмом часов.
-        </Notice>
+        {view.questions.map((question) => {
+          if (question.options) {
+            const field = question.field as `clarification_answers.${string}`;
+            const answer = form.watch(field) || '';
+            const custom = customAnswers[field] || (!!answer && !question.options.includes(answer));
+            return (
+              <fieldset className="clarification-question" key={field}>
+                <legend>{question.label}</legend>
+                <p>{question.reason}</p>
+                <Field label="Вариант ответа" hint={`Агент предлагает: ${question.recommended}`}>
+                  <select
+                    name={field}
+                    aria-label={question.label}
+                    value={custom ? 'custom' : answer}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setCustomAnswers((current) => ({ ...current, [field]: value === 'custom' }));
+                      form.setValue(field, value === 'custom' ? '' : value, {
+                        shouldValidate: true,
+                      });
+                    }}
+                  >
+                    <option value="" disabled>
+                      Выберите ответ
+                    </option>
+                    {question.options.map((option) => (
+                      <option value={option} key={option}>
+                        {option}
+                        {option === question.recommended ? ' — предлагает агент' : ''}
+                      </option>
+                    ))}
+                    <option value="custom">Свой вариант</option>
+                  </select>
+                </Field>
+                <Field label="Свой вариант">
+                  <input
+                    aria-label={`Свой вариант: ${question.label}`}
+                    value={custom ? answer : ''}
+                    placeholder="Напишите свой ответ"
+                    onChange={(event) => {
+                      setCustomAnswers((current) => ({ ...current, [field]: true }));
+                      form.setValue(field, event.target.value, { shouldValidate: true });
+                    }}
+                  />
+                </Field>
+              </fieldset>
+            );
+          }
+          return (
+            <Field label={question.label} key={question.field}>
+              {question.field === 'template_id' ? (
+                <select {...form.register('template_id')} required>
+                  <option value="unknown" disabled>
+                    Выберите тип
+                  </option>
+                  <option value="acr_professional">Повышение квалификации</option>
+                  <option value="acr_general">Общеразвивающая</option>
+                </select>
+              ) : (
+                <input
+                  {...form.register(question.field as 'total_hours')}
+                  inputMode={question.field === 'total_hours' ? 'decimal' : undefined}
+                  required
+                  placeholder={
+                    question.field === 'entry_level'
+                      ? 'Например, третий курс ИСиП; основы сетей и Linux'
+                      : ''
+                  }
+                />
+              )}
+            </Field>
+          );
+        })}
+        {view.requirements.title.toLowerCase().includes('кибербезопасност') && (
+          <Notice>
+            Курс по кибербезопасности даёт начальные навыки; готовность к работе нельзя
+            гарантировать только объёмом часов.
+          </Notice>
+        )}
         <ErrorMessage error={command.error} />
-        <button className="primary" type="submit" disabled={command.isPending}>
+        <button
+          className="primary"
+          type="submit"
+          disabled={
+            command.isPending ||
+            view.questions.some(
+              (question) =>
+                question.options &&
+                !form.watch(`clarification_answers.${question.field.split('.')[1]}`)?.trim(),
+            )
+          }
+        >
           Сохранить ответы и построить программу
           <ArrowRight size={17} />
         </button>

@@ -1,0 +1,21 @@
+.clarification-question {
+  min-width: 0;
+  margin: 0 0 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.clarification-question legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.clarification-question > p {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+
+.clarification-question .field + .field {
+  margin-top: 12px;
+}

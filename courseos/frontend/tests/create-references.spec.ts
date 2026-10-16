@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { expect, test } from '@playwright/test';
 
 async function openSection(
@@ -50,10 +51,9 @@ test('Создание курса сохраняет прошлую програ
     'https://example.com/previous',
   );
   await openSection(page, 'Сводка параметров');
-  await page
-    .getByRole('checkbox', { name: 'Подтверждаю параметры изменённого запроса вручную' })
-    .check();
+
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
   await page.getByRole('link', { name: 'Учебный план', exact: true }).click();
   await page.getByRole('link', { name: 'О программе', exact: true }).click();
@@ -93,6 +93,7 @@ test('Свой профстандарт и референсы примера з�
     .getByLabel('Текст профстандарта', { exact: true })
     .pressSequentially('Собственная редакция с трудовыми функциями.');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
   await page.getByRole('link', { name: 'Учебный план', exact: true }).click();
   await page.getByRole('link', { name: 'О программе', exact: true }).click();
@@ -125,6 +126,7 @@ test('Без профстандарта при создании и честна�
   });
   await expect(page.getByRole('alert')).toContainText('Вставьте текст');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
   await page.getByRole('link', { name: 'Учебный план', exact: true }).click();
   await page.getByRole('link', { name: 'О программе', exact: true }).click();

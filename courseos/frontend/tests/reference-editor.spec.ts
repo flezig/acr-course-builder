@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { expect, test, type Page } from '@playwright/test';
 import type { Snapshot } from '../src/entities/course/model/schema';
 import { auditSnapshot } from '../src/entities/course/model/rules';
@@ -19,6 +20,7 @@ for (const verified of [false, true]) {
     await page.goto('/');
     await page.getByRole('button', { name: /Первые шаги в Python 16 часов/ }).click();
     await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+    await answerDemoQuestions(page);
     await expect(page.locator('.verdict')).toBeVisible();
     await page.getByRole('link', { name: 'Карта результатов', exact: true }).click();
     await page.getByRole('button', { name: 'Добавить текст, PDF, DOCX или ссылку' }).click();

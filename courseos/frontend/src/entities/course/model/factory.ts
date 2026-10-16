@@ -1,3 +1,4 @@
+import { contentQuestions } from './demo-clarifications';
 import { devopsInterviews } from './devops-interviews';
 import { demoQuestions } from './demo-questions';
 import { bankDatasets, bankSeminars } from './bank-materials';
@@ -45,6 +46,7 @@ export function missingQuestions(requirements: Requirements) {
     .map(([field, label]) => ({ field, label }));
 }
 export function scenarioKind(requirements: Requirements): ScenarioKind {
+  if (requirements.demo_example) return requirements.demo_example;
   const title = requirements.title.toLowerCase();
   if (title.includes('devops') || isInternship(requirements)) return 'devops';
   if (requirements.audience.toLowerCase().includes('банк')) return 'bank';
@@ -74,7 +76,14 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
     calendar_days: requirements.calendar.calendar_days,
   };
   const kind = scenarioKind(requirements);
-  const design = scenarioTopics(kind, requirements);
+  const design = structuredClone(scenarioTopics(kind, requirements));
+  for (const question of contentQuestions(requirements)) {
+    const answer = requirements.clarification_answers?.[question.id]?.trim();
+    if (!answer) continue;
+    const topic = design[question.topic - 1];
+    if (question.id !== 'environment') topic.title += `: ${answer}`;
+    topic.content = `${question.practice} Выбор методиста: ${answer}.`;
+  }
   const names = design.map((topic) => topic.title);
   const outcomes: Skeleton['outcomes'] =
     kind === 'bank'

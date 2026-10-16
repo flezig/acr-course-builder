@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect } from '@playwright/test';
 import { editDraft } from './create-draft';
 
@@ -5,6 +6,7 @@ test('шапка проверки помещается в окно с обеим
   await page.goto('/');
   await page.getByRole('button', { name: /Первые шаги в Python/ }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
   await page.getByRole('link', { name: 'Проверка программы', exact: true }).click();
   const heading = page.locator('.heading-action');
@@ -48,6 +50,7 @@ test('navigation fits laptop and phone heights; theme survives reload and naviga
         'Искусственный интеллект в профессиональной деятельности учителя: проектирование образовательных материалов и проверка результатов обучения'),
   );
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
   for (const [width, height] of [
     [1440, 900],

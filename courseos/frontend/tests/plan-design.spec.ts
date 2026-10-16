@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect, type Page } from '@playwright/test';
 const teacher = 'ИИ в работе учителя 36 часов · учителя · повышение квалификации';
 const python = 'Первые шаги в Python 16 часов · школьники · общеразвивающая';
@@ -5,6 +6,7 @@ async function create(page: Page, preset = teacher) {
   await page.goto('/');
   await page.getByRole('button', { name: preset, exact: true }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
 }
 async function tab(page: Page, name: string) {

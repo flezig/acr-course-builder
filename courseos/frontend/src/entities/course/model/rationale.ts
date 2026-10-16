@@ -1,3 +1,4 @@
+import { clarificationReason, contentQuestions } from './demo-clarifications';
 import { instructionalAgentsReference } from './instructional-agents-reference';
 import type { Rationale, Skeleton, Snapshot, Requirements } from './schema';
 import { canonicalJson, sumHours } from '../../../shared/lib/decimal';
@@ -147,13 +148,14 @@ export function initializeRationales(s: Skeleton) {
       } as Record<string, keyof Requirements>
     )[e.id];
     const requestValue = field ? String(s.requirements[field]) : '';
+    const clarification = clarificationReason(s.requirements, Number(e.id.replace(/^topic-/, '')));
     const confirmed = !!requestValue && (e.id !== 'goal' || requestValue === s.goal);
     return {
       id: `rationale:${e.id}`,
       element_id: e.id,
       version: 1,
       decision: e.decision,
-      purpose: `Для аудитории «${s.requirements.audience}». Связанные элементы: ${e.related.join(', ') || 'вводные курса'}. ${confirmed ? 'Сохранено условие запроса.' : 'Предложение демонстрационного проектировщика; необходимость требует предметной проверки.'}`,
+      purpose: `${clarification ? `${clarification} ` : ''}Для аудитории «${s.requirements.audience}». Связанные элементы: ${e.related.join(', ') || 'вводные курса'}. ${confirmed ? 'Сохранено условие запроса.' : 'Предложение демонстрационного проектировщика; необходимость требует предметной проверки.'}`,
       related_ids: e.related,
       kind: confirmed ? 'request' : 'assumption',
       source_id: confirmed ? 'request' : null,
@@ -363,6 +365,14 @@ export function skeletonRationaleMarkdown(snapshot: Snapshot): string {
     `**Объём:** ${req.total_hours || 'не указан'} ч. **Формат:** ${req.delivery || 'нужно уточнить'}.`,
     `**Итоговая работа:** ${req.assessment || 'Способ проверки результатов ещё не выбран.'}`,
   ];
+  const questions = contentQuestions(req);
+  if (questions.length) {
+    lines.push('## Уточнения перед построением программы');
+    for (const question of questions) {
+      const answer = req.clarification_answers?.[question.id];
+      if (answer) lines.push(`**${question.label}** ${answer}`, question.reason);
+    }
+  }
   if (req.constraints) lines.push(`**Что нужно учесть:** ${req.constraints}`);
   lines.push(
     '## Чему научатся участники',

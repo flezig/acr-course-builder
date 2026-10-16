@@ -1,3 +1,4 @@
+import { unansweredContentQuestions } from '../model/demo-clarifications';
 import { isProfessionalStandardReference } from '../model/professional-standards';
 import { isElementEdit, previewElementEdit } from '../model/material-edit';
 import { assessmentMaterial } from '../model/material-readiness';
@@ -535,7 +536,10 @@ export class DemoCourseApi implements CourseApi {
         requirements: current?.skeleton.requirements ?? course.requirements,
         latest_version: latest(course)?.course_version || 0,
         versions: course.snapshots.map((s) => s.course_version),
-        questions: missingQuestions(course.requirements),
+        questions: [
+          ...missingQuestions(course.requirements),
+          ...unansweredContentQuestions(course.requirements),
+        ],
         job: course.job,
         is_latest: !version || version === latest(course)?.course_version,
       });
@@ -571,9 +575,12 @@ export class DemoCourseApi implements CourseApi {
         )
           throw new ApiError(422, 'Объём должен быть от 16 до 500 часов.');
         const job = makeJob(id, 'start', envelope.request_id);
-        if (missingQuestions(requirements).length) {
+        if (
+          missingQuestions(requirements).length ||
+          unansweredContentQuestions(requirements).length
+        ) {
           job.status = 'awaiting_clarification';
-          job.next_action = 'Ответьте только на недостающие вопросы';
+          job.next_action = 'Ответьте на вопросы агента';
         }
         course = { requirements, snapshots: [], approvals: [], plans: [], job };
         db.courses[id] = course;
@@ -590,6 +597,18 @@ export class DemoCourseApi implements CourseApi {
         switch (envelope.action) {
           case 'clarify': {
             const next = requirementsSchema.parse(envelope.payload);
+            const answers = Object.fromEntries(
+              unansweredContentQuestions(course.requirements).map((question) => [
+                question.id,
+                next.clarification_answers?.[question.id]?.trim() || '',
+              ]),
+            );
+            const clarified = {
+              ...course.requirements,
+              clarification_answers: { ...course.requirements.clarification_answers, ...answers },
+            };
+            if (unansweredContentQuestions(clarified).length)
+              throw new ApiError(422, 'Ответьте на все вопросы агента.');
             for (const question of missingQuestions(course.requirements))
               (course.requirements as Record<string, unknown>)[question.field] =
                 next[question.field as keyof Requirements];
@@ -604,6 +623,8 @@ export class DemoCourseApi implements CourseApi {
               new Decimal(course.requirements.total_hours).gt(500)
             )
               throw new ApiError(422, 'Объём — от 16 до 500 часов.');
+            if (course.requirements.demo_example)
+              course.requirements.clarification_answers = clarified.clarification_answers;
             course.job = makeJob(id, 'clarify', envelope.request_id);
             break;
           }
