@@ -1,3 +1,4 @@
+import { scheduleCalculation } from '../model/schedule';
 import { unansweredContentQuestions } from '../model/demo-clarifications';
 import { isProfessionalStandardReference } from '../model/professional-standards';
 import { isElementEdit, previewElementEdit } from '../model/material-edit';
@@ -423,28 +424,49 @@ async function resolveCalendar(
       422,
       `Исходный лимит ${oldLimit} ч/день нельзя повысить подтверждением. Выберите явное изменение дневной нагрузки.`,
     );
-  if (option === 'raise' && oldLimit) calendar = { ...calendar, daily_limit: oldLimit };
+  const requestedRaise =
+    option === 'raise' && !!oldLimit && new Decimal(calendar.daily_limit || 0).gt(oldLimit);
+  if (option === 'raise' && oldLimit && !requestedRaise)
+    calendar = { ...calendar, daily_limit: oldLimit };
   skeleton.requirements.calendar = calendar;
-  let calc = calendarCalculation(skeleton.requirements);
-  if (option !== 'confirm' && new Decimal(calc.deficit).eq(0))
+  const calculate = () =>
+    scheduleCalculation(skeleton.requirements.calendar, skeleton.requirements.total_hours) ??
+    calendarCalculation(skeleton.requirements);
+  const schedule = scheduleCalculation(calendar, skeleton.requirements.total_hours);
+  if (schedule?.error) throw new ApiError(422, schedule.error);
+  let calc = calculate();
+  if (option !== 'confirm' && !requestedRaise && new Decimal(calc.deficit).eq(0))
     throw new ApiError(422, 'Часов достаточно: изменение для устранения нехватки не требуется.');
   if (option === 'extend') {
     const maximum = { ...skeleton.requirements, calendar: { ...calendar, calendar_days: 3650 } };
-    if (new Decimal(calendarCalculation(maximum).deficit).gt(0))
+    if (
+      new Decimal(
+        (
+          scheduleCalculation(maximum.calendar, maximum.total_hours) ?? calendarCalculation(maximum)
+        ).deficit,
+      ).gt(0)
+    )
       throw new ApiError(
         422,
         'При этой нагрузке срок превысит 3650 дней. Согласуйте другой лимит или объём.',
       );
     while (calc.needed !== null && calc.days < calc.needed) {
       skeleton.requirements.calendar.calendar_days++;
-      calc = calendarCalculation(skeleton.requirements);
+      calc = calculate();
     }
   }
-  if (option === 'raise') {
+  if (option === 'raise' && !requestedRaise) {
     if (!calc.minimumLimit) throw new ApiError(422, 'Укажите доступные учебные дни.');
-    skeleton.requirements.calendar.daily_limit = calc.minimumLimit;
-    skeleton.requirements.constraints += `\nРешение методиста: исходный дневной лимит изменён на ${calc.minimumLimit} ч/день.`;
+    skeleton.requirements.calendar.daily_limit = Decimal.max(
+      oldLimit || 0,
+      calc.minimumLimit,
+    ).toString();
+    if (skeleton.requirements.calendar.schedule?.confirmed)
+      skeleton.requirements.calendar.schedule.duration = calc.minimumLimit;
+    skeleton.requirements.constraints += `\nРешение методиста: дневной лимит ${skeleton.requirements.calendar.daily_limit} ч/день.${skeleton.requirements.calendar.schedule?.confirmed ? ` Длительность занятия увеличена до ${calc.minimumLimit} ч.` : ''}`;
   }
+  if (requestedRaise)
+    skeleton.requirements.constraints += `\nРешение методиста: дневной лимит увеличен с ${oldLimit} до ${calendar.daily_limit} ч/день.`;
   if (option === 'reduce') {
     if (new Decimal(calc.capacity).lt(16))
       throw new ApiError(422, 'Вместимость меньше минимальных 16 часов.');

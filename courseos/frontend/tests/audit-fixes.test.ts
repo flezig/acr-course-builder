@@ -16,7 +16,7 @@ import {
   explicitRequestParameters,
   parameterDiscrepancies,
 } from '../src/entities/course/model/request-parameters';
-import { scheduleProblems } from '../src/entities/course/model/schedule';
+import { scheduleCalculation, scheduleProblems } from '../src/entities/course/model/schedule';
 import { weeklyLoad } from '../src/entities/course/model/hours-plan';
 import { bankDatasets } from '../src/entities/course/model/bank-materials';
 import { contentHash, sumHours } from '../src/shared/lib/decimal';
@@ -550,4 +550,70 @@ it('слишком длинное продление отклоняется до
     }),
   ).rejects.toMatchObject({ status: 422 });
   expect((await api.get(snapshot.course_id)).versions).toEqual([snapshot.course_version]);
+});
+
+it.each(['extend', 'raise'] as const)(
+  'решение %s устраняет нехватку занятий, даже когда общей вместимости достаточно',
+  async (option) => {
+    const requirements = preset('teachers');
+    requirements.total_hours = '36';
+    requirements.calendar = {
+      ...requirements.calendar,
+      start: '2026-10-15',
+      calendar_days: 20,
+      daily_limit: '5',
+      weekdays_only: false,
+      confirmed: true,
+      same_units: true,
+      schedule: { weekdays: [3, 6], sessions_per_week: 2, duration: '2', confirmed: true },
+    };
+    const initial = await start(requirements);
+    expect(calendarCalculation(requirements).capacity).toBe('100');
+    expect(scheduleCalculation(requirements.calendar, '36')!.deficit).toBe('26');
+    expect(
+      initial.audit.issues.some((issue) => issue.id === 'schedule-hours' && issue.blocking),
+    ).toBe(true);
+    await command(initial, {
+      action: 'resolve_calendar',
+      payload: { option, calendar: requirements.calendar },
+    });
+    const updated = (await api.get(initial.course_id)).snapshot!;
+    expect(updated.skeleton.requirements.total_hours).toBe('36');
+    expect(scheduleCalculation(updated.skeleton.requirements.calendar, '36')!.deficit).toBe('0');
+    expect(scheduleProblems(updated.skeleton)).toEqual([]);
+    expect(
+      sumHours(updated.skeleton.sessions!.flatMap((session) => Object.values(session.hours))),
+    ).toBe('36');
+    expect(updated.audit.issues.some((issue) => issue.id === 'schedule-hours')).toBe(false);
+  },
+);
+
+it('пустое или противоречивое подтверждённое расписание не скрывает блокировку', async () => {
+  const initial = await start();
+  initial.skeleton.sessions = [];
+  expect(scheduleProblems(initial.skeleton).length).toBeGreaterThan(0);
+  initial.skeleton.requirements.calendar.weekdays_only = true;
+  expect(scheduleCalculation(initial.skeleton.requirements.calendar, '16')!.error).toContain(
+    'Уберите выходные',
+  );
+  await expect(
+    command(initial, {
+      action: 'resolve_calendar',
+      payload: { option: 'confirm', calendar: initial.skeleton.requirements.calendar },
+    }),
+  ).rejects.toMatchObject({ status: 422 });
+});
+
+it('явно согласованный новый дневной лимит сохраняется, даже если после ввода нехватка уже исчезла', async () => {
+  const initial = await start();
+  await command(initial, {
+    action: 'resolve_calendar',
+    payload: {
+      option: 'raise',
+      calendar: { ...initial.skeleton.requirements.calendar, daily_limit: '5', confirmed: true },
+    },
+  });
+  const updated = (await api.get(initial.course_id)).snapshot!;
+  expect(updated.skeleton.requirements.calendar.daily_limit).toBe('5');
+  expect(scheduleProblems(updated.skeleton)).toEqual([]);
 });

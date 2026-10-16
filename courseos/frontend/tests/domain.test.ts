@@ -911,6 +911,7 @@ it.each(['reduce', 'raise', 'extend'] as const)(
     requirements.total_hours = '16';
     requirements.calendar = {
       ...requirements.calendar,
+      schedule: undefined,
       start: '2026-10-19',
       calendar_days: 7,
       daily_limit: '8',
