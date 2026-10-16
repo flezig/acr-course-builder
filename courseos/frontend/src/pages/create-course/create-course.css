@@ -262,8 +262,18 @@
 .create-workspace .request-composer.field {
   gap: 0;
 }
+.request-composer > .field-error {
+  margin-top: 6px;
+}
+/* Как в чат-композерах, видимую подпись заменяет заголовок панели;
+   для скринридеров и getByLabel подпись остаётся в разметке. */
 .request-composer > .field-label {
-  margin-bottom: 7px;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 /* Специфичность выше общих правил темы: иначе поле получает скругление со всех сторон
    и визуально отрывается от панели вложений. */

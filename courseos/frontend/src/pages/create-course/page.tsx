@@ -160,16 +160,12 @@ export function CreateCoursePage() {
         onSubmit={submit}
         className="create-layout"
       >
-        <Panel
-          className="create-request"
-          title="Опишите будущую программу"
-          subtitle="Опишите тему, аудиторию и ограничения своими словами. Остальное уточним."
-        >
+        <Panel className="create-request" title="Какую программу создаём?">
           <Field label="Запрос методиста" className="request-composer">
             <textarea
               {...form.register('request')}
               rows={4}
-              placeholder="Для кого курс, чему нужно научить, сколько часов и какие ограничения важно учесть?"
+              placeholder="Для кого курс, чему нужно научить, сколько часов и какие ограничения важно учесть? Остальное уточним."
             />
             <CreateReferences
               references={values.references}
