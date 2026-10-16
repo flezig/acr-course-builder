@@ -28,7 +28,12 @@ test('Покрытие в программе: три состояния, фил�
       outcome.criteria = [];
       delete outcome.review;
     });
-    s.topics[0].outcome_ids = s.outcomes.map((outcome) => outcome.id);
+    s.topics.forEach((topic) => {
+      topic.outcome_ids = [];
+    });
+    s.topics[0].outcome_ids = s.outcomes
+      .filter((_, index) => index !== 1)
+      .map((outcome) => outcome.id);
     s.assessments = [
       {
         ...s.assessments[0],
@@ -104,13 +109,40 @@ test('Покрытие в программе: три состояния, фил�
   await page.locator('.topic-assessment a[href$="-check-complete"]').first().click();
   await expect(panel.locator('[id$="-check-complete"]')).toBeVisible();
   await expect(panel.locator('[id$="-check-complete"]')).toBeFocused();
-  await panel.getByRole('button', { name: /Недостаточно оценочных средств/ }).click();
+  await panel.getByRole('button', { name: /Недостаточно оценивания/ }).click();
   await expect(row(1)).toBeVisible();
   await expect(row(2)).toBeVisible();
-  await panel.getByRole('button', { name: /Всего результатов/ }).click();
-  await panel.getByLabel('Только с пробелами').check();
+  await panel.getByRole('button', { name: /Все 5/ }).click();
+  await panel.getByRole('button', { name: 'С пробелами 3', exact: true }).click();
   await expect(row(1)).toBeVisible();
-  await panel.getByLabel('Только с пробелами').uncheck();
+  await expect(row(4)).toHaveCount(0);
+  await expect(row(5)).toHaveCount(0);
+  await expect(panel.getByRole('button', { name: 'Без тем 1', exact: true })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Без критериев 2', exact: true })).toBeVisible();
+  await panel.getByRole('button', { name: 'Без тем 1', exact: true }).click();
+  await expect(panel.getByRole('rowheader')).toHaveCount(1);
+  await expect(row(2)).toBeVisible();
+  await panel.getByRole('button', { name: 'Без критериев 2', exact: true }).click();
+  await expect(panel.getByRole('rowheader')).toHaveCount(2);
+  await expect(row(2)).toBeVisible();
+  await expect(row(3)).toBeVisible();
+  await panel.getByRole('button', { name: 'Все 5', exact: true }).click();
+  await expect(panel.getByRole('button', { name: 'Все 5', exact: true })).toHaveCSS(
+    'border-radius',
+    '6px',
+  );
+  await expect(panel.getByRole('button', { name: 'Все 5', exact: true })).toHaveCSS(
+    'min-height',
+    '32px',
+  );
+  const help = panel.getByLabel('Справка о покрытии результатов');
+  await help.focus();
+  await page.keyboard.press('Enter');
+  await expect(help).toBeFocused();
+  await expect(panel.locator('.coverage-help-content')).toBeVisible();
+  await expect(panel.locator('.coverage-help-content')).toContainText('не означают');
+  await page.keyboard.press('Space');
+  await expect(panel.locator('.coverage-help-content')).toBeHidden();
   // Строка уже раскрыта переходом к заданию выше; задания видны только в раскрытой строке.
   await expect(row(1).getByRole('button', { name: 'Скрыть элементы контроля' })).toBeVisible();
   const chain = panel
@@ -127,7 +159,7 @@ test('Покрытие в программе: три состояния, фил�
   const openDisclosures = panel.getByRole('button', { name: 'Скрыть элементы контроля' });
   while (await openDisclosures.count()) await openDisclosures.first().click();
   await page.getByRole('heading', { level: 1 }).click();
-  for (const width of [1440, 390]) {
+  for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     const closeNavigation = page.getByRole('button', { name: 'Закрыть навигацию', exact: true });
     if (await page.locator('.sidebar.is-open').count()) await closeNavigation.click();
@@ -146,13 +178,38 @@ test('Покрытие в программе: три состояния, фил�
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    await panel.screenshot({ path: `../reports/coverage-${width}.png`, animations: 'disabled' });
+    expect(
+      await panel
+        .locator('.coverage-toolbar')
+        .evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
+    await help.click();
+    await expect(panel.locator('.coverage-help-content')).toBeVisible();
+    const helpBounds = await panel.locator('.coverage-help-content').boundingBox();
+    expect(helpBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(helpBounds!.x + helpBounds!.width).toBeLessThanOrEqual(width);
+    await help.click();
+    await panel.locator('.coverage-toolbar').screenshot({
+      path: `../reports/coverage-toolbar-${width}.png`,
+      animations: 'disabled',
+      style: '.ai-page-trigger { visibility: hidden; }',
+    });
+    await panel.screenshot({
+      path: `../reports/coverage-${width}.png`,
+      animations: 'disabled',
+      style: '.ai-page-trigger { visibility: hidden; }',
+    });
     await page.evaluate(() => {
       document.documentElement.dataset.theme = 'dark';
     });
+    await expect(panel.getByRole('button', { name: 'Все 5', exact: true })).toHaveCSS(
+      'border-radius',
+      '6px',
+    );
     await panel.screenshot({
       path: `../reports/coverage-dark-${width}.png`,
       animations: 'disabled',
+      style: '.ai-page-trigger { visibility: hidden; }',
     });
     await page.evaluate(() => {
       document.documentElement.dataset.theme = 'light';
@@ -166,4 +223,51 @@ test('Покрытие в программе: три состояния, фил�
   await page.goto(`${planUrl.replace(/\/plan.*/, '/map')}#coverage`);
   await expect(page).toHaveURL(/\/plan#coverage$/);
   await expect(page.locator('.coverage-panel')).toBeVisible();
+  // Отдельное замечание вне трёх категорий тоже попадает в общий фильтр.
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('courseos-demo-v1')!);
+    const course = Object.values(stored.courses)[0] as { snapshots: Snapshot[] };
+    course.snapshots
+      .at(-1)!
+      .skeleton.assessments.find(
+        (assessment) => assessment.id === 'coverage-pending-test',
+      )!.action = '';
+    localStorage.setItem('courseos-demo-v1', JSON.stringify(stored));
+  });
+  await page.reload();
+  await panel.getByRole('button', { name: 'С пробелами 4', exact: true }).click();
+  await expect(row(4)).toContainText('Не указана формулировка задания');
+  await expect(panel.getByRole('rowheader')).toHaveCount(4);
+  await expect(panel.locator('.coverage-summary-complete')).toHaveCount(0);
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('courseos-demo-v1')!);
+    const course = Object.values(stored.courses)[0] as { snapshots: Snapshot[] };
+    const s = course.snapshots.at(-1)!.skeleton;
+    s.outcomes = [s.outcomes[4]];
+    localStorage.setItem('courseos-demo-v1', JSON.stringify(stored));
+  });
+  await page.reload();
+  await expect(panel.getByRole('heading')).toHaveText('Покрытие результатов· 1 результат');
+  await expect(panel.locator('.coverage-summary-complete')).toHaveText(
+    'Связи и критерии заполнены',
+  );
+  for (const label of ['С пробелами', 'Без тем', 'Недостаточно оценивания', 'Без критериев']) {
+    const button = panel.getByRole('button', { name: `${label} 0`, exact: true });
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    await expect(panel.getByRole('rowheader')).toHaveCount(0);
+    await expect(panel.getByRole('status')).toHaveText('По выбранному фильтру результатов нет.');
+    await expect(button.locator('.has-gaps')).toHaveCount(0);
+  }
+  await panel.getByRole('button', { name: 'Все 1', exact: true }).click();
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('courseos-demo-v1')!);
+    const course = Object.values(stored.courses)[0] as { snapshots: Snapshot[] };
+    course.snapshots.at(-1)!.skeleton.outcomes = [];
+    localStorage.setItem('courseos-demo-v1', JSON.stringify(stored));
+  });
+  await page.reload();
+  await expect(panel.getByRole('heading')).toHaveText('Покрытие результатов· 0 результатов');
+  await expect(panel.getByRole('status')).toHaveText('Результатов обучения пока нет.');
+  await expect(panel.locator('.coverage-summary-complete')).toHaveCount(0);
 });

@@ -4,12 +4,13 @@ import { Link, useLocation } from 'react-router-dom';
 import type { Snapshot } from '../../entities/course/model/schema';
 import { assessmentLabels } from '../../entities/course/model/presets';
 import { Panel } from '../../shared/ui/ui';
+import { plural } from '../../shared/lib/plural';
 import { buildCoverage } from './coverage-model';
 import { buildMap, compactMapTitle } from './map-model';
 import { MapLinkEditor, type LinkRequest } from './map-link-editor';
 import './coverage-matrix.css';
 
-type Filter = 'all' | 'topics' | 'assessment' | 'criteria';
+type Filter = 'all' | 'gaps' | 'topics' | 'assessment' | 'criteria';
 export function CoverageMatrix({
   snapshot,
   planHref,
@@ -23,7 +24,6 @@ export function CoverageMatrix({
 }) {
   const location = useLocation();
   const [filter, setFilter] = useState<Filter>('all');
-  const [onlyGaps, setOnlyGaps] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [linkRequest, setLinkRequest] = useState<LinkRequest | null>(null);
   const rows = buildCoverage(snapshot.skeleton);
@@ -40,7 +40,6 @@ export function CoverageMatrix({
     if (row) {
       setExpanded((previous) => (previous.includes(row.id) ? previous : [...previous, row.id]));
       setFilter('all');
-      setOnlyGaps(false);
     }
   }, [location.hash, snapshot.skeleton]);
   useEffect(() => {
@@ -52,32 +51,34 @@ export function CoverageMatrix({
       assignment.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
-  }, [location.hash, expanded, filter, onlyGaps]);
+  }, [location.hash, expanded, filter]);
+  const gapCount = rows.filter((row) => row.gaps.length > 0).length;
   const summaries: { key: Filter; label: string; count: number }[] = [
-    { key: 'all', label: 'Всего результатов', count: rows.length },
+    { key: 'all', label: 'Все', count: rows.length },
+    { key: 'gaps', label: 'С пробелами', count: gapCount },
     {
       key: 'topics',
-      label: 'Без связанных тем',
+      label: 'Без тем',
       count: rows.filter((row) => !row.topics.length).length,
     },
     {
       key: 'assessment',
-      label: 'Недостаточно оценочных средств',
+      label: 'Недостаточно оценивания',
       count: rows.filter((row) => row.missingAssessments).length,
     },
     {
       key: 'criteria',
-      label: 'Без критериев оценки',
+      label: 'Без критериев',
       count: rows.filter((row) => row.missingCriteria).length,
     },
   ];
   const visible = rows.filter(
     (row) =>
-      (!onlyGaps || row.gaps.length > 0) &&
-      (filter === 'all' ||
-        (filter === 'topics' && !row.topics.length) ||
-        (filter === 'assessment' && row.missingAssessments) ||
-        (filter === 'criteria' && row.missingCriteria)),
+      filter === 'all' ||
+      (filter === 'gaps' && row.gaps.length > 0) ||
+      (filter === 'topics' && !row.topics.length) ||
+      (filter === 'assessment' && row.missingAssessments) ||
+      (filter === 'criteria' && row.missingCriteria),
   );
   function link(outcomeId: string, target: LinkRequest['target']) {
     const node = buildMap(snapshot.skeleton).nodes.find(
@@ -91,38 +92,56 @@ export function CoverageMatrix({
     return `/courses/${snapshot.course_id}/map?${search}`;
   }
   return (
-    <Panel
-      title="Покрытие результатов"
-      subtitle="Наличие связей и проверка их соответствия показаны отдельно."
-      className="coverage-panel"
-    >
-      <div id="coverage" className="coverage-summary" aria-label="Сводка покрытия">
-        {summaries.map(({ key, label, count }) => (
-          <button
-            key={key}
-            aria-pressed={filter === key}
-            onClick={() => {
-              setFilter(key);
-              setOnlyGaps(false);
-            }}
-          >
-            <strong>{count}</strong>
-            <span>{label}</span>
-          </button>
-        ))}
+    <Panel className="coverage-panel">
+      <div id="coverage" className="coverage-toolbar">
+        <div className="coverage-heading">
+          <h2>
+            Покрытие результатов
+            <span className="coverage-total">
+              · {rows.length} {plural(rows.length, ['результат', 'результата', 'результатов'])}
+            </span>
+          </h2>
+          <details className="coverage-help">
+            <summary aria-label="Справка о покрытии результатов">ⓘ</summary>
+            <div className="coverage-help-content">
+              <p>
+                Для каждого результата нужны минимум два оценочных средства. «Без критериев» —
+                критерии отсутствуют или не заполнены у одного из заданий.
+              </p>
+              <p>
+                «С пробелами» показывает результаты с любыми замечаниями. Категории могут
+                пересекаться; каждый результат в общем счётчике учитывается один раз.
+              </p>
+              <p>
+                Заполненные связи и критерии не означают, что методист проверил их соответствие.
+                Статус проверки показан отдельно в таблице.
+              </p>
+            </div>
+          </details>
+        </div>
+        <div className="coverage-summary" role="group" aria-label="Фильтры покрытия">
+          {summaries.map(({ key, label, count }) => (
+            <button
+              type="button"
+              key={key}
+              className={key === 'topics' ? 'coverage-category-start' : undefined}
+              aria-pressed={filter === key}
+              onClick={() => setFilter(key)}
+            >
+              <span>{label}</span>
+              <span className={`coverage-count${key !== 'all' && count > 0 ? ' has-gaps' : ''}`}>
+                {count}
+              </span>
+            </button>
+          ))}
+        </div>
+        {rows.length > 0 && gapCount === 0 && (
+          <p className="coverage-complete-note coverage-summary-complete">
+            <Check size={14} aria-hidden="true" />
+            Связи и критерии заполнены
+          </p>
+        )}
       </div>
-      <label className="checkbox coverage-filter">
-        <input
-          type="checkbox"
-          checked={onlyGaps}
-          onChange={(event) => setOnlyGaps(event.target.checked)}
-        />
-        Только с пробелами
-      </label>
-      <p className="coverage-note">
-        Для каждого результата нужны минимум два оценочных средства. «Без критериев оценки» —
-        критерии отсутствуют или не заполнены у одного из заданий.
-      </p>
       <div className="table-scroll" tabIndex={0} role="region" aria-label="Покрытие результатов">
         <table className="coverage-matrix">
           <thead>
@@ -332,7 +351,13 @@ export function CoverageMatrix({
             })}
           </tbody>
         </table>
-        {!visible.length && <p role="status">По выбранным фильтрам результатов нет.</p>}
+        {!visible.length && (
+          <p role="status">
+            {rows.length
+              ? 'По выбранному фильтру результатов нет.'
+              : 'Результатов обучения пока нет.'}
+          </p>
+        )}
       </div>
       {linkRequest && (
         <MapLinkEditor
