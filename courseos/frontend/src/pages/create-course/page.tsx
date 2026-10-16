@@ -13,6 +13,8 @@ import { inputSchema, type Requirements } from '../../entities/course/model/sche
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
 import { parameterDiscrepancies } from '../../entities/course/model/request-parameters';
 import { CreateReferences } from './create-references';
+import { useDictation } from '../../features/voice-input/use-dictation';
+import { DictationButton } from '../../features/voice-input/dictation-button';
 import { ProfessionalStandardFields } from '../../features/professional-standard/professional-standard-fields';
 import { isProfessionalStandardReference } from '../../entities/course/model/professional-standards';
 import { contentHash } from '../../shared/lib/decimal';
@@ -43,6 +45,10 @@ export function CreateCoursePage() {
         return emptyRequirements;
       }
     })(),
+  });
+  const dictation = useDictation({
+    getText: () => form.getValues('request'),
+    setText: (text) => form.setValue('request', text, { shouldDirty: true, shouldValidate: true }),
   });
   const allowNavigation = useUnsavedChanges(form.formState.isDirty && !command.isSuccess);
   useEffect(() => {
@@ -76,6 +82,7 @@ export function CreateCoursePage() {
     setConfirmed(false);
   }, [values.request]);
   const submit = form.handleSubmit(async (values) => {
+    dictation.stop();
     if (discrepancies.length || (api.mode === 'demo' && changedRequest && !confirmed)) {
       if (parametersRef.current) parametersRef.current.open = true;
       setConfirmationError(
@@ -171,22 +178,26 @@ export function CreateCoursePage() {
               references={values.references}
               onChange={(value) => form.setValue('references', value, { shouldDirty: true })}
               sendButton={
-                <button
-                  className={`send-request ${values.request.trim() ? 'ready' : ''}`}
-                  disabled={command.isPending}
-                  type="submit"
-                  aria-label="Отправить запрос"
-                  title={command.isPending ? 'Запрос сохраняется…' : 'Отправить запрос'}
-                >
-                  {command.isPending ? (
-                    <Loader2 className="spin" size={18} />
-                  ) : (
-                    <ArrowUp size={18} />
-                  )}
-                </button>
+                <>
+                  <DictationButton dictation={dictation} />
+                  <button
+                    className={`send-request ${values.request.trim() ? 'ready' : ''}`}
+                    disabled={command.isPending}
+                    type="submit"
+                    aria-label="Отправить запрос"
+                    title={command.isPending ? 'Запрос сохраняется…' : 'Отправить запрос'}
+                  >
+                    {command.isPending ? (
+                      <Loader2 className="spin" size={18} />
+                    ) : (
+                      <ArrowUp size={18} />
+                    )}
+                  </button>
+                </>
               }
             />
           </Field>
+          {dictation.error && <Notice tone="error">{dictation.error}</Notice>}
           <details className="parameter-summary" ref={parametersRef}>
             <summary>
               <span className="parameter-summary-heading">

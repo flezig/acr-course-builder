@@ -414,6 +414,30 @@
   background: var(--theme-raised, #eef0f3);
   color: var(--ink);
 }
+.create-workspace .request-composer.field .dictation-button {
+  flex-shrink: 0;
+  width: 36px;
+  min-height: 36px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  touch-action: none;
+  user-select: none;
+}
+.create-workspace .request-composer.field .dictation-button:hover {
+  background: var(--theme-raised, #eef0f3);
+  color: var(--ink);
+}
+.create-workspace .request-composer.field .dictation-button[aria-pressed='true'] {
+  background: var(--theme-red-surface, #fbe9e8);
+  color: var(--theme-red-ink, #a52c2c);
+}
+.create-workspace .request-composer.field .dictation-button + .send-request {
+  margin-left: 0;
+}
 /* Кнопка отправки как в чатах: серая, пока запрос пуст, и тёмная, когда текст введён. */
 .create-workspace .request-composer.field .send-request {
   flex-shrink: 0;
