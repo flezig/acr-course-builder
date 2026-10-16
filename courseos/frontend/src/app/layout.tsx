@@ -34,14 +34,7 @@ import { DismissibleDetails } from '../shared/ui/dismissible-details';
 import { SignInDialog } from '../features/methodist-sign-in/sign-in-dialog';
 import { SettingsDialog } from '../features/workspace-settings/settings-dialog';
 import { AiPageEdit } from '../features/ai-page-edit/ai-page-edit';
-import { FeedbackPrompt } from '../features/response-feedback/feedback-prompt';
 import courseosLogo from '../shared/assets/courseos-logo.png';
-// Страницы, содержимое которых собрала система: только их и просим оценить.
-const generatedPages = ['plan', 'map', 'audit', 'materials'] as const;
-function generatedPage(pathname: string) {
-  const page = pathname.split('/').at(-1);
-  return generatedPages.find((item) => item === page) ?? null;
-}
 export function Layout() {
   return (
     <UnsavedProvider>
@@ -159,7 +152,6 @@ function LayoutContent() {
       window.removeEventListener('scroll', save);
     };
   }, [location, snapshot?.course_version]);
-  const feedbackPage = generatedPage(location.pathname);
   const currentTitle =
     courses.data?.find((item) => item.course_id === courseId)?.title ||
     course.data?.requirements.title;
@@ -397,14 +389,6 @@ function LayoutContent() {
         </header>
         <main id="main" tabIndex={-1}>
           <Outlet key={api.mode} />
-          {courseId && feedbackPage && snapshot && (
-            <FeedbackPrompt
-              key={`${courseId}-${snapshot.course_version}-${feedbackPage}`}
-              subject="generation"
-              section={feedbackPage}
-              question="Как вам то, что система сгенерировала на этой странице?"
-            />
-          )}
         </main>
         <AiPageEdit />
       </div>

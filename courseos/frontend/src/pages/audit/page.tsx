@@ -1,3 +1,4 @@
+import { FeedbackPrompt } from '../../features/response-feedback/feedback-prompt';
 import { Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, AlertTriangle, CircleDashed, RefreshCw } from 'lucide-react';
 import {
@@ -47,6 +48,13 @@ export function AuditPage() {
           </p>
         </div>
         <div className="heading-buttons">
+          <FeedbackPrompt
+            key={`${snapshot.course_id}-${snapshot.course_version}-audit`}
+            subject="generation"
+            section="audit"
+            actionLabel="Оценить проверку"
+            question="Насколько полезны результаты проверки?"
+          />
           <button
             className="secondary"
             disabled={

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ThumbsDown, ThumbsUp } from 'lucide-react';
+import { MessageSquare, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import {
   useCourse,
   useFeedback,
@@ -15,6 +15,7 @@ import {
   type FeedbackSection,
 } from '../../entities/course/model/feedback';
 import { ErrorMessage } from '../../shared/ui/ui';
+import { DismissibleDetails } from '../../shared/ui/dismissible-details';
 import './response-feedback.css';
 
 /**
@@ -27,13 +28,16 @@ export function FeedbackPrompt({
   question,
   request = null,
   responseNote = null,
+  actionLabel,
 }: {
   subject: FeedbackInput['subject'];
   section: FeedbackSection;
   question: string;
   request?: string | null;
   responseNote?: string | null;
+  actionLabel?: string;
 }) {
+  const actionRef = useRef<HTMLDivElement>(null);
   const course = useCourse();
   const feedback = useFeedback();
   const record = useRecordFeedback();
@@ -45,7 +49,7 @@ export function FeedbackPrompt({
   const snapshot = course.data?.snapshot;
   if (!snapshot) return null;
 
-  // Страницу одной версии оценивают один раз: повторный заход показывает прежнюю
+  // Раздел одной версии оценивают один раз: повторный заход показывает прежнюю
   // оценку, а не плодит дубли. Каждое предложение ИИ — отдельный ответ и отдельный отзыв.
   const saved =
     feedback.data?.find((entry) => entry.id === createdId) ??
@@ -61,6 +65,14 @@ export function FeedbackPrompt({
           .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
       : undefined);
   const pending = record.isPending || update.isPending;
+
+  function closeAction() {
+    const disclosure = actionRef.current?.querySelector('details');
+    if (disclosure) {
+      disclosure.open = false;
+      disclosure.querySelector('summary')?.focus();
+    }
+  }
 
   async function rate(rating: FeedbackRating) {
     if (saved?.rating === rating) {
@@ -85,10 +97,11 @@ export function FeedbackPrompt({
       });
       setCreatedId(entry.id);
     }
-    setDetails({ reasons: [], comment: saved?.comment ?? '' });
+    setDetails(actionLabel ? null : { reasons: [], comment: saved?.comment ?? '' });
+    if (actionLabel) closeAction();
   }
 
-  return (
+  const form = (
     <form
       className="response-feedback"
       aria-label="Отзыв об ответе системы"
@@ -97,10 +110,25 @@ export function FeedbackPrompt({
         if (!saved || !details) return;
         update.mutate(
           { id: saved.id, patch: { reasons: details.reasons, comment: details.comment.trim() } },
-          { onSuccess: () => setDetails(null) },
+          {
+            onSuccess: () => {
+              setDetails(null);
+              if (actionLabel) closeAction();
+            },
+          },
         );
       }}
     >
+      {actionLabel && (
+        <button
+          type="button"
+          className="feedback-close"
+          aria-label="Закрыть оценку"
+          onClick={closeAction}
+        >
+          <X size={16} />
+        </button>
+      )}
       <div className="response-feedback-question">
         <span>{question}</span>
         {(['up', 'down'] as const).map((rating) => (
@@ -179,5 +207,31 @@ export function FeedbackPrompt({
       )}
       <ErrorMessage error={record.error || update.error || feedback.error} />
     </form>
+  );
+  if (!actionLabel) return form;
+  return (
+    <div className="feedback-action" ref={actionRef}>
+      <DismissibleDetails
+        dismissKey={`${snapshot.course_id}-${snapshot.course_version}-${section}`}
+      >
+        <summary
+          className="feedback-action-trigger"
+          aria-label={saved ? `${actionLabel}: оценка сохранена` : actionLabel}
+        >
+          {saved ? (
+            saved.rating === 'up' ? (
+              <ThumbsUp size={16} />
+            ) : (
+              <ThumbsDown size={16} />
+            )
+          ) : (
+            <MessageSquare size={16} />
+          )}
+          {actionLabel}
+          {saved && <span className="feedback-action-saved">Сохранено</span>}
+        </summary>
+        {form}
+      </DismissibleDetails>
+    </div>
   );
 }

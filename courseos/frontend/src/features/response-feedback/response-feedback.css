@@ -81,3 +81,95 @@
 .response-feedback .actions {
   margin-top: 0;
 }
+
+.feedback-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.feedback-action {
+  position: relative;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+.feedback-action > details {
+  margin: 0;
+}
+.feedback-action .feedback-action-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 10px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  list-style: none;
+}
+.feedback-action-trigger::-webkit-details-marker {
+  display: none;
+}
+.feedback-action-trigger:hover,
+.feedback-action details[open] > .feedback-action-trigger {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+.feedback-action-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.feedback-action-saved {
+  color: var(--muted);
+  font-size: 11px;
+}
+.feedback-action .response-feedback {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: min(560px, 75dvh);
+  overflow-y: auto;
+  margin: 0;
+  padding: 18px;
+  box-shadow: 0 12px 36px rgb(0 0 0 / 12%);
+}
+.feedback-action .response-feedback-question {
+  padding-right: 24px;
+}
+.feedback-action .response-feedback-question > span {
+  flex-basis: 100%;
+  color: var(--ink);
+  font-weight: 500;
+}
+.feedback-action .feedback-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  min-height: 28px;
+  padding: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.plan-workspace .heading-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 700px) {
+  .feedback-action .response-feedback {
+    position: fixed;
+    top: 50%;
+    right: 16px;
+    left: 16px;
+    width: auto;
+    transform: translateY(-50%);
+  }
+}

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const feedbackSubjectTitles = {
-  generation: 'Сгенерированная страница',
+  generation: 'Сгенерированный раздел',
   ai_edit: 'Правка с ИИ',
 } as const;
 

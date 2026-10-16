@@ -1,3 +1,4 @@
+import { FeedbackPrompt } from '../../features/response-feedback/feedback-prompt';
 import { ProfessionalStandardEditor } from './professional-standard-editor';
 import {
   isProfessionalStandardReference,
@@ -214,6 +215,27 @@ export function PlanPage() {
           </div>
         </div>
         <div className="heading-actions">
+          {tab !== 'review' && (
+            <FeedbackPrompt
+              key={`${snapshot.course_id}-${snapshot.course_version}-${tab}`}
+              subject="generation"
+              section={tab}
+              actionLabel={
+                tab === 'curriculum'
+                  ? 'Оценить план'
+                  : tab === 'calendar'
+                    ? 'Оценить календарь'
+                    : 'Оценить описание'
+              }
+              question={
+                tab === 'curriculum'
+                  ? 'Насколько полезен учебный план?'
+                  : tab === 'calendar'
+                    ? 'Насколько полезен календарь?'
+                    : 'Насколько полезно описание программы?'
+              }
+            />
+          )}
           <button
             className="secondary edit-skeleton"
             onClick={() => {

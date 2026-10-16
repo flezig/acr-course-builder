@@ -1,3 +1,4 @@
+import { FeedbackPrompt } from '../../features/response-feedback/feedback-prompt';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -460,11 +461,18 @@ export function ResultsMap({
     : [];
   return (
     <>
-      <header className="results-heading">
+      <header className="results-heading feedback-heading">
         <div>
           <h1>Карта результатов</h1>
           <p>Выберите результат: где он формируется, чем проверяется и каких связей не хватает.</p>
         </div>
+        <FeedbackPrompt
+          key={`${snapshot.course_id}-${snapshot.course_version}-map`}
+          subject="generation"
+          section="map"
+          actionLabel="Оценить карту"
+          question="Насколько полезна карта результатов?"
+        />
       </header>
       {(feedback || (undo && editable && undo.version === snapshot.course_version)) && (
         <div className="outcome-save-feedback" role="status">

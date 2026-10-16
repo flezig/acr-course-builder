@@ -1,3 +1,4 @@
+import { FeedbackPrompt } from '../../features/response-feedback/feedback-prompt';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Layers3 } from 'lucide-react';
 import { useCourse } from '../../entities/course/api/provider';
@@ -84,11 +85,18 @@ export function MaterialsPage() {
   );
   return (
     <>
-      <header id="exports" className="page-heading">
+      <header id="exports" className="page-heading feedback-heading">
         <div>
           <h1>Материалы программы</h1>
           <p>Планы лекций и содержание слайдов по модулям, практические задания и тесты.</p>
         </div>
+        <FeedbackPrompt
+          key={`${snapshot.course_id}-${snapshot.course_version}-materials`}
+          subject="generation"
+          section="materials"
+          actionLabel="Оценить материалы"
+          question="Насколько полезны материалы программы?"
+        />
       </header>
       <ProgramStatus status={status} />
       <JobPanel job={view.job} version={view.latest_version} readonly={!view.is_latest} compact />
