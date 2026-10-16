@@ -59,6 +59,9 @@
 :root[data-theme='dark'] :is(button, .button) {
   border-radius: 12px;
 }
+:root[data-theme='dark'] .ai-page-trigger {
+  border-radius: 999px;
+}
 :root[data-theme='dark'] :is(button.primary, .button.primary) {
   background: var(--theme-control);
   border-color: var(--theme-control);
