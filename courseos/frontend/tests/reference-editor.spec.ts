@@ -51,7 +51,7 @@ for (const verified of [false, true]) {
       verified ? 'Текст сверен с оригиналом.' : 'Текст ещё не сверен с оригиналом.',
     );
     await expect(card).not.toContainText(/user_text|available|unverified|confirmed/);
-    await page.getByRole('button', { name: 'Сохранить основания в новой ревизии' }).click();
+    await page.getByRole('button', { name: 'Сохранить основания в новой версии' }).click();
     await expect(
       page.getByRole('button', { name: 'Добавить текст, PDF, DOCX или ссылку' }),
     ).toBeVisible();
