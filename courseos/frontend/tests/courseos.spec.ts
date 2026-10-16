@@ -16,7 +16,7 @@ async function createPython(page: Page, incomplete = false) {
     await page
       .getByLabel('Какой входной уровень слушателей?', { exact: true })
       .fill('Без опыта программирования');
-    await page.getByRole('button', { name: 'Сохранить ответы и построить каркас' }).click();
+    await page.getByRole('button', { name: 'Сохранить ответы и построить программу' }).click();
   }
   await expect(page.locator('.verdict')).toBeVisible();
   return page.url().match(/courses\/([^/]+)/)![1];
@@ -53,7 +53,7 @@ async function approveAndWait(page: Page) {
     .click();
   await expect(page.getByText('Технически: черновик полный')).toBeVisible();
 }
-test('Полный путь: уточнения, правка каркаса, аудит, ручная правка и выгрузка JSON', async ({
+test('Полный путь: уточнения, правка структуры программы, аудит, ручная правка и выгрузка JSON', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -65,7 +65,7 @@ test('Полный путь: уточнения, правка каркаса, а
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Уточните 1 параметров' })).toBeVisible();
   await page.getByLabel('Какой входной уровень слушателей?').fill('Без опыта программирования');
-  await page.getByRole('button', { name: 'Сохранить ответы и построить каркас' }).click();
+  await page.getByRole('button', { name: 'Сохранить ответы и построить программу' }).click();
   await expect(page.locator('.verdict')).toBeVisible();
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await expect(page.locator('.explanation')).toHaveCount(5);

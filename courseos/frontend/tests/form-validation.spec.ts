@@ -39,7 +39,7 @@ test('Clarifications reject the screenshot input locally and require a program t
     ['Какая итоговая аттестация предусмотрена?', 'Проект'],
   ])
     await page.getByLabel(label, { exact: true }).fill(value);
-  const submit = page.getByRole('button', { name: 'Сохранить ответы и построить каркас' });
+  const submit = page.getByRole('button', { name: 'Сохранить ответы и построить программу' });
   await submit.click();
   const type = page.getByLabel('Какой тип программы нужен?', { exact: true });
   await expect(type).toHaveAccessibleDescription('Выберите тип программы.');

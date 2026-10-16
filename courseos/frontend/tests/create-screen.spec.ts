@@ -21,7 +21,7 @@ for (const [width, height] of [
     const submitBounds = await submit.boundingBox();
     expect(upload!.y).toBeGreaterThanOrEqual(request!.y + request!.height);
     expect(submitBounds!.y).toBeGreaterThanOrEqual(upload!.y + upload!.height);
-    await expect(page.getByText('Сначала каркас', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Сначала структура программы', { exact: true })).toHaveCount(0);
     await expect(page.getByText('ОБРАЗЕЦ АЦР', { exact: true })).toHaveCount(0);
     if (width > 1000) {
       await expect(page.locator('.example').last()).toBeInViewport({ ratio: 1 });

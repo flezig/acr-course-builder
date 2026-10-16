@@ -587,7 +587,7 @@ export function skeletonRationaleMarkdown(snapshot: Snapshot): string {
     '## Сведения о сохранённой версии',
     `Курс: ${snapshot.course_id}. Версия курса: ${snapshot.course_version}. Ревизия плана: ${snapshot.skeleton_version}.`,
     `Сохранено: ${snapshot.created_at}. Режим: ${snapshot.mode}. Происхождение: ${snapshot.provenance}.`,
-    `SHA-256 каркаса: ${snapshot.skeleton_hash}.`,
+    `SHA-256 структуры программы: ${snapshot.skeleton_hash}.`,
     'Контрольная сумма позволяет сопоставить это описание с исходными данными той же версии.',
     '### Указатели для сверки оснований',
     ...elements.flatMap((element, i) => [

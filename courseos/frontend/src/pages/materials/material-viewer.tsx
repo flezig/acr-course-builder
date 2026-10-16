@@ -43,7 +43,8 @@ export function MaterialViewer({
       <h2>{material.title}</h2>
       {material.stale && (
         <Notice tone="warning">
-          Ожидает обновления после нового утверждения. Содержание относится к прежнему каркасу.
+          Ожидает обновления после нового утверждения. Содержание относится к прежней структуре
+          программы.
         </Notice>
       )}
       <pre className="material-content">{material.content}</pre>

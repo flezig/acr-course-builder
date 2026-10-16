@@ -251,7 +251,7 @@ function LayoutContent() {
         </div>
         <nav aria-label="Экраны курса">
           {[
-            { path: 'plan', title: 'Каркас и учебный план', Icon: LayoutList },
+            { path: 'plan', title: 'Программа и учебный план', Icon: LayoutList },
             { path: 'map', title: 'Карта результатов', Icon: Network },
             { path: 'audit', title: 'Проверка программы', Icon: ShieldCheck },
             { path: 'materials', title: 'Материалы и выгрузки', Icon: Files },

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Snapshot } from '../src/entities/course/model/schema';
-test('Покрытие в каркасе: три состояния, фильтры, цепочка и редакторы', async ({ page }) => {
+test('Покрытие в программе: три состояния, фильтры, цепочка и редакторы', async ({ page }) => {
   await page.goto('/');
   await page
     .getByRole('button', {
