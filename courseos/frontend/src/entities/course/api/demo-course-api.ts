@@ -235,6 +235,33 @@ function finalize(snapshot: Snapshot): Snapshot {
   snapshot.approval_applicable = approvalMatches(snapshot);
   return withManifest(snapshot);
 }
+function affectedTopicMaterials(snapshot: Snapshot, topicId: string) {
+  if (!snapshot.skeleton.topics.some((topic) => topic.id === topicId))
+    throw new ApiError(422, 'Тема не найдена.');
+  const topicIds = new Set([topicId]);
+  // Зависимость может проходить через несколько тем и не совпадать с их порядком.
+  let previousSize: number;
+  do {
+    previousSize = topicIds.size;
+    for (const topic of snapshot.skeleton.topics)
+      if (topic.prerequisite_ids.some((id) => topicIds.has(id))) topicIds.add(topic.id);
+  } while (previousSize !== topicIds.size);
+  const outcomeIds = new Set(
+    snapshot.skeleton.topics
+      .filter((topic) => topicIds.has(topic.id))
+      .flatMap((topic) => topic.outcome_ids),
+  );
+  return snapshot.materials.filter(
+    (material) =>
+      topicIds.has(material.topic_id) || material.outcome_ids.some((id) => outcomeIds.has(id)),
+  );
+}
+function projectMaterial(snapshot: Snapshot, materialId: string) {
+  const material = snapshot.materials.find((item) => item.id === materialId);
+  if (!material || !['project', 'portfolio', 'exam', 'mentor_interview'].includes(material.type))
+    throw new ApiError(422, 'Выберите существующий проект или материал итогового оценивания.');
+  return material;
+}
 async function advance(courseId: string, course: StoredCourse) {
   if (!active(course.job)) return;
   const elapsed = Date.now() - Date.parse(course.job.started_at);
@@ -267,19 +294,23 @@ async function advance(courseId: string, course: StoredCourse) {
       ...new Set([...course.job.steps, ...completed.map((t) => `Сохранён шаг: ${t.title}`)]),
     ];
     const generated = await makeMaterials(base.skeleton);
-    const preserved = base.materials.filter((m) => !m.stale);
-    const materials = generated.map((m) => preserved.find((p) => p.id === m.id) || m);
-    const applied = base.changes.at(-1);
-    const plan = applied ? course.plans.find((p) => p.id === applied.id) : undefined;
-    if (plan?.input.type === 'project') {
-      for (const material of materials.filter((m) => plan.affected.some((a) => a.id === m.id))) {
-        if (material.type === 'project' || material.type === 'seminar')
-          material.content = `${plan.input.replacement}\nСохранить переменные, условия, циклы и утверждённые часы. Проверьте два сценария и выход из игры.`;
+    // Повторная генерация зависимостей темы должна учитывать ранее согласованный проект.
+    const projectPlans = new Map<string, ChangePlan>();
+    for (const change of base.changes) {
+      const plan = course.plans.find((item) => item.id === change.id);
+      if (plan?.input.type === 'project') projectPlans.set(plan.input.target_id, plan);
+    }
+    for (const plan of projectPlans.values()) {
+      for (const material of generated.filter((m) => plan.affected.some((a) => a.id === m.id))) {
+        if (material.id === plan.input.target_id || material.type === 'seminar')
+          material.content = plan.input.replacement;
         if (material.type === 'working_program')
           material.content += `\nУточнённое требование к проекту: ${plan.input.replacement}`;
         material.hash = await materialHash(material);
       }
     }
+    const preserved = base.materials.filter((m) => !m.stale);
+    const materials = generated.map((m) => preserved.find((p) => p.id === m.id) || m);
     const completedIds = new Set(completed.map((topic) => topic.id));
     const savedIds = new Set(course.job.partial_materials.map((material) => material.id));
     course.job.partial_materials.push(
@@ -665,15 +696,21 @@ export class DemoCourseApi implements CourseApi {
               throw new ApiError(409, 'Сначала утвердите каркас и подготовьте материалы.');
             const input = envelope.payload;
             const requires = input.type !== 'question';
+            const project =
+              input.type === 'project' ? projectMaterial(base, input.target_id) : null;
             const affected =
               input.type === 'question'
                 ? base.materials.filter((m) => m.questions.some((q) => q.id === input.target_id))
                 : input.type === 'project'
                   ? base.materials.filter(
-                      (m) => m.id === 'project-final' || m.topic_id === 'topic-7',
+                      (m) =>
+                        m.id === project!.id ||
+                        m.topic_id === project!.topic_id ||
+                        (project!.assessment_id !== null &&
+                          m.assessment_id === project!.assessment_id),
                     )
                   : input.type === 'topic'
-                    ? base.materials.filter((m) => m.topic_id === input.target_id)
+                    ? affectedTopicMaterials(base, input.target_id)
                     : base.materials;
             if (!affected.length) throw new ApiError(422, 'Выберите существующий элемент.');
             plan = {
@@ -741,8 +778,9 @@ export class DemoCourseApi implements CourseApi {
                 topic.title = plan.input.replacement;
                 topic.content = plan.input.replacement;
               } else {
+                const project = projectMaterial(base, plan.input.target_id);
                 skeleton.assessments
-                  .filter((a) => a.topic_id === 'topic-final')
+                  .filter((a) => a.id === project.assessment_id || a.topic_id === project.topic_id)
                   .forEach((a) => {
                     a.action = plan!.input.replacement;
                   });

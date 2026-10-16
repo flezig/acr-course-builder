@@ -471,6 +471,121 @@ describe('Согласование, задачи и версии demo', () => {
   );
 });
 describe('Правки, сохранность, аудит и JSON', () => {
+  it('правка темы учитывает общие оценочные материалы и защищает ручные зависимости', async () => {
+    let snapshot = await fullPython();
+    await api.command({
+      action: 'manual_material',
+      course_id: snapshot.course_id,
+      expected_version: snapshot.course_version,
+      request_id: crypto.randomUUID(),
+      payload: { material_id: 'project-final', content: 'Проект проверен методистом' },
+    });
+    snapshot = (await api.get(snapshot.course_id)).snapshot!;
+    const topic = snapshot.skeleton.topics.find((item) => item.id === 'topic-7')!;
+    const preview = await api.command({
+      action: 'change_preview',
+      course_id: snapshot.course_id,
+      expected_version: snapshot.course_version,
+      request_id: crypto.randomUUID(),
+      payload: {
+        type: 'topic',
+        target_id: topic.id,
+        request: 'Уточнить тему',
+        replacement: 'Новая тема проекта',
+      },
+    });
+    const plan = preview.change_plan!;
+    expect(plan.affected.map((item) => item.id)).toEqual(
+      expect.arrayContaining([`working_program-${topic.id}`, 'project-final', 'test-final']),
+    );
+    expect(plan.affected.find((item) => item.id === 'project-final')!.manual).toBe(true);
+    await expect(
+      api.command({
+        action: 'change_apply',
+        course_id: snapshot.course_id,
+        expected_version: snapshot.course_version,
+        request_id: crypto.randomUUID(),
+        payload: { change_id: plan.id, overwrite_manual: false },
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+    await api.command({
+      action: 'change_apply',
+      course_id: snapshot.course_id,
+      expected_version: snapshot.course_version,
+      request_id: crypto.randomUUID(),
+      payload: { change_id: plan.id, overwrite_manual: true },
+    });
+    const draft = (await api.get(snapshot.course_id)).snapshot!;
+    expect(
+      draft.materials
+        .filter((item) => plan.affected.some((a) => a.id === item.id))
+        .every((item) => item.stale),
+    ).toBe(true);
+    await approve(draft);
+    vi.advanceTimersByTime(2500);
+    const final = (await api.get(snapshot.course_id)).snapshot!;
+    expect(
+      final.materials.find((item) => item.id === `working_program-${topic.id}`)!.content,
+    ).toContain('Новая тема проекта');
+    expect(final.materials.every((item) => !item.stale)).toBe(true);
+    for (const id of plan.preserved_ids)
+      expect(final.materials.find((item) => item.id === id)!.hash).toBe(
+        snapshot.materials.find((item) => item.id === id)!.hash,
+      );
+  });
+  it('проект определяется по выбранному материалу и связям, а не по фиксированным id', async () => {
+    const snapshot = await fullPython();
+    const stored = JSON.parse(localStorage.getItem('courseos-demo-v1')!);
+    const latest = stored.courses[snapshot.course_id].snapshots.at(-1);
+    const project = latest.materials.find((item: { id: string }) => item.id === 'project-final');
+    project.id = 'custom-project';
+    project.topic_id = 'custom-final-topic';
+    const assessment = latest.skeleton.assessments.find(
+      (item: { id: string }) => item.id === project.assessment_id,
+    );
+    assessment.topic_id = project.topic_id;
+    localStorage.setItem('courseos-demo-v1', JSON.stringify(stored));
+    await expect(
+      api.command({
+        action: 'change_preview',
+        course_id: snapshot.course_id,
+        expected_version: snapshot.course_version,
+        request_id: crypto.randomUUID(),
+        payload: {
+          type: 'project',
+          target_id: 'missing',
+          request: 'Правка',
+          replacement: 'Проект',
+        },
+      }),
+    ).rejects.toMatchObject({ status: 422 });
+    const preview = await api.command({
+      action: 'change_preview',
+      course_id: snapshot.course_id,
+      expected_version: snapshot.course_version,
+      request_id: crypto.randomUUID(),
+      payload: {
+        type: 'project',
+        target_id: project.id,
+        request: 'Уточнить проект',
+        replacement: 'Новый проект',
+      },
+    });
+    expect(preview.change_plan!.affected.map((item) => item.id)).toEqual(['custom-project']);
+    expect(preview.change_plan!.preserved_ids).toContain('seminar-topic-7');
+    await api.command({
+      action: 'change_apply',
+      course_id: snapshot.course_id,
+      expected_version: snapshot.course_version,
+      request_id: crypto.randomUUID(),
+      payload: { change_id: preview.change_plan!.id, overwrite_manual: false },
+    });
+    const draft = (await api.get(snapshot.course_id)).snapshot!;
+    expect(draft.skeleton.assessments.find((item) => item.id === assessment.id)!.action).toBe(
+      'Новый проект',
+    );
+    expect(draft.materials.find((item) => item.id === 'seminar-topic-7')!.stale).toBe(false);
+  });
   it('вопрос меняет ключ/объяснение, сохраняет hash каркаса и ручной соседний материал', async () => {
     let snapshot = await fullPython();
     const manual = snapshot.materials.find((m) => m.type === 'seminar')!;
@@ -628,6 +743,31 @@ describe('Правки, сохранность, аудит и JSON', () => {
       'API допустим',
     );
     expect(final.changes[0].preserved.every((p) => p.equal)).toBe(true);
+    const topicPlan = await api.command({
+      action: 'change_preview',
+      course_id: final.course_id,
+      expected_version: final.course_version,
+      request_id: crypto.randomUUID(),
+      payload: {
+        type: 'topic',
+        target_id: 'topic-7',
+        request: 'Уточнить тему',
+        replacement: 'Сборка проекта',
+      },
+    });
+    await api.command({
+      action: 'change_apply',
+      course_id: final.course_id,
+      expected_version: final.course_version,
+      request_id: crypto.randomUUID(),
+      payload: { change_id: topicPlan.change_plan!.id, overwrite_manual: false },
+    });
+    await approve((await api.get(final.course_id)).snapshot!);
+    vi.advanceTimersByTime(2500);
+    const regenerated = (await api.get(final.course_id)).snapshot!;
+    expect(regenerated.materials.find((material) => material.id === 'project-final')!.content).toBe(
+      replacement,
+    );
   });
   it('неподтверждённый источник не становится экспертной проверкой', async () => {
     const snapshot = await fullPython();
