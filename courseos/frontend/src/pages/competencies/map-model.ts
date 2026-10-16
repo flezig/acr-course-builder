@@ -17,10 +17,15 @@ export type MapNode = {
   kind?: string;
   criterion?: string;
 };
-/** Display labels only: the source title and wording remain available in details. */
+// Сокращаем только подпись на карте; исходная формулировка остаётся в деталях.
 export function compactMapTitle(text: string) {
   return (
     text
+      .replace(
+        /^Продемонстрировать выполнение задачи по результату обучения\s*[«"](.+)[»"]$/i,
+        '$1',
+      )
+      .replace(/^Объяснить решение учебной задачи по теме\s*[«"](.+)[»"]$/i, '$1')
       .replace(/^Разбор примера и самостоятельное выполнение:\s*/i, '')
       .replace(/^Демонстрирует действие:\s*/i, '')
       .replace(/^Выполняет учебную задачу\s*(?:по теме\s*)?[:«"—–-]*\s*/i, '')
