@@ -9,12 +9,10 @@ export function ReferenceEditor({
   references,
   onChange,
   courseId,
-  uploadOnly = false,
 }: {
   references: Requirements['references'];
   onChange: (references: Requirements['references']) => void;
-  courseId?: string;
-  uploadOnly?: boolean;
+  courseId: string;
 }) {
   const { api } = useApi();
   const [text, setText] = useState('');
@@ -59,7 +57,7 @@ export function ReferenceEditor({
     setTextVerified(false);
   };
   const retrieve = async () => {
-    if (!courseId || !url) return;
+    if (!url) return;
     if (urlError) {
       urlRef.current?.focus();
       return;
@@ -79,12 +77,6 @@ export function ReferenceEditor({
     if (!file) return;
     setPending(true);
     try {
-      if (!courseId)
-        throw new Error(
-          api.mode === 'demo'
-            ? `«${file.name}»: извлечение PDF/DOCX требует backend. Вставьте текст. Сканы без текста и PPTX не поддерживаются.`
-            : 'Для загрузки сначала создайте программу, затем откройте источники в карте результатов.',
-        );
       const source = await api.uploadReference(courseId, file);
       onChange([...references, source]);
     } catch (e) {
@@ -93,25 +85,6 @@ export function ReferenceEditor({
       setPending(false);
     }
   };
-  const uploadButton = (
-    <label className="button secondary upload">
-      <Upload size={16} /> PDF или DOCX
-      <input
-        aria-label="Загрузить PDF или DOCX"
-        type="file"
-        accept=".pdf,.docx"
-        onChange={(e) => void upload(e.target.files?.[0])}
-        disabled={pending}
-      />
-    </label>
-  );
-  if (uploadOnly)
-    return (
-      <div className="create-upload">
-        {uploadButton}
-        <ErrorMessage error={error} />
-      </div>
-    );
   return (
     <div>
       <div className="reference-fields">
@@ -157,12 +130,19 @@ export function ReferenceEditor({
         <button type="button" onClick={() => void add()}>
           <FileText size={16} /> Добавить источник
         </button>
-        {uploadButton}
-        {courseId && (
-          <button type="button" disabled={pending || !url} onClick={() => void retrieve()}>
-            Получить текст по ссылке
-          </button>
-        )}
+        <label className="button secondary upload">
+          <Upload size={16} /> PDF или DOCX
+          <input
+            aria-label="Загрузить PDF или DOCX"
+            type="file"
+            accept=".pdf,.docx"
+            onChange={(e) => void upload(e.target.files?.[0])}
+            disabled={pending}
+          />
+        </label>
+        <button type="button" disabled={pending || !url} onClick={() => void retrieve()}>
+          Получить текст по ссылке
+        </button>
       </div>
       <ErrorMessage error={error} />
       {references.map((source) => (

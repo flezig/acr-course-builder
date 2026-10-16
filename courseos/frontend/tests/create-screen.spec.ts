@@ -15,11 +15,11 @@ for (const [width, height] of [
     await page.setViewportSize({ width, height });
     await page.goto('/');
     await expect(page.locator('.parameter-summary')).not.toHaveAttribute('open');
-    await expect(page.getByLabel('Ссылка на материал')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Добавить материалы' })).toBeVisible();
     const submit = page.getByRole('button', { name: 'Отправить запрос', exact: true });
     await expect(page.getByLabel('Запрос методиста')).toBeInViewport({ ratio: 1 });
     const request = await page.getByLabel('Запрос методиста').boundingBox();
-    const upload = await page.locator('.create-upload .upload').boundingBox();
+    const upload = await page.locator('.attachment-trigger').boundingBox();
     const submitBounds = await submit.boundingBox();
     expect(upload!.y).toBeGreaterThanOrEqual(request!.y + request!.height);
     expect(submitBounds!.y).toBeGreaterThanOrEqual(upload!.y + upload!.height);

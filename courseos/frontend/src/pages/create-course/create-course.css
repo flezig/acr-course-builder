@@ -50,9 +50,6 @@
 .create-workspace :is(input, textarea)::placeholder {
   color: var(--muted);
 }
-.create-workspace .create-upload {
-  margin: 16px 0;
-}
 .create-workspace .create-submit {
   display: flex;
   align-items: center;
@@ -238,16 +235,155 @@
 .create-workspace .parameter-summary[open] {
   padding-bottom: 14px;
 }
-.create-references p {
+/* Поле запроса и вложения выглядят одним блоком, как композер в чатах:
+   текст сверху, материалы и кнопка «+» внизу. */
+.create-workspace .request-composer.field {
+  gap: 0;
+}
+.request-composer > .field-label {
+  margin-bottom: 7px;
+}
+.create-workspace .request-composer > textarea {
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+}
+.request-composer > textarea:focus-visible {
+  outline: none !important;
+}
+.request-composer > .create-references {
+  padding: 4px 10px 10px;
+  border: 1px solid var(--theme-border, #e4e4e4);
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+  background: var(--theme-paper, #ffffff);
+}
+.request-composer:has(> textarea:focus-visible) :is(> textarea, > .create-references) {
+  border-color: var(--theme-border-strong, #8b8b8b);
+}
+.request-composer.has-error :is(> textarea, > .create-references) {
+  border-color: var(--error-ink, var(--theme-red-ink, #a52c2c));
+}
+.attachment-list {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.attachment-chip,
+.attachment-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 6px 6px 10px;
+  border-radius: 10px;
+  background: var(--theme-subtle, #f6f7fa);
   color: var(--muted);
   font-size: 12px;
 }
-.create-references {
-  margin-top: 14px;
+.attachment-chip > svg,
+.attachment-link > svg {
+  flex-shrink: 0;
+  margin-top: 8px;
 }
-.create-reference + .create-reference {
-  margin-top: 16px;
-}
-.create-reference-saved {
+.attachment-chip > span {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0;
   overflow-wrap: anywhere;
+  color: var(--ink);
+}
+.attachment-link-field.field {
+  flex: 1;
+  margin: 0;
+  gap: 4px;
+}
+.attachment-link-field > .field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.create-workspace .attachment-link-field input {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+:is(.attachment-chip, .attachment-link) > button {
+  flex-shrink: 0;
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+:is(.attachment-chip, .attachment-link) > button:hover {
+  background: var(--theme-raised, #eef0f3);
+  color: var(--ink);
+}
+.attachment-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.create-workspace .attachment-trigger {
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+}
+.create-workspace .attachment-trigger:hover,
+.create-workspace .attachment-trigger[aria-expanded='true'] {
+  background: var(--theme-raised, #eef0f3);
+  color: var(--ink);
+}
+.attachment-hint {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.attachment-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  min-width: 250px;
+  padding: 6px;
+  border: 1px solid var(--theme-border, #e4e4e4);
+  border-radius: 12px;
+  background: var(--theme-paper, #ffffff);
+  box-shadow: 0 12px 32px rgb(20 30 50 / 12%);
+}
+.create-workspace .attachment-popover button {
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-weight: 500;
+  text-align: left;
+}
+.create-workspace .attachment-popover button:is(:hover, :focus-visible) {
+  outline: none !important;
+  background: var(--theme-subtle, #f6f7fa);
+}
+.attachment-popover small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.create-references > .notice {
+  margin: 8px 0 0;
 }

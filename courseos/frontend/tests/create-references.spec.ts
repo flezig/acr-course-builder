@@ -17,6 +17,11 @@ async function openSection(
   return section;
 }
 
+async function addLink(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: 'Добавить материалы' }).click();
+  await page.getByRole('menuitem', { name: /Добавить ссылку/ }).click();
+}
+
 test('Создание курса сохраняет прошлую программу, каталог профстандартов и несколько ссылок', async ({
   page,
 }) => {
@@ -26,10 +31,11 @@ test('Создание курса сохраняет прошлую програ
   await expect(page.getByLabel('Текст прошлой программы')).toHaveCount(0);
   await expect(page.getByLabel('Название прошлой программы')).toHaveCount(0);
   await expect(page.getByLabel('Название ссылки')).toHaveCount(0);
-  await expect(previous.getByLabel('Ссылка на материал')).toBeVisible();
-  await expect(previous.getByLabel('Ссылка на материал')).toHaveCount(1);
+  await expect(previous.getByLabel('Ссылка на материал')).toHaveCount(0);
+  await addLink(page);
+  await expect(previous.getByLabel('Ссылка на материал')).toBeFocused();
   await previous.getByLabel('Ссылка на материал').fill('https://example.com/previous');
-  await previous.getByRole('button', { name: 'Добавить ещё ссылку' }).click();
+  await addLink(page);
   const standards = await openSection(page, 'Сводка параметров');
   await expect(standards.getByLabel('Профстандарт программы')).toHaveValue('teachers');
   await standards.getByLabel('Профстандарт программы').selectOption('devops');
@@ -41,7 +47,7 @@ test('Создание курса сохраняет прошлую програ
     /Введите полную ссылку/,
   );
   await links.getByLabel('Ссылка на материал').nth(1).fill('https://example.com/guide');
-  await links.getByRole('button', { name: 'Добавить ещё ссылку' }).click();
+  await addLink(page);
   await links.getByLabel('Ссылка на материал').nth(2).fill('https://example.com/tasks');
   await expect(page.getByText('Происхождение и проверка фрагмента')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Получить текст по ссылке' })).toHaveCount(0);
@@ -84,7 +90,8 @@ test('Свой профстандарт и референсы примера з�
   await page.getByRole('button', { name: /DevOps: Linux/ }).click();
   const previous = await openSection(page, 'Материалы для программы');
   await expect(previous).toContainText(/Образец АЦР.*текст сохранён/);
-  await expect(previous.getByRole('textbox')).toHaveCount(1);
+  await expect(previous.getByRole('textbox')).toHaveCount(0);
+  await expect(previous.getByRole('button', { name: /Убрать «Образец АЦР/ })).toBeVisible();
   const standards = await openSection(page, 'Сводка параметров');
   await expect(standards.getByLabel('Профстандарт программы')).toHaveValue('devops');
   await standards.getByLabel('Профстандарт программы').selectOption('custom');

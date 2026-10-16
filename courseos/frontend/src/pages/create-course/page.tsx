@@ -153,11 +153,15 @@ export function CreateCoursePage() {
           title="Опишите будущую программу"
           subtitle="Опишите тему, аудиторию и ограничения своими словами. Остальное уточним."
         >
-          <Field label="Запрос методиста">
+          <Field label="Запрос методиста" className="request-composer">
             <textarea
               {...form.register('request')}
               rows={4}
               placeholder="Для кого курс, чему нужно научить, сколько часов и какие ограничения важно учесть?"
+            />
+            <CreateReferences
+              references={values.references}
+              onChange={(value) => form.setValue('references', value, { shouldDirty: true })}
             />
           </Field>
           <details className="parameter-summary" ref={parametersRef}>
@@ -256,10 +260,6 @@ export function CreateCoursePage() {
             )}
             {confirmationError && <Notice tone="error">{confirmationError}</Notice>}
           </details>
-          <CreateReferences
-            references={form.watch('references')}
-            onChange={(value) => form.setValue('references', value, { shouldDirty: true })}
-          />
           <ErrorMessage error={command.error} />
           <div className="create-submit">
             <button className="primary" disabled={command.isPending} type="submit">
