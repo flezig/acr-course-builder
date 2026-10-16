@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { FeedbackPrompt } from '../../features/response-feedback/feedback-prompt';
 import { Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, AlertTriangle, CircleDashed, RefreshCw } from 'lucide-react';
@@ -17,7 +18,17 @@ const checklistStatuses: Record<ChecklistItem['status'], string> = {
   not_checked: 'Не проверено: не хватает данных',
   manual_review: 'Проверяет методист',
 };
+const statusPriority: Record<ChecklistItem['status'], number> = {
+  problem: 0,
+  not_checked: 1,
+  manual_review: 2,
+  exception_accepted: 3,
+  passed: 4,
+};
+
 export function AuditPage() {
+  const [statusFilter, setStatusFilter] = useState<'all' | ChecklistItem['status']>('all');
+  const [sortOrder, setSortOrder] = useState<'priority' | 'title' | 'original'>('priority');
   const query = useCourse();
   const command = useCommand();
   if (query.isPending) return <Loading />;
@@ -29,6 +40,19 @@ export function AuditPage() {
   const general = generalRequirements(snapshot);
   const request = requestChecklist(snapshot);
   const all = [...general, ...request];
+  const visibleItems = (items: ChecklistItem[]) =>
+    items
+      .filter((item) => statusFilter === 'all' || item.status === statusFilter)
+      .sort((left, right) =>
+        sortOrder === 'priority'
+          ? statusPriority[left.status] - statusPriority[right.status]
+          : sortOrder === 'title'
+            ? left.title.localeCompare(right.title, 'ru')
+            : 0,
+      );
+  const visibleCount = all.filter(
+    (item) => statusFilter === 'all' || item.status === statusFilter,
+  ).length;
   const verdict = programVerdict(snapshot);
   const count = (status: ChecklistItem['status']) =>
     all.filter((item) => item.status === status).length;
@@ -95,14 +119,55 @@ export function AuditPage() {
             <dd>{count('manual_review')}</dd>
           </div>
         </dl>
+        <div className="checklist-controls">
+          <label>
+            Статус
+            <select
+              aria-label="Статус"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+            >
+              <option value="all">Все статусы</option>
+              {Object.entries(checklistStatuses).map(([status, title]) => (
+                <option key={status} value={status}>
+                  {title} · {count(status as ChecklistItem['status'])}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Сортировка
+            <select
+              aria-label="Сортировка"
+              value={sortOrder}
+              onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}
+            >
+              <option value="priority">Сначала проблемы</option>
+              <option value="title">По названию</option>
+              <option value="original">Исходный порядок</option>
+            </select>
+          </label>
+          <p className="muted" role="status">
+            Показано {visibleCount} из {all.length}
+          </p>
+        </div>
+        {visibleCount === 0 && (
+          <Empty title="Требований с таким статусом нет">
+            Выберите другой статус или{' '}
+            <button className="link-button" onClick={() => setStatusFilter('all')}>
+              покажите все требования
+            </button>
+            .
+          </Empty>
+        )}
         {(
           [
             [
               'Общие требования',
               'Из файла открытых запросов: проверяются в любой программе.',
-              general,
+              visibleItems(general),
             ],
-            ['Требования запроса', snapshot.skeleton.requirements.title, request],
+            ['Требования запроса', snapshot.skeleton.requirements.title, visibleItems(request)],
           ] as const
         )
           .filter(([, , items]) => items.length > 0)

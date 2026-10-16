@@ -98,3 +98,40 @@
     justify-self: start;
   }
 }
+
+.checklist-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px 20px;
+  margin-bottom: 20px;
+}
+
+.checklist-controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.checklist-controls select {
+  width: auto;
+  max-width: 100%;
+  color: var(--ink);
+}
+
+.checklist-controls p {
+  margin: 0;
+  align-self: center;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .checklist-controls label {
+    width: 100%;
+  }
+
+  .checklist-controls select {
+    width: 100%;
+  }
+}

@@ -74,3 +74,67 @@ test('ссылка очереди на основание оставляет д�
   ).toBeVisible();
   await expect(page.locator('.rationale-decision-list button').first()).toBeVisible();
 });
+
+test('требования сортируются и фильтруются по статусу', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Анализ данных на Python/ }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
+  await expect(page.locator('.course-heading h1')).toBeVisible();
+  await page.getByRole('link', { name: 'Проверка программы', exact: true }).click();
+
+  const items = page.locator('.checklist-item');
+  await expect(items.first()).toBeVisible();
+  const total = await items.count();
+  const general = page.locator('.checklist-panel').first();
+  await expect(general.locator('.checklist-item').first()).toHaveClass(/problem/);
+  const priority = {
+    problem: 0,
+    not_checked: 1,
+    manual_review: 2,
+    exception_accepted: 3,
+    passed: 4,
+  };
+  for (const panel of await page.locator('.checklist-panel').all()) {
+    const statuses = await panel
+      .locator('.checklist-item')
+      .evaluateAll((rows) => rows.map((row) => row.classList.item(1)!));
+    const ranks = statuses.map((status) => priority[status as keyof typeof priority]);
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+  }
+
+  await page.getByLabel('Сортировка').selectOption('original');
+  await expect(general.locator('.checklist-item strong').first()).toHaveText(
+    'ЛК + ПР + ЛБ + СРС равны строке',
+  );
+  await page.getByLabel('Сортировка').selectOption('title');
+  for (const panel of await page.locator('.checklist-panel').all()) {
+    const titles = await panel.locator('.checklist-item strong').allTextContents();
+    expect(titles).toEqual([...titles].sort((a, b) => a.localeCompare(b, 'ru')));
+  }
+
+  const summary = (await page.locator('.checklist-summary').textContent())!;
+  const problemCount = await page.locator('.checklist-item.problem').count();
+  await page.getByLabel('Статус', { exact: true }).selectOption('problem');
+  await expect(items).toHaveCount(problemCount);
+  await expect(page.locator('.checklist-item:not(.problem)')).toHaveCount(0);
+  await expect(page.locator('.checklist-controls').getByRole('status')).toHaveText(
+    `Показано ${problemCount} из ${total}`,
+  );
+  await expect(page.locator('.checklist-summary')).toHaveText(summary);
+  await expect(items.first().getByRole('link', { name: 'Открыть' })).toHaveAttribute(
+    'href',
+    /\/courses\/.+#/,
+  );
+
+  await page.getByLabel('Статус', { exact: true }).selectOption('exception_accepted');
+  await expect(items).toHaveCount(0);
+  await expect(page.getByText('Требований с таким статусом нет')).toBeVisible();
+  await expect(page.locator('.checklist-panel')).toHaveCount(0);
+  await page.getByRole('button', { name: 'покажите все требования' }).click();
+  await expect(items).toHaveCount(total);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByLabel('Сортировка')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
