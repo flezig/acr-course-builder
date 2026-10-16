@@ -57,7 +57,8 @@ export function CreateCoursePage() {
     return () => subscription.unsubscribe();
   }, [form, api.mode]);
   const values = form.watch();
-  const exampleRequest = presets.find((p) => p.id === presetId)?.requirements.request;
+  const exampleRequest = presets.find((p) => p.id === (presetId || values.demo_example))
+    ?.requirements.request;
   const changedRequest = values.request !== exampleRequest;
   const discrepancies = parameterDiscrepancies(values);
   useEffect(() => {
@@ -85,6 +86,8 @@ export function CreateCoursePage() {
         action: 'start',
         payload: {
           ...values,
+          demo_example: api.mode === 'demo' && !changedRequest ? values.demo_example : undefined,
+          clarification_answers: undefined,
           title,
           references: await Promise.all(
             values.references.map(async (reference) => {
@@ -119,7 +122,10 @@ export function CreateCoursePage() {
   const choose = (id: string) => {
     setPresetId(id);
     setConfirmationError('');
-    form.reset(structuredClone(presets.find((p) => p.id === id)!.requirements));
+    form.reset({
+      ...structuredClone(presets.find((p) => p.id === id)!.requirements),
+      demo_example: id as Requirements['demo_example'],
+    });
     formRef.current?.querySelector('.create-request')?.scrollIntoView({
       behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
         ? 'instant'

@@ -31,6 +31,8 @@ const optionalHoursSchema = optionalDecimalSchema
   )
   .refine((value) => !value || onHourStep(value), hourStepMessage);
 export const requirementsSchema = z.object({
+  demo_example: z.enum(['python', 'teachers', 'bank', 'security', 'devops']).optional(),
+  clarification_answers: z.record(z.string(), z.string()).optional(),
   request: z.string(),
   title: z.string(),
   template_id: z.enum(['acr_general', 'acr_professional', 'unknown']),
@@ -501,7 +503,15 @@ export const courseViewSchema = z.object({
   course_id: z.string(),
   latest_version: z.number(),
   versions: z.array(z.number()),
-  questions: z.array(z.object({ field: z.string(), label: z.string() })),
+  questions: z.array(
+    z.object({
+      field: z.string(),
+      label: z.string(),
+      options: z.array(z.string()).optional(),
+      recommended: z.string().optional(),
+      reason: z.string().optional(),
+    }),
+  ),
   job: jobSchema,
   is_latest: z.boolean(),
 });
