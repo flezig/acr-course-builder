@@ -1191,14 +1191,12 @@
 }
 .result-requirements details,
 .outcome-criteria,
-.outcome-source-details,
-.element-rationale {
+.outcome-source-details {
   font-size: 12px;
   line-height: 1.65;
 }
 .result-requirements summary,
-.outcome-source-details summary,
-.element-rationale summary {
+.outcome-source-details summary {
   cursor: pointer;
   padding: 5px 0;
   color: var(--theme-blue-ink);
@@ -1338,12 +1336,30 @@
   margin: 0;
   color: var(--theme-muted);
 }
-.element-rationale p {
-  margin: 6px 0;
+.assessment-facts {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
 }
-.element-rationale small {
-  display: block;
-  color: var(--theme-amber-ink);
+.assessment-facts dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.assessment-facts dt {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-muted);
+}
+.assessment-facts dd {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--theme-foreground);
+}
+.assessment-status {
+  justify-self: start;
+  font-size: 11px;
 }
 .outcome-edit-dialog {
   width: 800px;

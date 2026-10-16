@@ -30,6 +30,7 @@ import { SkeletonEditor } from '../course-plan/skeleton-editor';
 import { buildMap, relatedChain, type MapNode } from './map-model';
 import { MapLinkEditor, type LinkRequest } from './map-link-editor';
 import { plural } from '../../shared/lib/plural';
+import { readableRationaleText } from '../course-plan/rationale-presentation';
 
 const layers = ['Требования', 'Результаты', 'Обучение', 'Оценивание'];
 const gapFilters = {
@@ -311,15 +312,7 @@ export function ResultsMap({
           {n.id.startsWith('topic:') && n.description && n.description !== n.title && (
             <p className="element-role">{n.description}</p>
           )}
-          {n.column === 3 && (
-            <details className="element-rationale">
-              <summary>Критерий и обоснование</summary>
-              <p className="element-role">
-                <strong>Критерий:</strong> {n.criterion || 'Не задан'}
-              </p>
-              {assessmentReason(n)}
-            </details>
-          )}
+          {n.column === 3 && assessmentFacts(n)}
           <button
             className="map-inline-action"
             aria-controls={detailId}
@@ -351,34 +344,54 @@ export function ResultsMap({
       </button>
     );
   }
-  function assessmentReason(n: MapNode) {
+  function assessmentFacts(n: MapNode) {
     const reasons = (snapshot.skeleton.rationales || []).filter(
       (r) =>
         r.kind !== 'gap' &&
         ((r.element_id === n.sourceId && r.related_ids.includes(currentOutcome?.sourceId || '')) ||
           (r.element_id === currentOutcome?.sourceId && r.related_ids.includes(n.sourceId))),
     );
-    return reasons.length ? (
-      reasons.map((r) => (
-        <p key={r.id}>
-          {r.purpose || r.decision}{' '}
-          <small>
-            {r.status === 'expert_checked' || r.status === 'pilot_checked'
-              ? 'Проверенное обоснование'
-              : 'Черновик обоснования — нужна проверка'}
-          </small>
-        </p>
-      ))
-    ) : (
-      <p>
-        Обоснование соответствия оценивания результату отсутствует. Сопоставьте задание с действием
-        и критериями.
-        {editable && (
+    // Автоматические заготовки «Для аудитории …» повторяют вводные курса и ничего не объясняют,
+    // поэтому вместо них показываем общий смысл связи задания с результатом.
+    const written = [
+      ...new Set(
+        reasons
+          .map((r) => r.purpose || r.decision)
+          .filter((text) => text && !text.startsWith('Для аудитории «'))
+          .map((text) => readableRationaleText(snapshot.skeleton, text)),
+      ),
+    ];
+    const checked = reasons.some(
+      (r) => r.status === 'expert_checked' || r.status === 'pilot_checked',
+    );
+    return (
+      <div className="assessment-facts">
+        <dl>
+          <div>
+            <dt>Как оценивать</dt>
+            <dd>{n.criterion || 'Критерий пока не задан'}</dd>
+          </div>
+          <div>
+            <dt>Зачем</dt>
+            <dd>
+              {reasons.length
+                ? written.join(' ') ||
+                  'Участник выполняет задание сам, и по результату видно, освоен ли выбранный результат обучения.'
+                : 'Пока не указано, как задание связано с результатом обучения.'}
+            </dd>
+          </div>
+        </dl>
+        {reasons.length > 0 && (
+          <span className={`badge assessment-status ${checked ? 'green' : 'amber'}`}>
+            {checked ? 'Проверено экспертом' : 'Нужно согласовать с преподавателем'}
+          </span>
+        )}
+        {!reasons.length && editable && (
           <button className="map-inline-action" onClick={() => setEditing(true)}>
-            Проверить и изменить оценивание
+            Связать с результатом
           </button>
         )}
-      </p>
+      </div>
     );
   }
 
