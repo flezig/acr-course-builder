@@ -76,13 +76,13 @@ test('Program editor validates table cells before saving and keeps the entered d
   const total = page.getByLabel('Заявленный объём темы 1', { exact: true });
   await total.fill('не число');
   await expect(total).toHaveAccessibleDescription(/Введите неотрицательное число/);
-  await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
+  await page.getByRole('button', { name: 'Сохранить новую версию' }).click();
   await expect(total).toBeFocused();
   await expect(total).toHaveValue('не число');
   await expect(page.locator('.notice.error')).toHaveCount(0);
   await total.fill('2,5');
   await expect(total).toHaveAttribute('aria-invalid', 'false');
-  await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
+  await page.getByRole('button', { name: 'Сохранить новую версию' }).click();
   await expect(page.getByRole('heading', { name: 'Редактирование программы' })).toHaveCount(0);
 });
 
@@ -116,7 +116,7 @@ test('Material editing validates before saving', async ({ page }) => {
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page
     .getByRole('checkbox', {
-      name: 'Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту ревизию.',
+      name: 'Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту версию.',
     })
     .check();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();

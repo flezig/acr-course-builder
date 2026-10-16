@@ -71,7 +71,7 @@ export function ResultsMap({
   const [feedback, setFeedback] = useState('');
   function saved(before: Skeleton, version: number) {
     setUndo({ before: structuredClone(before), version });
-    setFeedback('Изменение сохранено в новой ревизии.');
+    setFeedback('Изменение сохранено в новой версии.');
   }
   const { nodes, edges } = useMemo(() => buildMap(snapshot.skeleton), [snapshot.skeleton]);
   const [mode, setMode] = useState<'overview' | 'map'>('map');
@@ -423,7 +423,7 @@ export function ResultsMap({
             {action}
           </button>
         ) : (
-          <small>Редактирование доступно в актуальной ревизии</small>
+          <small>Редактирование доступно в актуальной версии</small>
         )}
       </div>
     );
@@ -476,7 +476,7 @@ export function ResultsMap({
                     payload: undo.before,
                   });
                   setUndo(null);
-                  setFeedback('Последнее изменение отменено. Сохранена новая ревизия.');
+                  setFeedback('Последнее изменение отменено. Сохранена новая версия.');
                 } catch {
                   /* Ошибка доступна рядом с действием. */
                 }
@@ -1117,7 +1117,7 @@ export function ResultsMap({
                 Открыть материал
               </Link>
             ))}
-          {!editable && <p className="muted">Эта ревизия доступна для просмотра.</p>}
+          {!editable && <p className="muted">Эта версия доступна для просмотра.</p>}
         </aside>
       )}
       {linkRequest && (

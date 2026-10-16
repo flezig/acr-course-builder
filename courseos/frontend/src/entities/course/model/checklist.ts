@@ -640,7 +640,7 @@ function withFindingStatus(snapshot: Snapshot, items: ChecklistItem[]): Checklis
               item.evidence,
               ...decisions.map(
                 (issue) =>
-                  `${issue.message}. Фактический результат не подтверждён. Принято исключение: ${issue.decision!.reason}. Область: ревизия ${snapshot.skeleton_version}, ${issue.element_id}.`,
+                  `${issue.message}. Фактический результат не подтверждён. Принято исключение: ${issue.decision!.reason}. Область: версия ${snapshot.skeleton_version}, ${issue.element_id}.`,
               ),
             ].join(' ')
           : item.evidence,

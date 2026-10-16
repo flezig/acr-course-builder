@@ -70,7 +70,7 @@ export function ProfessionalStandardEditor({ snapshot }: { snapshot: Snapshot })
         disabled={command.isPending}
       />
       <Notice>
-        Замена создаст новую ревизию. Связи результатов с прежним профстандартом будут сброшены;
+        Замена создаст новую версию. Связи результатов с прежним профстандартом будут сброшены;
         соответствие программы и актуальность документа нужно проверить заново.
       </Notice>
       <div className="actions">

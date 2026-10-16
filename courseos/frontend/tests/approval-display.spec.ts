@@ -45,10 +45,10 @@ for (const width of [1440, 390, 320]) {
         await expect(panel).toContainText('Программа утверждена.');
         await expect(panel.getByRole('checkbox')).toHaveCount(0);
         await expect(panel.getByRole('list', { name: 'История утверждений' })).toContainText(
-          'Ревизия 1 утверждена',
+          'Версия 1 утверждена',
         );
       }
-      // Технические идентификаторы ревизии методисту не показываются.
+      // Технические идентификаторы версии методисту не показываются.
       await expect(panel).not.toContainText('SHA-256');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,

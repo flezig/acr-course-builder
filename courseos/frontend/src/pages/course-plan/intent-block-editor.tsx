@@ -253,7 +253,7 @@ export function IntentBlockEditor({
         <small>
           {form.formState.isDirty
             ? 'Есть несохранённые изменения'
-            : 'Изменения создадут новую ревизию'}
+            : 'Изменения создадут новую версию'}
         </small>
       </div>
       <small className="muted">

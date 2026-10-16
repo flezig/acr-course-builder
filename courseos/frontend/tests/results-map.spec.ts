@@ -199,7 +199,7 @@ test('Полная карта: компактные карточки, прямы
   expect(errors).toEqual([]);
 });
 
-test('Пробелы сохраняют контекст; общая оценка добавляется явным действием в новой ревизии', async ({
+test('Пробелы сохраняют контекст; общая оценка добавляется явным действием в новой версии', async ({
   page,
 }) => {
   const id = await openMap(page);
@@ -317,7 +317,7 @@ test('Большие списки, длинные названия, мобиль
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('Пустая программа и архивная ревизия доступны без неработающих действий', async ({ page }) => {
+test('Пустая программа и архивная версия доступны без неработающих действий', async ({ page }) => {
   const id = await openMap(page);
   await page.getByRole('button', { name: 'Изменить связи результата', exact: true }).click();
   await page.getByRole('dialog').getByRole('checkbox').first().uncheck();
@@ -333,7 +333,7 @@ test('Пустая программа и архивная ревизия дос�
     page.getByRole('button', { name: 'Изменить связи результата', exact: true }),
   ).toHaveCount(0);
   await page.locator('.assessment-column .chain-card button').first().click();
-  await expect(panel(page)).toContainText('Эта ревизия доступна для просмотра.');
+  await expect(panel(page)).toContainText('Эта версия доступна для просмотра.');
   await expect(
     panel(page).getByRole('button', { name: 'Изменить связи результата', exact: true }),
   ).toHaveCount(0);

@@ -116,7 +116,7 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
       message: 'Сумма часов тем не совпадает с объёмом курса',
       expected: skeleton.requirements.total_hours,
       actual,
-      suggested_fix: 'Исправьте часы в учебном плане и сохраните новую ревизию.',
+      suggested_fix: 'Исправьте часы в учебном плане и сохраните новую версию.',
       blocking: true,
     });
   const gaps = skeleton.outcomes.filter(

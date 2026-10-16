@@ -282,7 +282,7 @@ export function CoverageMatrix({
                           </Link>
                         </div>
                       )}
-                      {!editable && <p>Ревизия доступна только для просмотра.</p>}
+                      {!editable && <p>Версия доступна только для просмотра.</p>}
                     </td>
                   </tr>
                 </Fragment>

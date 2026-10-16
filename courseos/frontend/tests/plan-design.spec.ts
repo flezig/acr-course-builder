@@ -148,7 +148,7 @@ test('A coverage remark opens the assessment field', async ({ page }) => {
   await page.getByRole('button', { name: 'Редактировать программу', exact: true }).click();
   await page.getByText('Оценочные материалы', { exact: true }).click();
   await page.getByRole('button', { name: 'Удалить оценочное средство 2', exact: true }).click();
-  await page.getByRole('button', { name: 'Сохранить новую ревизию', exact: true }).click();
+  await page.getByRole('button', { name: 'Сохранить новую версию', exact: true }).click();
   await page.locator('.verdict').getByRole('link', { name: 'К первому вопросу' }).click();
   await page
     .locator('.decision-item.field-highlight')

@@ -235,7 +235,7 @@ export function MapLinkEditor({
           </p>
         </section>
         <p className="map-link-note">
-          Связи сохранятся в новой ревизии. Утверждение программы потребует отдельной проверки.
+          Связи сохранятся в новой версии. Утверждение программы потребует отдельной проверки.
         </p>
         <ErrorMessage error={command.error} />
         <div className="map-link-actions">

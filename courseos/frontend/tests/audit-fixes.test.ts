@@ -158,7 +158,7 @@ it('исключение не подтверждает профстандарт;
   );
   expect(json.decisions[0]).toMatchObject({ scope_hash: snapshot.skeleton_hash });
   expect(json.decisions[0].finding).toContain('Профстандарт');
-  expect(json.decisions[0].scope).toContain('Ревизия');
+  expect(json.decisions[0].scope).toContain('Версия');
   expect(
     await (await api.exportMarkdown(snapshot.course_id, snapshot.course_version)).text(),
   ).toContain('Решение не подтверждает соответствие требованию');
@@ -473,7 +473,7 @@ it('повреждённый JSON не удаляется и остаётся д
   await expect(api.list()).rejects.toMatchObject({ status: 422 });
   expect(stored.get('courseos-demo-v1')).toBe('{исходная работа');
 });
-it('история свыше 15 версий не обрезается автоматически; сокращение защищает утверждённую ревизию', async () => {
+it('история свыше 15 версий не обрезается автоматически; сокращение защищает утверждённую версию', async () => {
   let snapshot = await fullPython();
   const approvedVersion = snapshot.course_version;
   for (let index = 0; index < 18; index++) {

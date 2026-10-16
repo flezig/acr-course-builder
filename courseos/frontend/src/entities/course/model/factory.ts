@@ -341,7 +341,7 @@ export function refreshExplanations(skeleton: Skeleton): Skeleton {
     {
       id: 'reduce',
       title: 'Сократить объём',
-      consequence: `Не более ${calculation.capacity} часов. Пересмотреть глубину результатов и задания, затем утвердить новую ревизию.`,
+      consequence: `Не более ${calculation.capacity} часов. Пересмотреть глубину результатов и задания, затем утвердить новую версию.`,
     },
     {
       id: 'raise',

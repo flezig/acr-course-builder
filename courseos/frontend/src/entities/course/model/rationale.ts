@@ -575,7 +575,7 @@ export function skeletonRationaleMarkdown(snapshot: Snapshot): string {
       '## Принятые исключения',
       ...snapshot.decisions.map(
         (decision) =>
-          `Исходное замечание: ${decision.finding || decision.issue_id}. Причина: ${decision.reason}. Область: ${decision.scope || 'сохранённая ревизия'}; hash: ${decision.scope_hash || snapshot.skeleton_hash}. Решение не подтверждает соответствие требованию.`,
+          `Исходное замечание: ${decision.finding || decision.issue_id}. Причина: ${decision.reason}. Область: ${decision.scope || 'сохранённая версия'}; hash: ${decision.scope_hash || snapshot.skeleton_hash}. Решение не подтверждает соответствие требованию.`,
       ),
     );
   lines.push(
@@ -585,7 +585,7 @@ export function skeletonRationaleMarkdown(snapshot: Snapshot): string {
       : 'Описание использует только выбранную сохранённую версию с сервера. При недоступности сервера демонстрационные данные не подставляются.',
     'Если меняются аудитория, результаты, часы или источники, прежние пояснения нужно пересмотреть. Описание старой версии продолжает отражать её сохранённые данные.',
     '## Сведения о сохранённой версии',
-    `Курс: ${snapshot.course_id}. Версия курса: ${snapshot.course_version}. Ревизия плана: ${snapshot.skeleton_version}.`,
+    `Курс: ${snapshot.course_id}. Версия курса: ${snapshot.course_version}. Версия плана: ${snapshot.skeleton_version}.`,
     `Сохранено: ${snapshot.created_at}. Режим: ${snapshot.mode}. Происхождение: ${snapshot.provenance}.`,
     `SHA-256 каркаса: ${snapshot.skeleton_hash}.`,
     'Контрольная сумма позволяет сопоставить это описание с исходными данными той же версии.',

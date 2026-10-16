@@ -144,11 +144,11 @@ function CourseReferences({ snapshot }: { snapshot: Snapshot }) {
             }
           />
           <Notice>
-            Изменение общих оснований создаёт новую ревизию каркаса. Материалы потребуют обновления
+            Изменение общих оснований создаёт новую версию каркаса. Материалы потребуют обновления
             после отдельного утверждения.
           </Notice>
           <button type="submit" className="primary" disabled={command.isPending}>
-            Сохранить основания в новой ревизии
+            Сохранить основания в новой версии
           </button>
           <ErrorMessage error={command.error} />
         </Form>

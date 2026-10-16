@@ -180,7 +180,7 @@ describe('Согласование, задачи и версии demo', () => {
     vi.advanceTimersByTime(10000);
     expect((await api.get(snapshot.course_id)).snapshot!.materials).toHaveLength(0);
   });
-  it('генерация и производные ссылки не меняют ревизию/hash, утверждение применимо', async () => {
+  it('генерация и производные ссылки не меняют версию/hash, утверждение применимо', async () => {
     const initial = await startPython();
     await approve(initial);
     vi.advanceTimersByTime(1000);
@@ -311,7 +311,7 @@ describe('Согласование, задачи и версии demo', () => {
     expect(result.job.id).toBe(first.job.id);
     expect((await api.get(initial.course_id)).versions).toHaveLength(2);
   });
-  it('наблюдение не меняет hash; блокирующее останавливает, исправление создаёт новую ревизию', async () => {
+  it('наблюдение не меняет hash; блокирующее останавливает, исправление создаёт новую версию', async () => {
     const initial = await fullPython();
     await api.command({
       action: 'record_observation',

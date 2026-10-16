@@ -125,7 +125,7 @@ export function SkeletonEditor({
   return (
     <Panel
       title="Редактирование программы"
-      subtitle="Изменение создаёт новую ревизию и пересчитывает объяснения. Старое утверждение перестаёт применяться."
+      subtitle="Изменение создаёт новую версию и пересчитывает объяснения. Старое утверждение перестаёт применяться."
     >
       {currentSnapshot.course_version !== snapshot.course_version && (
         <Notice tone="warning">
@@ -471,7 +471,7 @@ export function SkeletonEditor({
         <ErrorMessage error={command.error} />
         <div className="actions">
           <button type="submit" className="primary" disabled={command.isPending}>
-            {command.isPending ? 'Сохраняем…' : 'Сохранить новую ревизию'}
+            {command.isPending ? 'Сохраняем…' : 'Сохранить новую версию'}
           </button>
           <button
             type="button"

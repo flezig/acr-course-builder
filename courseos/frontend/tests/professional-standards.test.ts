@@ -43,7 +43,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('Замена сохраняется в новой ревизии, сбрасывает старые коды и оставляет предыдущую версию доступной', async () => {
+it('Замена сохраняется в новой версии, сбрасывает старые коды и оставляет предыдущую версию доступной', async () => {
   const storage = new Map<string, string>();
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => storage.get(key) ?? null,

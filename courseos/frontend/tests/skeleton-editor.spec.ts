@@ -16,7 +16,7 @@ test('Plan editor keeps content readable and outcome links consistent after addi
   await page.getByRole('button', { name: 'Изменить план', exact: true }).click();
   const editor = page
     .locator('form')
-    .filter({ has: page.getByRole('button', { name: 'Сохранить новую ревизию' }) });
+    .filter({ has: page.getByRole('button', { name: 'Сохранить новую версию' }) });
   await expect(editor).not.toContainText(/outcome-|assessment-|activity-|mentor_interview/);
   const count = await editor.locator('.outcome-editor').count();
   await page.getByRole('button', { name: 'Добавить результат обучения', exact: true }).click();
@@ -80,7 +80,7 @@ test('Plan editor keeps content readable and outcome links consistent after addi
   await page
     .getByRole('textbox', { name: `Результат ${count + 1}`, exact: true })
     .fill('Находить ошибку в учебной программе');
-  await page.getByRole('button', { name: 'Сохранить новую ревизию', exact: true }).click();
+  await page.getByRole('button', { name: 'Сохранить новую версию', exact: true }).click();
   await expect(editor).toHaveCount(0);
   await page.reload();
   await page.getByRole('button', { name: 'Изменить план', exact: true }).click();

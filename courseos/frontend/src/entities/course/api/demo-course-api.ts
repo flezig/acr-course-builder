@@ -314,7 +314,7 @@ async function advance(courseId: string, course: StoredCourse) {
     if (!base.approval_applicable) {
       course.job.status = 'failed';
       course.job.error = 'Нет применимого утверждения';
-      course.job.next_action = 'Утвердите актуальную ревизию';
+      course.job.next_action = 'Утвердите актуальную версию';
       return;
     }
     const topics = base.skeleton.topics.filter((t) => t.id !== 'topic-final');
@@ -646,7 +646,7 @@ export class DemoCourseApi implements CourseApi {
             course.snapshots.push(snapshot);
             course.job = makeJob(id, 'save_skeleton', envelope.request_id);
             course.job.status = 'awaiting_approval';
-            course.job.next_action = 'Проверьте изменённые основания и утвердите новую ревизию';
+            course.job.next_action = 'Проверьте изменённые основания и утвердите новую версию';
             break;
           }
           case 'resolve_calendar': {
@@ -699,7 +699,7 @@ export class DemoCourseApi implements CourseApi {
             course.requirements = skeleton.requirements;
             course.job = makeJob(id, 'apply_finding', envelope.request_id);
             course.job.status = 'awaiting_approval';
-            course.job.next_action = 'Предложение агента применено. Проверьте новую ревизию.';
+            course.job.next_action = 'Предложение агента применено. Проверьте новую версию.';
             break;
           }
           case 'dismiss_finding': {
@@ -727,7 +727,7 @@ export class DemoCourseApi implements CourseApi {
                 actor: 'demo-methodist',
                 at: now(),
                 scope_hash: base.skeleton_hash,
-                scope: `Ревизия ${base.skeleton_version}; элемент ${issue.element_id}`,
+                scope: `Версия ${base.skeleton_version}; элемент ${issue.element_id}`,
                 finding: [issue.message, issue.expected, issue.actual, issue.evidence]
                   .filter(Boolean)
                   .join('\n'),
@@ -742,7 +742,7 @@ export class DemoCourseApi implements CourseApi {
               base.skeleton_version !== envelope.payload.skeleton_version ||
               base.skeleton_hash !== envelope.payload.skeleton_hash
             )
-              throw new ApiError(409, 'Ревизия или hash не совпадают.');
+              throw new ApiError(409, 'Версия или hash не совпадают.');
             base.audit = auditSnapshot(base);
             if (base.audit.issues.some((i) => i.blocking))
               throw new ApiError(
@@ -917,7 +917,7 @@ export class DemoCourseApi implements CourseApi {
                 ? 'succeeded'
                 : 'needs_review';
             course.job.next_action = plan.requires_approval
-              ? 'Утвердите новую ревизию. Зависимые материалы ожидают обновления.'
+              ? 'Утвердите новую версию. Зависимые материалы ожидают обновления.'
               : 'Правка применена; сравните версии и повторный аудит';
             course.job.completed_at = now();
             break;
@@ -946,7 +946,7 @@ export class DemoCourseApi implements CourseApi {
               message: envelope.payload.message,
               expected: 'Основание проверено методистом',
               actual: 'Записано замечание; требуется решение',
-              suggested_fix: 'Исправьте основание и утвердите новую ревизию.',
+              suggested_fix: 'Исправьте основание и утвердите новую версию.',
               blocking: envelope.payload.blocking,
             };
             const snapshot = await newSnapshot(
@@ -986,7 +986,7 @@ export class DemoCourseApi implements CourseApi {
             course.snapshots.push(snapshot);
             course.requirements = skeleton.requirements;
             course.job.status = 'awaiting_approval';
-            course.job.next_action = 'Основание исправлено. Утвердите новую ревизию.';
+            course.job.next_action = 'Основание исправлено. Утвердите новую версию.';
             break;
           }
           case 'prune_history': {

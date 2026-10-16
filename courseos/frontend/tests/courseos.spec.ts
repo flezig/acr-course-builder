@@ -38,7 +38,7 @@ async function approveAndWait(page: Page) {
   await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
   await page
     .getByRole('checkbox', {
-      name: 'Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту ревизию.',
+      name: 'Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту версию.',
     })
     .check();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
@@ -74,7 +74,7 @@ test('Полный путь: уточнения, правка каркаса, а
   await page
     .getByRole('textbox', { name: 'Цель', exact: true })
     .fill('Создать небольшую программу с переменными, условиями и циклом; объяснить решение.');
-  await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
+  await page.getByRole('button', { name: 'Сохранить новую версию' }).click();
   await expect(page.getByRole('heading', { name: 'Редактирование программы' })).toHaveCount(0);
   await approveAndWait(page);
   await page
@@ -222,7 +222,7 @@ test('Длинная новая программа500часов, прокрут�
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('button', { name: 'Редактировать программу' }).click();
   await page.getByLabel('topic-16 Практика', { exact: true }).fill('1');
-  await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
+  await page.getByRole('button', { name: 'Сохранить новую версию' }).click();
   await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Сумма часов тем не совпадает с объёмом курса' }),
@@ -238,7 +238,7 @@ test('Длинная новая программа500часов, прокрут�
   await expect(page.locator('#topic-16')).toBeVisible();
 });
 
-test('Конфликт двух вкладок сохраняет черновик и не применяет старую ревизию', async ({
+test('Конфликт двух вкладок сохраняет черновик и не применяет старую версию', async ({
   page,
   context,
 }) => {
@@ -251,9 +251,9 @@ test('Конфликт двух вкладок сохраняет чернови
   await other.goto(`/courses/${id}/plan`);
   await other.getByRole('button', { name: 'Редактировать программу' }).click();
   await other.getByRole('textbox', { name: 'Цель', exact: true }).fill('Изменение второй вкладки');
-  await other.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
+  await other.getByRole('button', { name: 'Сохранить новую версию' }).click();
   await expect(other.getByRole('heading', { name: 'Редактирование программы' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
+  await page.getByRole('button', { name: 'Сохранить новую версию' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Версия устарела' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Цель', exact: true })).toHaveValue(
     'Мой несохранённый черновик первой вкладки',

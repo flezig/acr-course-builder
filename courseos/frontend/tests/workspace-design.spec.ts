@@ -78,7 +78,7 @@ test('Course OS: замечания, версии и адаптивность 14
   await page.getByRole('button', { name: 'Закрыть редактор', exact: true }).click();
   await page.getByRole('button', { name: 'Редактировать программу' }).click();
   await page.getByRole('textbox', { name: 'Цель', exact: true }).fill('Уточнённая цель обучения');
-  await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
+  await page.getByRole('button', { name: 'Сохранить новую версию' }).click();
   await expect(page.getByRole('heading', { name: 'Редактирование программы' })).toHaveCount(0);
   await page.getByLabel('Версия курса').selectOption('1');
   await expect(page.getByRole('button', { name: 'Редактировать программу' })).toBeDisabled();

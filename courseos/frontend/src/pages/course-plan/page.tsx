@@ -571,7 +571,7 @@ export function PlanPage() {
               approval={
                 <>
                   <Panel
-                    title={`Утверждение ревизии ${snapshot.skeleton_version}`}
+                    title={`Утверждение версии ${snapshot.skeleton_version}`}
                     className="approval-panel"
                   >
                     {!snapshot.approval_applicable ? (
@@ -583,7 +583,7 @@ export function PlanPage() {
                           onChange={(event) => setApproveConfirmed(event.target.checked)}
                         />
                         Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту
-                        ревизию.
+                        версию.
                       </label>
                     ) : (
                       <Notice tone="success">
@@ -641,7 +641,7 @@ export function PlanPage() {
                       <ul className="approval-history" aria-label="История утверждений">
                         {snapshot.approvals.map((a) => (
                           <li key={a.approved_at}>
-                            Ревизия {a.skeleton_version} утверждена ·{' '}
+                            Версия {a.skeleton_version} утверждена ·{' '}
                             {new Date(a.approved_at).toLocaleString('ru-RU')} · {a.actor_id}
                           </li>
                         ))}
@@ -708,7 +708,7 @@ export function PlanPage() {
                       .map((issue) => (
                         <Notice key={issue.id} tone={issue.blocking ? 'error' : 'warning'}>
                           {issue.message}. Исходный статус ниже относится к моменту согласования
-                          ревизии; новое наблюдение хранится отдельно.
+                          версии; новое наблюдение хранится отдельно.
                         </Notice>
                       ))}
                     <details

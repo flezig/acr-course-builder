@@ -12,7 +12,7 @@ async function pythonMaterials(page: Page) {
   const id = await create(page, '^Первые шаги в Python');
   await page.goto(`/courses/${id}/plan#approve`);
   await page
-    .getByLabel('Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту ревизию.')
+    .getByLabel('Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту версию.')
     .check();
   await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
   await expect(page.locator('.approval-panel')).toContainText('Программа утверждена');

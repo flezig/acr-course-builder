@@ -212,7 +212,7 @@ export function ComparisonPage() {
               {after.approval_applicable
                 ? 'Открыть материалы'
                 : after.approvals.length
-                  ? 'Утвердить новую ревизию'
+                  ? 'Утвердить новую версию'
                   : 'Утвердить программу'}
             </Link>
           </div>
@@ -377,7 +377,7 @@ export function ComparisonPage() {
             </span>
             {base.skeleton_version !== after.skeleton_version && (
               <span className="compare-count">
-                ревизия {base.skeleton_version} → {after.skeleton_version}
+                версия {base.skeleton_version} → {after.skeleton_version}
               </span>
             )}
           </summary>
@@ -399,7 +399,7 @@ export function ComparisonPage() {
           ))}
           {skeletonChanged ? (
             <Notice tone="warning">
-              Изменились требования или план оценивания. Новая ревизия требует отдельного
+              Изменились требования или план оценивания. Новая версия требует отдельного
               утверждения; обновление материалов выполняется после него.
             </Notice>
           ) : (
