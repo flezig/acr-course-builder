@@ -1,5 +1,8 @@
 import { ProfessionalStandardEditor } from './professional-standard-editor';
-import { professionalStandardEvidence } from '../../entities/course/model/professional-standards';
+import {
+  isProfessionalStandardReference,
+  professionalStandardEvidence,
+} from '../../entities/course/model/professional-standards';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -416,7 +419,8 @@ export function PlanPage() {
                   </ul>
                 )}
               </section>
-              {skeleton.requirements.template_id === 'acr_professional' && (
+              {(skeleton.requirements.template_id === 'acr_professional' ||
+                skeleton.requirements.references.some(isProfessionalStandardReference)) && (
                 <section className="intent-block" id="standard" tabIndex={-1}>
                   <h3>Профессиональный стандарт</h3>
                   {skeleton.outcomes.some((outcome) => outcome.professional_standard_code) ? (
@@ -433,6 +437,31 @@ export function PlanPage() {
                   {canEdit && (
                     <ProfessionalStandardEditor key={snapshot.course_version} snapshot={snapshot} />
                   )}
+                </section>
+              )}
+              {skeleton.requirements.references.some(
+                (reference) => !isProfessionalStandardReference(reference),
+              ) && (
+                <section className="intent-block" id="program-references">
+                  <h3>Исходные материалы</h3>
+                  <ul>
+                    {skeleton.requirements.references
+                      .filter((reference) => !isProfessionalStandardReference(reference))
+                      .map((reference) => (
+                        <li key={reference.id}>
+                          <Link to={`${href('map')}#${reference.id}`}>{reference.name}</Link>
+                          {reference.url && (
+                            <>
+                              {' '}
+                              ·{' '}
+                              <a href={reference.url} target="_blank" rel="noreferrer">
+                                Открыть ссылку ↗
+                              </a>
+                            </>
+                          )}
+                        </li>
+                      ))}
+                  </ul>
                 </section>
               )}
               {skeleton.tools && skeleton.tools.length > 0 && (

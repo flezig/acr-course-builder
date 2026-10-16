@@ -13,7 +13,8 @@ import { inputSchema, type Requirements } from '../../entities/course/model/sche
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
 import { StoragePanel } from '../../features/export-course/storage-panel';
 import { parameterDiscrepancies } from '../../entities/course/model/request-parameters';
-import { ReferenceEditor } from '../../features/upload-reference/reference-editor';
+import { CreateReferences } from './create-references';
+import { contentHash } from '../../shared/lib/decimal';
 import { Form, Badge, ErrorMessage, Field, Notice, Panel, statuses } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 import './create-course.css';
@@ -71,6 +72,17 @@ export function CreateCoursePage() {
         payload: {
           ...values,
           title,
+          references: await Promise.all(
+            values.references.map(async (reference) => {
+              if (reference.hash) return reference;
+              const source = {
+                ...reference,
+                name: reference.name.trim() || 'Прошлая программа',
+                url: reference.url.trim(),
+              };
+              return { ...source, hash: await contentHash({ text: source.text, url: source.url }) };
+            }),
+          ),
           parameters_confirmation: {
             request: values.request,
             actor: 'methodist',
@@ -210,8 +222,7 @@ export function CreateCoursePage() {
             )}
             {confirmationError && <Notice tone="error">{confirmationError}</Notice>}
           </details>
-          <ReferenceEditor
-            uploadOnly
+          <CreateReferences
             references={form.watch('references')}
             onChange={(value) => form.setValue('references', value, { shouldDirty: true })}
           />

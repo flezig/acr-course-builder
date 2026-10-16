@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DemoCourseApi } from '../src/entities/course/api/demo-course-api';
+import { userReference } from '../src/entities/course/model/user-reference';
+import { contentHash } from '../src/shared/lib/decimal';
+import { generalRequirements } from '../src/entities/course/model/checklist';
 import { presets } from '../src/entities/course/model/presets';
 import { requirementsSchema } from '../src/entities/course/model/schema';
 import {
@@ -86,3 +89,82 @@ it('Замена сохраняется в новой ревизии, сбрас
   const previous = (await api.get(result.course_id, before.course_version)).snapshot!;
   expect(attachedProfessionalStandards(previous.skeleton.requirements)[0].code).toBe('01.001');
 });
+
+it.each(['catalog', 'custom', 'none'] as const)(
+  'Создание с референсами (%s) сохраняет источники и учитывает профстандарт в проверках',
+  async (kind) => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    });
+    vi.useFakeTimers();
+    const requirements = structuredClone(
+      presets.find((preset) => preset.id === 'teachers')!.requirements,
+    );
+    const previous = userReference({
+      id: 'previous-program-test',
+      name: 'Прошлая программа',
+      text: 'Анализ заданий и практика',
+      url: 'https://example.com/previous',
+    });
+    const link = userReference({ name: 'Руководство', url: 'https://example.com/guide' });
+    requirements.references = [
+      previous,
+      link,
+      ...(kind === 'catalog'
+        ? professionalStandardReferences('devops')
+        : kind === 'custom'
+          ? [
+              userReference({
+                id: 'professional-standard-custom-test',
+                name: 'Профстандарт методиста',
+                text: 'Собственная редакция с трудовыми функциями',
+              }),
+            ]
+          : []),
+    ];
+    requirements.references = await Promise.all(
+      requirements.references.map(async (source) => ({
+        ...source,
+        hash: source.hash || (await contentHash({ text: source.text, url: source.url })),
+      })),
+    );
+    const api = new DemoCourseApi();
+    const result = await api.command({
+      action: 'start',
+      payload: requirements,
+      request_id: crypto.randomUUID(),
+    });
+    vi.advanceTimersByTime(500);
+    const snapshot = (await new DemoCourseApi().get(result.course_id)).snapshot!;
+    expect(snapshot.skeleton.requirements.references).toEqual(requirements.references);
+    expect(snapshot.sources).toEqual(requirements.references);
+    expect(snapshot.sources[0].provenance).toMatchObject({
+      origin: 'user_text',
+      access: 'available',
+      content: 'unverified',
+    });
+    expect(snapshot.sources[1]).toMatchObject({
+      status: 'unconfirmed',
+      text: '',
+      provenance: { origin: 'url', access: 'registered', content: 'unverified', extent: 'none' },
+    });
+    const evidence =
+      kind === 'catalog'
+        ? '06.026'
+        : kind === 'custom'
+          ? 'Профстандарт методиста'
+          : 'текст профстандарта не приложен';
+    expect(
+      snapshot.audit.issues.find((issue) => issue.id === 'professional-standard')?.evidence,
+    ).toContain(evidence);
+    expect(
+      generalRequirements(snapshot).find((item) => item.id === 'standard-exists')?.evidence,
+    ).toContain(evidence);
+    expect(
+      snapshot.skeleton.outcomes.every((outcome) => outcome.professional_standard_code === null),
+    ).toBe(true);
+  },
+);

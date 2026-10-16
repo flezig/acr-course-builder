@@ -225,3 +225,29 @@
     max-width: none;
   }
 }
+
+.create-references {
+  margin: 20px 0;
+}
+.create-references h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.create-references > p,
+.create-references details > p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.create-references > details {
+  border-bottom: 1px solid var(--theme-border, #e0e2e5);
+  padding: 10px 0;
+}
+.create-references summary {
+  overflow-wrap: anywhere;
+}
+.create-references details[open] > summary {
+  margin-bottom: 12px;
+}
+.create-reference + .create-reference {
+  margin-top: 16px;
+}

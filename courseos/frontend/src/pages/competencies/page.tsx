@@ -63,8 +63,11 @@ export function MapPage() {
               </summary>
               <p>Поддерживаемое утверждение: {source.claim}</p>
               <p>
-                {source.coordinate} · получено{' '}
-                {new Date(source.checked_at).toLocaleDateString('ru-RU')}
+                {source.coordinate}
+                {source.coordinate && ' · '}
+                {source.checked_at
+                  ? `Получено: ${new Date(source.checked_at).toLocaleDateString('ru-RU')}`
+                  : 'Дата получения не указана'}
               </p>
               {source.scope && <p>Границы применения: {source.scope}</p>}
               {source.url && (

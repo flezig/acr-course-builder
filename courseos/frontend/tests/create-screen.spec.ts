@@ -68,11 +68,10 @@ for (const [width, height] of [
     expect(layout.clipped).toEqual([]);
     expect(layout.arcBottom).toBeLessThanOrEqual(layout.descriptionTop);
     if (width <= 600) {
-      expect(layout.arcDiameter).toBeGreaterThanOrEqual(100);
-      expect(layout.arcDiameter).toBeLessThanOrEqual(120);
-      expect(layout.arcRight).toBeLessThan(-60);
+      // В светлой теме шапку украшает волна шириной 220 px.
+      expect(layout.arcDiameter).toBe(220);
+      expect(layout.arcRight).toBe(0);
       expect(layout.arcBottom).toBeLessThan(layout.descriptionTop);
-      expect(layout.titleRight).toBeLessThanOrEqual(layout.arcLeft);
       expect(new Set(layout.examples.map((e) => e.x)).size).toBe(1);
       expect(layout.examples.every((e) => e.height >= 48)).toBe(true);
     }
@@ -85,6 +84,9 @@ for (const [width, height] of [
       await expect(example).toHaveAttribute('aria-pressed', 'true');
       await expect(page.locator('.example[aria-pressed="true"]')).toHaveCount(1);
       await expect(page.getByLabel('Запрос методиста')).toHaveValue(preset.requirements.request);
+      await expect(page.getByLabel('Профстандарт программы')).toHaveValue(
+        preset.id === 'python' ? '' : preset.id,
+      );
       await expect(page).toHaveURL(/\/$/); // Selecting an example must not submit it.
     }
     const first = page.locator('.example').first();

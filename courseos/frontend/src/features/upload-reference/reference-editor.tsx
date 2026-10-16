@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { FileText, Link2, Upload } from 'lucide-react';
 import type { Requirements } from '../../entities/course/model/schema';
 import { useApi } from '../../entities/course/api/provider';
+import { referenceUrlError, userReference } from '../../entities/course/model/user-reference';
 import { contentHash } from '../../shared/lib/decimal';
 import { Badge, ErrorMessage, Field, Notice, statuses } from '../../shared/ui/ui';
 export function ReferenceEditor({
@@ -23,16 +24,7 @@ export function ReferenceEditor({
   const [attempted, setAttempted] = useState(false);
   const urlRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
-  const urlError = (() => {
-    if (!url.trim()) return undefined;
-    try {
-      const parsed = new URL(url.trim());
-      if (['https:', 'http:'].includes(parsed.protocol)) return undefined;
-    } catch {
-      /* Show the same guidance for an incomplete URL. */
-    }
-    return 'Введите полную ссылку, например https://example.com.';
-  })();
+  const urlError = referenceUrlError(url);
   const textError =
     attempted && !text.trim() && !url.trim() ? 'Вставьте текст или ссылку.' : undefined;
   const [pending, setPending] = useState(false);
@@ -51,40 +43,19 @@ export function ReferenceEditor({
       urlRef.current?.focus();
       return;
     }
-    const source = {
-      id: crypto.randomUUID(),
+    const source = userReference({
       name: name || (url ? 'Ссылка методиста' : 'Текст методиста'),
       text,
       url: url.trim(),
-      status: text ? ('provided' as const) : ('unconfirmed' as const),
-      coordinate:
-        coordinate || (text ? 'Вставленный фрагмент; координаты в оригинале не указаны' : ''),
-      claim: claim || 'Ввод пользователя; применимость к результатам требует проверки',
-      checked_at: read && text ? new Date().toISOString() : '',
-      scope: url
-        ? 'Содержимое URL не загружено; выполнена только регистрация ссылки'
-        : 'Сохранён фактический текст без подтверждения достоверности',
-      hash: await contentHash({ text, url }),
-      provenance: {
-        origin: text ? ('user_text' as const) : ('url' as const),
-        access:
-          text && read
-            ? ('read' as const)
-            : text
-              ? ('available' as const)
-              : ('registered' as const),
-        content:
-          text && read && contentConfirmed ? ('confirmed' as const) : ('unverified' as const),
-        extent: text ? ('excerpt' as const) : ('none' as const),
-        authors: '',
-        year: '',
-        title: name,
-        doi: '',
-        study_type: '',
-        population: '',
-        result: '',
-      },
-    };
+    });
+    source.coordinate = coordinate || source.coordinate;
+    source.claim = claim || source.claim;
+    source.checked_at = read && text ? new Date().toISOString() : '';
+    source.hash = await contentHash({ text, url: source.url });
+    if (source.provenance) {
+      if (text && read) source.provenance.access = 'read';
+      if (text && read && contentConfirmed) source.provenance.content = 'confirmed';
+    }
     onChange([...references, source]);
     setAttempted(false);
     setText('');
@@ -175,7 +146,7 @@ export function ReferenceEditor({
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={3}
-          placeholder="Вставьте фрагмент, на который должен опираться каркас"
+          placeholder="Вставьте фрагмент, на который должна опираться программа"
         />
       </Field>
       <details>
@@ -210,7 +181,7 @@ export function ReferenceEditor({
         </label>
         <p>
           Эти отметки не подтверждают применимость к конкретному решению. Она сохраняется отдельно в
-          основаниях каркаса.
+          основаниях программы.
         </p>
       </details>
       <div className="actions">
@@ -259,7 +230,7 @@ export function ReferenceEditor({
         </details>
       ))}
       <Notice>
-        Текст референса используется как данные. Он не может утвердить каркас или разрешить вызов
+        Текст референса используется как данные. Он не может утвердить программу или разрешить вызов
         внешнего сервиса.
       </Notice>
     </div>
