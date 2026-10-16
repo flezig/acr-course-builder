@@ -12,62 +12,65 @@ test('Оценки, решения по правкам ИИ и разбор жа
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.locator('main .response-feedback')).toHaveCount(0);
+  await expect(page.locator('main .response-feedback:visible')).toHaveCount(0);
   await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
 
   // Оценка сохраняется по клику, подробности добавляются к ней.
-  const pageFeedback = page.locator('main .response-feedback');
-  const ratingAction = page.locator('main .feedback-action-trigger');
+  const pageFeedback = page.locator('main .response-feedback:visible');
+  const feedbackDialog = page.getByRole('dialog', { name: 'Поделиться отзывом' });
   await expect(pageFeedback).toBeVisible();
+  await expect(page.locator('.curriculum-panel .response-feedback')).toBeVisible();
+  expect(
+    await pageFeedback.evaluate((el) => el.getBoundingClientRect().bottom),
+  ).toBeLessThanOrEqual(
+    await page.locator('.coverage-panel').evaluate((el) => el.getBoundingClientRect().top),
+  );
   await pageFeedback.getByRole('button', { name: 'Не нравится', exact: true }).click();
-  await expect(pageFeedback).toBeHidden();
-  await expect(ratingAction).toContainText('Сохранено');
-  await ratingAction.click();
-  await pageFeedback.getByRole('button', { name: 'Добавить причину' }).click();
-  await pageFeedback.getByRole('button', { name: 'Ошибка в часах или структуре' }).click();
-  await pageFeedback.getByLabel('Комментарий к отзыву').fill('Практика в теме 2 съела лекции');
-  await pageFeedback.getByRole('button', { name: 'Сохранить подробности' }).click();
-  await expect(pageFeedback).toBeHidden();
-  await expect(ratingAction).toContainText('Сохранено');
+  await expect(feedbackDialog).toBeVisible();
+  await expect(feedbackDialog.getByRole('button', { name: /Закрыть/ })).toHaveCount(0);
+  await feedbackDialog.getByRole('button', { name: 'Ошибка в часах или структуре' }).click();
+  await feedbackDialog.getByLabel('Комментарий к отзыву').fill('Практика в теме 2 съела лекции');
+  await feedbackDialog.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await expect(feedbackDialog).toBeHidden();
+  await expect(
+    pageFeedback.getByRole('button', { name: 'Не нравится', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
   await page.screenshot({ path: '../reports/feedback-page-prompt.png' });
 
   // Повторный заход показывает прежнюю оценку, а не просит оценить заново.
   await page.reload();
-  await expect(pageFeedback).toContainText('Оценка сохранена');
   await expect(
     page
-      .locator('main .response-feedback')
+      .locator('main .response-feedback:visible')
       .getByRole('button', { name: 'Не нравится', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
-
-  await pageFeedback.getByRole('button', { name: 'Закрыть оценку' }).click();
-  await expect(pageFeedback).toBeHidden();
 
   // У разделов независимые оценки; переходы и перезагрузка сохраняют выбор.
   const planUrl = page.url();
   await page.getByRole('link', { name: 'Календарь', exact: true }).click();
-  await expect(pageFeedback).toContainText('Насколько полезен календарь?');
+  await expect(pageFeedback).toHaveAttribute('aria-label', 'Оценить календарь');
   await pageFeedback.getByRole('button', { name: 'Нравится', exact: true }).click();
-  await expect(ratingAction).toContainText('Сохранено');
+  await feedbackDialog.getByRole('button', { name: 'Без подробностей' }).click();
   await page.getByRole('link', { name: 'О программе', exact: true }).click();
-  await expect(pageFeedback).toContainText('Насколько полезно описание программы?');
+  await expect(pageFeedback).toHaveAttribute('aria-label', 'Оценить описание');
   await page.getByRole('link', { name: 'Решения', exact: true }).click();
-  await expect(ratingAction).toHaveCount(0);
-  for (const [route, label] of [
-    ['map', 'Насколько полезна карта результатов?'],
-    ['audit', 'Насколько полезны результаты проверки?'],
-  ]) {
+  await expect(pageFeedback).toHaveCount(0);
+  for (const route of ['map', 'audit']) {
     await page.goto(planUrl.replace(/plan.*$/, route));
-    await expect(pageFeedback).toContainText(label);
+    await expect(pageFeedback).toBeVisible();
+    await expect(pageFeedback).toHaveAttribute(
+      'aria-label',
+      route === 'map' ? 'Оценить карту' : 'Оценить проверку',
+    );
     await expect(page.locator('header .response-feedback')).toHaveCount(0);
   }
   await page.goto(planUrl);
   await expect(
     pageFeedback.getByRole('button', { name: 'Не нравится', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
-  await pageFeedback.getByRole('button', { name: 'Изменить подробности' }).click();
-  await expect(pageFeedback.getByLabel('Комментарий к отзыву')).toHaveValue(
+  await pageFeedback.getByRole('button', { name: 'Не нравится', exact: true }).click();
+  await expect(feedbackDialog.getByLabel('Комментарий к отзыву')).toHaveValue(
     'Практика в теме 2 съела лекции',
   );
   await page.screenshot({ path: '../reports/feedback-compact-desktop.png' });
@@ -75,10 +78,9 @@ test('Оценки, решения по правкам ИИ и разбор жа
   if (await page.locator('.sidebar.is-open').count()) {
     await page.getByRole('button', { name: 'Закрыть навигацию', exact: true }).click();
   }
-  await pageFeedback.scrollIntoViewIfNeeded();
-  await expect(pageFeedback).toBeInViewport();
+  await expect(feedbackDialog).toBeInViewport();
   expect(
-    await pageFeedback.evaluate((element) => {
+    await feedbackDialog.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return (
         rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight
@@ -87,18 +89,14 @@ test('Оценки, решения по правкам ИИ и разбор жа
   ).toBe(true);
   await page.screenshot({ path: '../reports/feedback-compact-mobile.png', animations: 'disabled' });
   await page.setViewportSize({ width: 1440, height: 900 });
-  await pageFeedback.getByRole('button', { name: 'Закрыть оценку' }).click();
+  await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Изменить с ИИ' }).click();
   const dialog = page.getByRole('dialog', { name: 'Правка с помощью ИИ' });
   const editFeedback = dialog.locator('.response-feedback');
   await editFeedback.getByRole('button', { name: 'Нравится', exact: true }).click();
-  await expect(editFeedback.getByRole('button', { name: 'Нравится', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await editFeedback.getByRole('button', { name: 'Без подробностей' }).click();
-  await expect(editFeedback).toContainText('Оценка сохранена');
+  await expect(feedbackDialog).toBeVisible();
+  await feedbackDialog.getByRole('button', { name: 'Без подробностей' }).click();
   for (const reject of await dialog.getByRole('button', { name: 'Оставить' }).all())
     await reject.click();
   await page.screenshot({ path: '../reports/feedback-ai-edit.png' });
@@ -129,7 +127,7 @@ for (const width of [1440, 390]) {
     await page.goto('/');
     await page.evaluate(() => localStorage.clear());
     await page.reload();
-    const prompt = page.locator('main .response-feedback');
+    const prompt = page.locator('main .response-feedback:visible');
     await expect(prompt).toHaveCount(0);
     await page
       .getByRole('button', {
@@ -147,6 +145,7 @@ for (const width of [1440, 390]) {
 
     // Новая версия не наследует оценку предыдущего результата.
     await prompt.getByRole('button', { name: 'Не нравится', exact: true }).click();
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Редактировать программу', exact: true }).click();
     await page
       .getByRole('textbox', { name: 'Цель', exact: true })
@@ -158,6 +157,7 @@ for (const width of [1440, 390]) {
       'false',
     );
     await prompt.getByRole('button', { name: 'Нравится', exact: true }).click();
+    await page.keyboard.press('Escape');
     const ratings = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('courseos-feedback-demo')!),
     );
@@ -175,9 +175,13 @@ for (const width of [1440, 390]) {
     ).toBeVisible({ timeout: 15000 });
 
     for (const [route, result, question] of [
-      ['plan', '.plan-layout', 'Насколько полезен учебный план?'],
-      ['plan#calendar', '.plan-layout', 'Насколько полезен календарь?'],
-      ['plan#intent', '.plan-layout', 'Насколько полезно описание программы?'],
+      ['plan', '.curriculum-panel .table-scroll', 'Насколько полезен учебный план?'],
+      ['plan#calendar', '#calendar', 'Насколько полезен календарь?'],
+      [
+        'plan#intent',
+        '#intent .intent-block:last-of-type',
+        'Насколько полезно описание программы?',
+      ],
       ['map', '.results-workspace', 'Насколько полезна карта результатов?'],
       ['audit', '.audit-section', 'Насколько полезны результаты проверки?'],
       [
@@ -187,7 +191,12 @@ for (const width of [1440, 390]) {
       ],
     ]) {
       await page.goto(planUrl.replace(/plan.*$/, route));
-      await expect(prompt).toContainText(question);
+      await expect(prompt).toBeVisible();
+      await prompt.getByRole('button', { name: 'Нравится', exact: true }).click();
+      await expect(page.getByRole('dialog', { name: 'Поделиться отзывом' })).toContainText(
+        question,
+      );
+      await page.keyboard.press('Escape');
       await prompt.scrollIntoViewIfNeeded();
       const bounds = await prompt.evaluate((element) => {
         const rect = element.getBoundingClientRect();

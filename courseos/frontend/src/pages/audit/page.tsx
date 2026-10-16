@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { FeedbackPrompt } from '../../features/response-feedback/feedback-prompt';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, AlertTriangle, CircleDashed, RefreshCw } from 'lucide-react';
+import {
+  ArrowDownUp,
+  ArrowRight,
+  CheckCircle2,
+  AlertTriangle,
+  CircleDashed,
+  RefreshCw,
+} from 'lucide-react';
 import {
   generalRequirements,
   requestChecklist,
@@ -18,12 +25,18 @@ const checklistStatuses: Record<ChecklistItem['status'], string> = {
   not_checked: 'Не проверено: не хватает данных',
   manual_review: 'Проверяет методист',
 };
-const statusPriority: Record<ChecklistItem['status'], number> = {
-  problem: 0,
-  not_checked: 1,
-  manual_review: 2,
-  exception_accepted: 3,
-  passed: 4,
+// Порядок важен дважды: так сортируются требования и так идут переключатели фильтра.
+const statusOrder: ChecklistItem['status'][] = [
+  'problem',
+  'not_checked',
+  'manual_review',
+  'exception_accepted',
+  'passed',
+];
+// В бейджах строки нужны полные пояснения, а в переключателях — короткие подписи.
+const statusFilterTitles: Record<ChecklistItem['status'], string> = {
+  ...checklistStatuses,
+  not_checked: 'Не проверено',
 };
 
 export function AuditPage() {
@@ -45,7 +58,7 @@ export function AuditPage() {
       .filter((item) => statusFilter === 'all' || item.status === statusFilter)
       .sort((left, right) =>
         sortOrder === 'priority'
-          ? statusPriority[left.status] - statusPriority[right.status]
+          ? statusOrder.indexOf(left.status) - statusOrder.indexOf(right.status)
           : sortOrder === 'title'
             ? left.title.localeCompare(right.title, 'ru')
             : 0,
@@ -97,46 +110,26 @@ export function AuditPage() {
         </div>
       </header>
       <section id="audit-checklist" className="audit-section" aria-label="Чек-лист">
-        <dl className="checklist-summary">
-          <div>
-            <dt>Пройдено</dt>
-            <dd>{count('passed')}</dd>
+        <div className="checklist-toolbar">
+          <div className="checklist-filters" role="group" aria-label="Статус">
+            {(['all', ...statusOrder] as const).map((status) => (
+              <button
+                key={status}
+                type="button"
+                aria-pressed={statusFilter === status}
+                onClick={() => setStatusFilter(status)}
+              >
+                {status === 'all' ? 'Все' : statusFilterTitles[status]}
+                <span
+                  className={`checklist-filter-count${status === 'problem' && count('problem') > 0 ? ' has-problems' : ''}`}
+                >
+                  {status === 'all' ? all.length : count(status)}
+                </span>
+              </button>
+            ))}
           </div>
-          <div>
-            <dt>Проблема</dt>
-            <dd>{count('problem')}</dd>
-          </div>
-          <div>
-            <dt>Не проверено</dt>
-            <dd>{count('not_checked')}</dd>
-          </div>
-          <div>
-            <dt>Принято исключение</dt>
-            <dd>{count('exception_accepted')}</dd>
-          </div>
-          <div>
-            <dt>Проверяет методист</dt>
-            <dd>{count('manual_review')}</dd>
-          </div>
-        </dl>
-        <div className="checklist-controls">
-          <label>
-            Статус
-            <select
-              aria-label="Статус"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-            >
-              <option value="all">Все статусы</option>
-              {Object.entries(checklistStatuses).map(([status, title]) => (
-                <option key={status} value={status}>
-                  {title} · {count(status as ChecklistItem['status'])}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Сортировка
+          <label className="checklist-sort">
+            <ArrowDownUp size={14} aria-hidden="true" />
             <select
               aria-label="Сортировка"
               value={sortOrder}
@@ -147,9 +140,6 @@ export function AuditPage() {
               <option value="original">Исходный порядок</option>
             </select>
           </label>
-          <p className="muted" role="status">
-            Показано {visibleCount} из {all.length}
-          </p>
         </div>
         {visibleCount === 0 && (
           <Empty title="Требований с таким статусом нет">
@@ -207,14 +197,6 @@ export function AuditPage() {
             </Panel>
           ))}
       </section>
-      <Notice>
-        {snapshot.audit.at
-          ? `Аудит выполнен. Блокируют утверждение: ${verdict.open}. Решено методистом: ${snapshot.audit.issues.filter((issue) => issue.decision).length}.`
-          : 'Аудит ещё не выполнен.'}{' '}
-        {snapshot.approval_applicable
-          ? 'Программа утверждена.'
-          : 'Программа ожидает утверждения методиста.'}
-      </Notice>
       {snapshot.audit.at && (
         <FeedbackPrompt
           key={`${snapshot.course_id}-${snapshot.course_version}-audit`}
@@ -224,6 +206,14 @@ export function AuditPage() {
           question="Насколько полезны результаты проверки?"
         />
       )}
+      <Notice>
+        {snapshot.audit.at
+          ? `Аудит выполнен. Блокируют утверждение: ${verdict.open}. Решено методистом: ${snapshot.audit.issues.filter((issue) => issue.decision).length}.`
+          : 'Аудит ещё не выполнен.'}{' '}
+        {snapshot.approval_applicable
+          ? 'Программа утверждена.'
+          : 'Программа ожидает утверждения методиста.'}
+      </Notice>
       <ErrorMessage error={command.error} />
     </>
   );

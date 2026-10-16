@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useMutationState } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { MessageSquare, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { Check, Plus, ThumbsDown, ThumbsUp } from 'lucide-react';
 import {
   useApi,
   useCourse,
@@ -19,10 +18,7 @@ import {
 import { ErrorMessage } from '../../shared/ui/ui';
 import './response-feedback.css';
 
-/**
- * Оценка ответа системы. Оценка сохраняется сразу по клику: причины и комментарий
- * необязательны и дополняют уже сохранённый отзыв, а не задерживают его.
- */
+// Оценка сохраняется сразу; причины и комментарий дополняют её в отдельном окне.
 export function FeedbackPrompt({
   subject,
   section,
@@ -38,16 +34,13 @@ export function FeedbackPrompt({
   responseNote?: string | null;
   actionLabel?: string;
 }) {
-  const [closed, setClosed] = useState(false);
-  const reopenRef = useRef<HTMLButtonElement>(null);
   const { api } = useApi();
-  useEffect(() => {
-    if (closed) reopenRef.current?.focus();
-  }, [closed]);
   const course = useCourse();
   const feedback = useFeedback();
   const record = useRecordFeedback();
   const update = useUpdateFeedback();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [details, setDetails] = useState<{ reasons: FeedbackReason[]; comment: string } | null>(
     null,
@@ -57,17 +50,21 @@ export function FeedbackPrompt({
     filters: { mutationKey: ['course-command', api.mode, snapshot?.course_id] },
     select: (mutation) => mutation.state.status,
   });
-  if (!snapshot) return null;
-  if (
-    subject === 'generation' &&
-    (course.isError ||
-      !['awaiting_approval', 'needs_review', 'succeeded'].includes(course.data!.job.status) ||
-      ['pending', 'error'].includes(commands.at(-1) ?? ''))
-  )
-    return null;
+  const ready =
+    !!snapshot &&
+    (subject !== 'generation' ||
+      (!course.isError &&
+        ['awaiting_approval', 'needs_review', 'succeeded'].includes(course.data!.job.status) &&
+        !['pending', 'error'].includes(commands.at(-1) ?? '')));
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (details && ready && !dialog.open) dialog.showModal();
+    if ((!details || !ready) && dialog.open) dialog.close();
+  }, [details, ready]);
+  if (!snapshot || !ready) return null;
 
-  // Раздел одной версии оценивают один раз: повторный заход показывает прежнюю
-  // оценку, а не плодит дубли. Каждое предложение ИИ — отдельный ответ и отдельный отзыв.
+  // Раздел одной версии оценивают один раз; каждое предложение ИИ оценивают отдельно.
   const saved =
     feedback.data?.find((entry) => entry.id === createdId) ??
     (subject === 'generation'
@@ -83,17 +80,13 @@ export function FeedbackPrompt({
       : undefined);
   const pending = record.isPending || update.isPending;
 
-  function closeAction() {
-    setClosed(true);
-  }
-
   async function rate(rating: FeedbackRating) {
     if (saved?.rating === rating) {
       setDetails({ reasons: saved.reasons, comment: saved.comment });
       return;
     }
     if (saved)
-      // Причины «понравилось» не подходят к оценке «не понравилось» и наоборот.
+      // При смене оценки прежние причины больше не подходят.
       await update.mutateAsync({ id: saved.id, patch: { rating, reasons: [] } });
     else {
       const entry = await record.mutateAsync({
@@ -110,40 +103,12 @@ export function FeedbackPrompt({
       });
       setCreatedId(entry.id);
     }
-    setDetails(actionLabel ? null : { reasons: [], comment: saved?.comment ?? '' });
-    if (actionLabel) closeAction();
+    setDetails({ reasons: [], comment: saved?.comment ?? '' });
   }
 
-  const form = (
-    <form
-      className="response-feedback"
-      aria-label="Отзыв об ответе системы"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!saved || !details) return;
-        update.mutate(
-          { id: saved.id, patch: { reasons: details.reasons, comment: details.comment.trim() } },
-          {
-            onSuccess: () => {
-              setDetails(null);
-              if (actionLabel) closeAction();
-            },
-          },
-        );
-      }}
-    >
-      {actionLabel && (
-        <button
-          type="button"
-          className="feedback-close"
-          aria-label="Закрыть оценку"
-          onClick={closeAction}
-        >
-          <X size={16} />
-        </button>
-      )}
-      <div className="response-feedback-question">
-        <span>{question}</span>
+  return (
+    <div className="response-feedback" role="group" aria-label={actionLabel || question}>
+      <div className="response-feedback-ratings">
         {(['up', 'down'] as const).map((rating) => (
           <button
             key={rating}
@@ -156,106 +121,88 @@ export function FeedbackPrompt({
             // Ошибку показывает ErrorMessage из состояния мутации ниже.
             onClick={() => void rate(rating).catch(() => undefined)}
           >
-            {rating === 'up' ? <ThumbsUp size={16} /> : <ThumbsDown size={16} />}
+            {rating === 'up' ? <ThumbsUp size={18} /> : <ThumbsDown size={18} />}
           </button>
         ))}
       </div>
-      {saved && !details && (
-        <p className="response-feedback-status">
-          Оценка сохранена.{' '}
-          <button
-            type="button"
-            className="link-button"
-            onClick={() => setDetails({ reasons: saved.reasons, comment: saved.comment })}
+      <ErrorMessage error={record.error || feedback.error || (!details && update.error)} />
+      <dialog
+        ref={dialogRef}
+        className="response-feedback-dialog"
+        aria-labelledby={titleId}
+        onClose={() => setDetails(null)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setDetails(null);
+        }}
+      >
+        {details && (
+          <form
+            className="response-feedback-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!saved) return;
+              update.mutate(
+                {
+                  id: saved.id,
+                  patch: { reasons: details.reasons, comment: details.comment.trim() },
+                },
+                { onSuccess: () => setDetails(null) },
+              );
+            }}
           >
-            {saved.reasons.length || saved.comment ? 'Изменить подробности' : 'Добавить причину'}
-          </button>{' '}
-          · <Link to="/feedback">Все отзывы</Link>
-        </p>
-      )}
-      {saved && details && (
-        <>
-          <div className="response-feedback-reasons" role="group" aria-label="Причины">
-            {(Object.keys(feedbackReasons) as FeedbackReason[])
-              .filter((reason) => feedbackReasons[reason].rating === saved.rating)
-              .map((reason) => (
-                <button
-                  key={reason}
-                  type="button"
-                  aria-pressed={details.reasons.includes(reason)}
-                  onClick={() =>
-                    setDetails({
-                      ...details,
-                      reasons: details.reasons.includes(reason)
-                        ? details.reasons.filter((item) => item !== reason)
-                        : [...details.reasons, reason],
-                    })
-                  }
-                >
-                  {feedbackReasons[reason].title}
-                </button>
-              ))}
-          </div>
-          <textarea
-            rows={2}
-            maxLength={2000}
-            value={details.comment}
-            aria-label="Комментарий к отзыву"
-            placeholder={
-              saved.rating === 'down'
-                ? 'Что именно не так? Например, тема, часы или формулировка'
-                : 'Что стоит сохранить в следующих ответах?'
-            }
-            onChange={(event) => setDetails({ ...details, comment: event.target.value })}
-          />
-          <div className="actions">
-            <button className="primary" type="submit" disabled={pending}>
-              {update.isPending ? 'Сохраняем…' : 'Сохранить подробности'}
+            <h2 id={titleId}>Поделиться отзывом</h2>
+            <p className="response-feedback-context">{question}</p>
+            <div className="response-feedback-reasons" role="group" aria-label="Причины">
+              {(Object.keys(feedbackReasons) as FeedbackReason[])
+                .filter((reason) => feedbackReasons[reason].rating === saved?.rating)
+                .map((reason) => {
+                  const selected = details.reasons.includes(reason);
+                  return (
+                    <button
+                      key={reason}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() =>
+                        setDetails({
+                          ...details,
+                          reasons: selected
+                            ? details.reasons.filter((item) => item !== reason)
+                            : [...details.reasons, reason],
+                        })
+                      }
+                    >
+                      {selected ? <Check size={16} /> : <Plus size={16} />}
+                      {feedbackReasons[reason].title}
+                    </button>
+                  );
+                })}
+            </div>
+            <textarea
+              rows={5}
+              maxLength={2000}
+              value={details.comment}
+              aria-label="Комментарий к отзыву"
+              placeholder="Поделитесь подробностями (необязательно)"
+              onChange={(event) => setDetails({ ...details, comment: event.target.value })}
+            />
+            <ErrorMessage error={update.error} />
+            <button
+              className="primary response-feedback-submit"
+              type="submit"
+              disabled={pending || !saved}
+            >
+              {update.isPending ? 'Отправляем…' : 'Отправить'}
             </button>
-            <button type="button" onClick={() => setDetails(null)}>
+            <button
+              type="button"
+              className="response-feedback-skip"
+              onClick={() => setDetails(null)}
+            >
               Без подробностей
             </button>
-          </div>
-        </>
-      )}
-      <ErrorMessage error={record.error || update.error || feedback.error} />
-    </form>
-  );
-  if (!actionLabel) return form;
-  return (
-    <div
-      className="feedback-action"
-      onKeyDown={(event) => {
-        if (event.key === 'Escape' && !closed) {
-          event.preventDefault();
-          event.stopPropagation();
-          closeAction();
-        }
-      }}
-    >
-      {closed ? (
-        <button
-          type="button"
-          ref={reopenRef}
-          className="feedback-action-trigger"
-          onClick={() => setClosed(false)}
-          aria-label={saved ? `${actionLabel}: оценка сохранена` : actionLabel}
-        >
-          {saved ? (
-            saved.rating === 'up' ? (
-              <ThumbsUp size={16} />
-            ) : (
-              <ThumbsDown size={16} />
-            )
-          ) : (
-            <MessageSquare size={16} />
-          )}
-          {actionLabel}
-          {saved && <span className="feedback-action-saved">Сохранено</span>}
-        </button>
-      ) : (
-        form
-      )}
+          </form>
+        )}
+      </dialog>
     </div>
   );
 }

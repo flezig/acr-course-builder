@@ -113,21 +113,21 @@ test('требования сортируются и фильтруются по
     expect(titles).toEqual([...titles].sort((a, b) => a.localeCompare(b, 'ru')));
   }
 
-  const summary = (await page.locator('.checklist-summary').textContent())!;
+  const filters = page.getByRole('group', { name: 'Статус' });
   const problemCount = await page.locator('.checklist-item.problem').count();
-  await page.getByLabel('Статус', { exact: true }).selectOption('problem');
+  await expect(filters.getByRole('button', { name: /^Все/ })).toHaveText(`Все${total}`);
+  const problemFilter = filters.getByRole('button', { name: /^Проблема/ });
+  await problemFilter.click();
+  await expect(problemFilter).toHaveAttribute('aria-pressed', 'true');
   await expect(items).toHaveCount(problemCount);
   await expect(page.locator('.checklist-item:not(.problem)')).toHaveCount(0);
-  await expect(page.locator('.checklist-controls').getByRole('status')).toHaveText(
-    `Показано ${problemCount} из ${total}`,
-  );
-  await expect(page.locator('.checklist-summary')).toHaveText(summary);
+  await expect(filters).toContainText(`Все${total}`);
   await expect(items.first().getByRole('link', { name: 'Открыть' })).toHaveAttribute(
     'href',
     /\/courses\/.+#/,
   );
 
-  await page.getByLabel('Статус', { exact: true }).selectOption('exception_accepted');
+  await filters.getByRole('button', { name: /^Принято исключение/ }).click();
   await expect(items).toHaveCount(0);
   await expect(page.getByText('Требований с таким статусом нет')).toBeVisible();
   await expect(page.locator('.checklist-panel')).toHaveCount(0);

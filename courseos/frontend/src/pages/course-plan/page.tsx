@@ -511,6 +511,13 @@ export function PlanPage() {
                   </div>
                 </section>
               )}
+              <FeedbackPrompt
+                key={`${snapshot.course_id}-${snapshot.course_version}-intent`}
+                subject="generation"
+                section="intent"
+                actionLabel="Оценить описание"
+                question="Насколько полезно описание программы?"
+              />
             </Panel>
           </div>
           <div id="curriculum" hidden={tab !== 'curriculum'}>
@@ -534,6 +541,13 @@ export function PlanPage() {
             <Panel title="Учебный план" className="curriculum-panel">
               <VolumeSummary skeleton={skeleton} />
               <CurriculumTable skeleton={skeleton} focused={target} />
+              <FeedbackPrompt
+                key={`${snapshot.course_id}-${snapshot.course_version}-curriculum`}
+                subject="generation"
+                section="curriculum"
+                actionLabel="Оценить план"
+                question="Насколько полезен учебный план?"
+              />
             </Panel>
             <CoverageMatrix
               snapshot={snapshot}
@@ -557,6 +571,13 @@ export function PlanPage() {
                 );
                 navigate(`${location.pathname}${location.search}#calendar`, { replace: true });
               }}
+            />
+            <FeedbackPrompt
+              key={`${snapshot.course_id}-${snapshot.course_version}-calendar`}
+              subject="generation"
+              section="calendar"
+              actionLabel="Оценить календарь"
+              question="Насколько полезен календарь?"
             />
           </div>
           <div id="review" hidden={tab !== 'review'}>
@@ -738,27 +759,6 @@ export function PlanPage() {
           </Panel>
         </aside>
       </div>
-      {tab !== 'review' && (
-        <FeedbackPrompt
-          key={`${snapshot.course_id}-${snapshot.course_version}-${tab}`}
-          subject="generation"
-          section={tab}
-          actionLabel={
-            tab === 'curriculum'
-              ? 'Оценить план'
-              : tab === 'calendar'
-                ? 'Оценить календарь'
-                : 'Оценить описание'
-          }
-          question={
-            tab === 'curriculum'
-              ? 'Насколько полезен учебный план?'
-              : tab === 'calendar'
-                ? 'Насколько полезен календарь?'
-                : 'Насколько полезно описание программы?'
-          }
-        />
-      )}
     </div>
   );
 }
