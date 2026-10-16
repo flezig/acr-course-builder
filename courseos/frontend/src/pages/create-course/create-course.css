@@ -243,24 +243,33 @@
 .request-composer > .field-label {
   margin-bottom: 7px;
 }
-.create-workspace .request-composer > textarea {
+/* Специфичность выше общих правил темы: иначе поле получает скругление со всех сторон
+   и визуально отрывается от панели вложений. */
+.create-workspace .request-composer.field > textarea {
   border-bottom: 0;
-  border-radius: 12px 12px 0 0;
+  border-radius: 20px 20px 0 0;
+  resize: none;
 }
-.request-composer > textarea:focus-visible {
+.create-workspace .request-composer.field > textarea:focus-visible {
   outline: none !important;
 }
 .request-composer > .create-references {
+  margin: 0;
   padding: 4px 10px 10px;
   border: 1px solid var(--theme-border, #e4e4e4);
   border-top: 0;
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 0 20px 20px;
   background: var(--theme-paper, #ffffff);
 }
-.request-composer:has(> textarea:focus-visible) :is(> textarea, > .create-references) {
+:root[data-theme='dark'] .request-composer > .create-references {
+  background: var(--theme-subtle);
+}
+.request-composer:has(> textarea:focus-visible) > textarea,
+.request-composer:has(> textarea:focus-visible) > .create-references {
   border-color: var(--theme-border-strong, #8b8b8b);
 }
-.request-composer.has-error :is(> textarea, > .create-references) {
+.request-composer.has-error > textarea,
+.request-composer.has-error > .create-references {
   border-color: var(--error-ink, var(--theme-red-ink, #a52c2c));
 }
 .attachment-list {
