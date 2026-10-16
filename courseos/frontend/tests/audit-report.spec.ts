@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect } from '@playwright/test';
 
 for (const scenario of [
@@ -9,6 +10,7 @@ for (const scenario of [
     await page.goto('/');
     await page.getByRole('button', { name: new RegExp(scenario) }).click();
     await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+    await answerDemoQuestions(page);
     await expect(page.locator('.course-heading h1')).toBeVisible();
     const banner = page.getByRole('region', { name: 'Решение по программе' });
     const heading = await banner.locator('h2').innerText();
@@ -40,6 +42,7 @@ test('ссылка очереди на основание оставляет д�
   await page.goto('/');
   await page.getByRole('button', { name: /Анализ данных на Python/ }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.course-heading h1')).toBeVisible();
   await page.evaluate(() => {
     const stored = JSON.parse(localStorage.getItem('courseos-demo-v1')!);

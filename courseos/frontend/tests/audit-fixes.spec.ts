@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect, type Page } from '@playwright/test';
 import type { Snapshot } from '../src/entities/course/model/schema';
 
@@ -5,6 +6,7 @@ async function create(page: Page, example: string) {
   await page.goto('/');
   await page.getByRole('button', { name: new RegExp(example) }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.course-heading h1')).toBeVisible();
   return page.url().match(/courses\/([^/]+)/)![1];
 }

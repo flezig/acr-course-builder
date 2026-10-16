@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect, type Download } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 async function contents(download: Download) {
@@ -14,6 +15,7 @@ test('Основания в интерфейсе, JSON и MD относятся 
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
   await page.getByRole('link', { name: 'О программе', exact: true }).click();
   await expect(page.locator('.goal-statement')).toBeVisible();

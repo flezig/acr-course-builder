@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { expect, test } from '@playwright/test';
 
 test('Методист заменяет профстандарт, добавляет свою редакцию и убирает привязку', async ({
@@ -11,6 +12,7 @@ test('Методист заменяет профстандарт, добавля
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
   await page.getByRole('link', { name: 'Учебный план', exact: true }).click();
   await page.getByRole('link', { name: 'О программе', exact: true }).click();

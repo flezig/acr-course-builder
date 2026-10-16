@@ -1,3 +1,4 @@
+import { answerDemoQuestions, chooseRecommendedAnswers } from './answer-demo-questions';
 import { test, expect, type Page } from '@playwright/test';
 import { readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -13,10 +14,13 @@ async function createPython(page: Page, incomplete = false) {
   if (incomplete) await editDraft(page, (draft) => (draft.entry_level = ''));
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   if (incomplete) {
+    await chooseRecommendedAnswers(page);
     await page
       .getByLabel('Какой входной уровень слушателей?', { exact: true })
       .fill('Без опыта программирования');
     await page.getByRole('button', { name: 'Сохранить ответы и построить программу' }).click();
+  } else {
+    await answerDemoQuestions(page);
   }
   await expect(page.locator('.verdict')).toBeVisible();
   return page.url().match(/courses\/([^/]+)/)![1];
@@ -65,7 +69,8 @@ test('Полный путь: уточнения, правка структуры
     .click();
   await editDraft(page, (draft) => (draft.entry_level = ''));
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Уточните 1 параметров' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Агент уточняет' })).toBeVisible();
+  await chooseRecommendedAnswers(page);
   await page.getByLabel('Какой входной уровень слушателей?').fill('Без опыта программирования');
   await page.getByRole('button', { name: 'Сохранить ответы и построить программу' }).click();
   await expect(page.locator('.verdict')).toBeVisible();
@@ -127,6 +132,7 @@ test('DevOps: подтвердить56дней, увидеть64/32, решит�
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await page.getByRole('link', { name: 'Календарь', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Календарь и учебная нагрузка' })).toBeVisible();
   await page.getByRole('button', { name: 'Изменить календарь' }).click();
@@ -296,6 +302,7 @@ test('HTTP-сбой: нет скрытого demo; request_id переживае
   expect(ids).toHaveLength(2);
   expect(ids[0]).toBe(ids[1]);
   expect(payloads[0]).toEqual(payloads[1]);
+  await page.locator('.parameter-summary > summary').click();
   await page.getByLabel('Запрос методиста').fill('Курс Python для школьников на 17 часов');
   await page.getByLabel('Объём в часах', { exact: true }).fill('17');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();

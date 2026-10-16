@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 // Готовим черновик до загрузки формы, затем явно подтверждаем его параметры в деморежиме.
 export async function editDraft(page: Page, patch: (draft: Record<string, any>) => void) {
@@ -11,7 +11,14 @@ export async function editDraft(page: Page, patch: (draft: Record<string, any>) 
   patch(draft);
   await page.evaluate(([k, v]) => localStorage.setItem(k!, v!), [key, JSON.stringify(draft)]);
   await page.reload();
-  await page
-    .getByRole('checkbox', { name: 'Подтверждаю параметры изменённого запроса вручную' })
-    .check();
+  await expect(page.getByLabel('Запрос методиста')).toHaveValue(String(draft.request));
+  const confirmation = page.getByRole('checkbox', {
+    name: 'Подтверждаю параметры изменённого запроса вручную',
+    includeHidden: true,
+  });
+  if (await confirmation.count()) {
+    if ((await page.locator('.parameter-summary').getAttribute('open')) === null)
+      await page.locator('.parameter-summary > summary').click();
+    await confirmation.check();
+  }
 }

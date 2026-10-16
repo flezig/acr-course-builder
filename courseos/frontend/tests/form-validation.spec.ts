@@ -1,3 +1,4 @@
+import { answerDemoQuestions, chooseRecommendedAnswers } from './answer-demo-questions';
 import { test, expect, type Page } from '@playwright/test';
 
 async function pythonCourse(page: Page) {
@@ -6,6 +7,7 @@ async function pythonCourse(page: Page) {
     .getByRole('button', { name: 'Первые шаги в Python 16 часов · школьники · общеразвивающая' })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
 }
 
@@ -20,10 +22,12 @@ test('Creation requires a request before submitting', async ({ page }) => {
   await expect(request).toBeFocused();
   await expect(request).toHaveAttribute('aria-invalid', 'true');
   await request.fill('Курс Python для школьников без опыта программирования, 16 часов');
+  await page.locator('.parameter-summary > summary').click();
   await page
     .getByRole('checkbox', { name: 'Подтверждаю параметры изменённого запроса вручную' })
     .check();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
 });
 
@@ -33,6 +37,7 @@ test('Clarifications reject the screenshot input locally and require a program t
   await page.goto('/');
   await page.getByRole('button', { name: /Кибербезопасность.*Неполный запрос/ }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await chooseRecommendedAnswers(page);
   const hours = page.getByLabel('Какой объём в часах?', { exact: true });
   await hours.fill('вава');
   await expect(hours).toHaveAccessibleDescription(/Введите неотрицательное число/);

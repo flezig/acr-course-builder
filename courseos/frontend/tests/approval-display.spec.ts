@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect } from '@playwright/test';
 
 for (const width of [1440, 390, 320]) {
@@ -14,6 +15,7 @@ for (const width of [1440, 390, 320]) {
         })
         .click();
       await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+      await answerDemoQuestions(page);
       await expect(page.locator('.verdict')).toBeVisible();
       const firstIssue = blocked
         ? await page

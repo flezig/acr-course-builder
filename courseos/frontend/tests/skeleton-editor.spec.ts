@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect } from '@playwright/test';
 
 test('Plan editor keeps content readable and outcome links consistent after additions and removals', async ({
@@ -11,6 +12,7 @@ test('Plan editor keeps content readable and outcome links consistent after addi
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
   await page.getByRole('link', { name: 'Учебный план', exact: true }).click();
   await page.getByRole('button', { name: 'Изменить план', exact: true }).click();

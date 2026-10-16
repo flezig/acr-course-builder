@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect } from '@playwright/test';
 import type { Snapshot } from '../src/entities/course/model/schema';
 test('Покрытие в программе: три состояния, фильтры, цепочка и редакторы', async ({ page }) => {
@@ -9,6 +10,7 @@ test('Покрытие в программе: три состояния, фил�
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.coverage-panel')).toBeVisible();
   const planUrl = page.url();
   await page.evaluate(() => {

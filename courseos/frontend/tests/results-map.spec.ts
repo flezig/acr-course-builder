@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect, type Page } from '@playwright/test';
 import type { Skeleton } from '../src/entities/course/model/schema';
 
@@ -12,6 +13,7 @@ async function openMap(page: Page, preset = 'python', mode = 'overview') {
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page).toHaveURL(/courses\//);
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await page.goto(`/courses/${id}/map`);

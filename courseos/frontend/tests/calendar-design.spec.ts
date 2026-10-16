@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect } from '@playwright/test';
 test('Calendar decisions require fresh consent and reflow', async ({ page }) => {
   await page.goto('/');
@@ -7,6 +8,7 @@ test('Calendar decisions require fresh consent and reflow', async ({ page }) => 
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await page.getByRole('link', { name: 'Календарь', exact: true }).click();
   await expect(page.locator('.calendar-form')).toHaveCount(0);
   await page.getByRole('button', { name: 'Изменить календарь' }).click();
@@ -65,6 +67,7 @@ test('Empty, partial, invalid and sufficient calendar', async ({ page }) => {
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await page.getByRole('link', { name: 'Календарь', exact: true }).click();
   await expect(page.locator('.calendar-panel')).toContainText('Заполните параметры для расчёта');
   await page.getByRole('button', { name: 'Изменить календарь' }).click();

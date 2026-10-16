@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -15,6 +16,7 @@ test('Course OS: замечания, версии и адаптивность 14
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
   const planUrl = page.url();
   const status = page.locator('.verdict');
@@ -92,6 +94,7 @@ test('Course OS: замечания, версии и адаптивность 14
     'Искусственный интеллект в профессиональной деятельности учителя: проектирование образовательных материалов и проверка результатов обучения';
   await editDraft(page, (draft) => (draft.title = longTitle));
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.getByRole('heading', { name: longTitle, exact: true })).toBeVisible();
   await expect(page.locator('.verdict')).toBeVisible();
   for (const width of [1440, 1280, 768, 390]) {

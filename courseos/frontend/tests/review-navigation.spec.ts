@@ -1,3 +1,4 @@
+import { answerDemoQuestions } from './answer-demo-questions';
 import { test, expect, type Page } from '@playwright/test';
 
 async function create(page: Page, teacher = false) {
@@ -11,6 +12,7 @@ async function create(page: Page, teacher = false) {
     })
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
   await expect(page.locator('.verdict')).toBeVisible();
   await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
 }

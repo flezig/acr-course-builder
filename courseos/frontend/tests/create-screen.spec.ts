@@ -116,7 +116,7 @@ test('Submit preserves the incomplete request and opens existing clarification s
   await page.goto('/');
   await page.getByRole('button', { name: /Кибербезопасность Неполный запрос/ }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Уточните 5 параметров' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Агент уточняет' })).toBeVisible();
 });
 
 test('Empty form keeps validation and does not submit', async ({ page }) => {
