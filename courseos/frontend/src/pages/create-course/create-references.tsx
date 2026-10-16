@@ -5,7 +5,6 @@ import {
   userReference,
   type Reference,
 } from '../../entities/course/model/user-reference';
-import { ProfessionalStandardFields } from '../../features/professional-standard/professional-standard-fields';
 import { ReferenceEditor } from '../../features/upload-reference/reference-editor';
 import { Field } from '../../shared/ui/ui';
 
@@ -25,7 +24,6 @@ export function CreateReferences({
   const links = references.filter(
     (reference) => !isProfessionalStandardReference(reference) && !isPreviousProgram(reference),
   );
-  const standard = references.find(isProfessionalStandardReference);
   const replace = (current: Reference | undefined, replacement: Reference) =>
     onChange(
       current
@@ -44,43 +42,33 @@ export function CreateReferences({
       userReference({
         id:
           source?.id || `${previous ? 'previous-program-' : 'useful-link-'}${crypto.randomUUID()}`,
-        name: previous ? 'Прошлая программа' : '',
+        name: previous ? 'Прошлая программа' : 'Полезная ссылка',
         ...source,
         ...patch,
       }),
     );
   };
   return (
-    <section className="create-references" aria-labelledby="create-references-title">
-      <h3 id="create-references-title">Референсы</h3>
-      <p>Добавьте материалы, на которые должна опираться программа. Это необязательно.</p>
+    <section className="create-references" aria-label="Материалы для программы">
       <details>
         <summary>
-          Прошлая программа{previousPrograms.length ? ` · ${previousPrograms.length}` : ''}
+          Материалы для программы
+          <span className="create-references-count">
+            {previousPrograms.length + links.length || 'необязательно'}
+          </span>
         </summary>
+        <p>Добавьте прошлую программу или полезные ссылки. Содержимое ссылок не загружается.</p>
         {(previousPrograms.length ? previousPrograms : [undefined]).map((source, index) => (
           <div className="create-reference" key={index}>
-            <Field label="Название прошлой программы">
-              <input
-                value={source?.name || ''}
-                placeholder="Прошлая программа"
-                onChange={(event) => update(source, { name: event.target.value }, true)}
-              />
-            </Field>
-            <Field label="Текст прошлой программы">
-              <textarea
-                rows={3}
-                required={!!source}
-                value={source?.text || ''}
-                placeholder="Вставьте программу целиком или нужный фрагмент"
-                onChange={(event) => update(source, { text: event.target.value }, true)}
-              />
-            </Field>
+            {source?.text && (
+              <p className="create-reference-saved">{source.name} · текст сохранён</p>
+            )}
             <Field label="Ссылка на прошлую программу" error={referenceUrlError(source?.url || '')}>
               <input
                 type="url"
+                required={!!source && !source.text.trim()}
                 value={source?.url || ''}
-                placeholder="https://… (необязательно)"
+                placeholder="https://…"
                 onChange={(event) => update(source, { url: event.target.value }, true)}
               />
             </Field>
@@ -91,27 +79,10 @@ export function CreateReferences({
             )}
           </div>
         ))}
-      </details>
-      <details>
-        <summary>Профстандарт{standard ? ' · Выбран' : ' · Без профстандарта'}</summary>
-        <ProfessionalStandardFields
-          reference={standard}
-          onChange={(replacement) =>
-            onChange([
-              ...references.filter((reference) => !isProfessionalStandardReference(reference)),
-              ...(replacement ? [replacement] : []),
-            ])
-          }
-        />
-      </details>
-      <details>
-        <summary>Полезные ссылки{links.length ? ` · ${links.length}` : ''}</summary>
-        <p>Ссылки сохраняются без загрузки содержимого.</p>
         {(links.length ? links : [undefined]).map((source, index) => (
           <div className="create-reference" key={index}>
-            <Field label="Название ссылки">
+            <Field label="Название ссылки" hint="Необязательно">
               <input
-                required={!!source}
                 value={source?.name || ''}
                 onChange={(event) => update(source, { name: event.target.value }, false)}
               />

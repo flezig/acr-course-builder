@@ -14,6 +14,8 @@ import { emptyRequirements, presets } from '../../entities/course/model/presets'
 import { StoragePanel } from '../../features/export-course/storage-panel';
 import { parameterDiscrepancies } from '../../entities/course/model/request-parameters';
 import { CreateReferences } from './create-references';
+import { ProfessionalStandardFields } from '../../features/professional-standard/professional-standard-fields';
+import { isProfessionalStandardReference } from '../../entities/course/model/professional-standards';
 import { contentHash } from '../../shared/lib/decimal';
 import { Form, Badge, ErrorMessage, Field, Notice, Panel, statuses } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
@@ -28,6 +30,7 @@ export function CreateCoursePage() {
   const [confirmed, setConfirmed] = useState(false);
   const [confirmationError, setConfirmationError] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
+  const parametersRef = useRef<HTMLDetailsElement>(null);
   const form = useForm<Requirements>({
     mode: 'onChange',
     resolver: zodResolver(inputSchema),
@@ -58,6 +61,7 @@ export function CreateCoursePage() {
   }, [values.request]);
   const submit = form.handleSubmit(async (values) => {
     if (discrepancies.length || (api.mode === 'demo' && changedRequest && !confirmed)) {
+      if (parametersRef.current) parametersRef.current.open = true;
       setConfirmationError(
         discrepancies.length
           ? 'Устраните расхождения текста и сводки.'
@@ -77,7 +81,11 @@ export function CreateCoursePage() {
               if (reference.hash) return reference;
               const source = {
                 ...reference,
-                name: reference.name.trim() || 'Прошлая программа',
+                name:
+                  reference.name.trim() ||
+                  (reference.id.startsWith('useful-link-')
+                    ? 'Полезная ссылка'
+                    : 'Прошлая программа'),
                 url: reference.url.trim(),
               };
               return { ...source, hash: await contentHash({ text: source.text, url: source.url }) };
@@ -141,8 +149,8 @@ export function CreateCoursePage() {
               placeholder="Для кого курс, чему нужно научить, сколько часов и какие ограничения важно учесть?"
             />
           </Field>
-          <details className="parameter-summary" open>
-            <summary>Сводка параметров перед построением</summary>
+          <details className="parameter-summary" ref={parametersRef}>
+            <summary>Сводка параметров</summary>
             <p>
               {api.mode === 'demo'
                 ? 'Значения примера можно изменить вручную. Демо не анализирует изменённый запрос; сверьте все поля с текстом.'
@@ -204,6 +212,21 @@ export function CreateCoursePage() {
             <Field label="Ограничения">
               <textarea {...form.register('constraints')} rows={2} />
             </Field>
+            <ProfessionalStandardFields
+              reference={values.references.find(isProfessionalStandardReference)}
+              onChange={(reference) =>
+                form.setValue(
+                  'references',
+                  [
+                    ...values.references.filter(
+                      (source) => !isProfessionalStandardReference(source),
+                    ),
+                    ...(reference ? [reference] : []),
+                  ],
+                  { shouldDirty: true },
+                )
+              }
+            />
             {!!discrepancies.length && (
               <Notice tone="warning">{discrepancies.join(' ')} Исправьте текст или поля.</Notice>
             )}

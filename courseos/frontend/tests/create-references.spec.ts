@@ -1,10 +1,15 @@
 import { expect, test } from '@playwright/test';
 
-async function openSection(page: import('@playwright/test').Page, name: string) {
-  const section = page
-    .locator('.create-references > details')
-    .filter({ has: page.locator('summary', { hasText: name }) });
-  await section.locator('summary').click();
+async function openSection(
+  page: import('@playwright/test').Page,
+  name: 'Сводка параметров' | 'Материалы для программы',
+) {
+  const section = page.locator(
+    name === 'Сводка параметров' ? '.parameter-summary' : '.create-references > details',
+  );
+  if (!(await section.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await section.locator('summary').click();
+  }
   return section;
 }
 
@@ -13,15 +18,14 @@ test('Создание курса сохраняет прошлую програ
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /ИИ в работе учителя 36 часов/ }).click();
-  const previous = await openSection(page, 'Прошлая программа');
-  await previous
-    .getByLabel('Текст прошлой программы')
-    .pressSequentially('Прошлая программа: анализ заданий и практика.');
+  const previous = await openSection(page, 'Материалы для программы');
+  await expect(page.getByLabel('Текст прошлой программы')).toHaveCount(0);
+  await expect(page.getByLabel('Название прошлой программы')).toHaveCount(0);
   await previous.getByLabel('Ссылка на прошлую программу').fill('https://example.com/previous');
-  const standards = await openSection(page, 'Профстандарт');
+  const standards = await openSection(page, 'Сводка параметров');
   await expect(standards.getByLabel('Профстандарт программы')).toHaveValue('teachers');
   await standards.getByLabel('Профстандарт программы').selectOption('devops');
-  const links = await openSection(page, 'Полезные ссылки');
+  const links = await openSection(page, 'Материалы для программы');
   await links.getByLabel('Название ссылки').fill('Руководство по практике');
   await links.getByLabel('URL полезной ссылки').fill('ftp://example.com/guide');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
@@ -36,14 +40,11 @@ test('Создание курса сохраняет прошлую програ
   await expect(page.getByText('Происхождение и проверка фрагмента')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Получить текст по ссылке' })).toHaveCount(0);
   await page.reload();
-  await page
-    .locator('.create-references > details')
-    .filter({ hasText: 'Прошлая программа' })
-    .locator('summary')
-    .click();
-  await expect(page.getByLabel('Текст прошлой программы')).toHaveValue(
-    'Прошлая программа: анализ заданий и практика.',
+  await openSection(page, 'Материалы для программы');
+  await expect(page.getByLabel('Ссылка на прошлую программу')).toHaveValue(
+    'https://example.com/previous',
   );
+  await openSection(page, 'Сводка параметров');
   await page
     .getByRole('checkbox', { name: 'Подтверждаю параметры изменённого запроса вручную' })
     .check();
@@ -78,10 +79,10 @@ test('Свой профстандарт и референсы примера з�
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /DevOps: Linux/ }).click();
-  const previous = await openSection(page, 'Прошлая программа');
-  await expect(previous.getByLabel('Текст прошлой программы')).toHaveValue(/Учебный план образца/);
-  await expect(previous.getByLabel('Название прошлой программы')).toHaveValue(/Образец АЦР/);
-  const standards = await openSection(page, 'Профстандарт');
+  const previous = await openSection(page, 'Материалы для программы');
+  await expect(previous).toContainText(/Образец АЦР.*текст сохранён/);
+  await expect(previous.getByRole('textbox')).toHaveCount(3);
+  const standards = await openSection(page, 'Сводка параметров');
   await expect(standards.getByLabel('Профстандарт программы')).toHaveValue('devops');
   await standards.getByLabel('Профстандарт программы').selectOption('custom');
   await standards.getByLabel('Название и код профстандарта').fill('Профстандарт методиста');
@@ -112,7 +113,7 @@ test('Свой профстандарт и референсы примера з�
 test('Без профстандарта при создании и честная ошибка PDF в демо', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /ИИ в работе учителя 36 часов/ }).click();
-  const standards = await openSection(page, 'Профстандарт');
+  const standards = await openSection(page, 'Сводка параметров');
   await standards.getByLabel('Профстандарт программы').selectOption('');
   await page.getByLabel('Загрузить PDF или DOCX').setInputFiles({
     name: 'program.pdf',
