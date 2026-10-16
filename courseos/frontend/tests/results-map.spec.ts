@@ -88,11 +88,11 @@ test('Результат — точка входа; обучение и оцен
     id,
   );
   await expect(page.locator('.outcome-list-item[aria-current=true]')).toContainText(
-    'Риски, этика и данные детей',
+    'Безопасная работа с данными',
   );
   await expect(page.getByLabel('Связанное обучение')).toBeVisible();
   await expect(page.getByLabel('Связанное оценивание')).toBeVisible();
-  await expect(page.locator('.full-outcome-text')).toContainText('Наблюдаемое действие не задано');
+  await expect(page.locator('.full-outcome-text')).toContainText('обезличивает данные учеников');
   await expect(page.locator('.map-lines')).toHaveCount(0);
   await expect(page.getByLabel('Масштаб', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Связи есть', { exact: true })).toHaveCount(0);
@@ -171,7 +171,7 @@ test('Полная карта: компактные карточки, прямы
   const before = parseInt(await zoom.innerText());
   await page.getByRole('button', { name: 'Увеличить масштаб' }).click();
   expect(parseInt(await zoom.innerText())).toBeGreaterThan(before);
-  const card = page.locator('.map-card').filter({ hasText: 'Риски, этика и данные детей' }).first();
+  const card = page.locator('.map-card').filter({ hasText: 'Безопасная работа с данными' }).first();
   await card.click();
   await expect(panel(page)).toBeVisible();
   await expect(page.locator('.map-lines path.active')).toHaveCount(6);

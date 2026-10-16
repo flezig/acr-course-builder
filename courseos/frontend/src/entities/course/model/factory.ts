@@ -109,10 +109,13 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
               professional_standard_code: null,
             },
           ]
-        : names.map((name, index) => ({
+        : design.map((topic, index) => ({
             id: `outcome-${index + 1}`,
             kind: (['knowledge', 'skill', 'proficiency'] as const)[index % 3],
-            description: `Выполняет учебную задачу «${name}» и объясняет решение`,
+            title: topic.outcome?.title,
+            description:
+              topic.outcome?.description ??
+              `Выполняет учебную задачу «${topic.title}» и объясняет решение`,
             prerequisite: requirements.entry_level + '; предметные предпосылки требуют уточнения',
             depth: 'Базовое действие по образцу; требуется предметная проверка',
             requirement_id: 'request',

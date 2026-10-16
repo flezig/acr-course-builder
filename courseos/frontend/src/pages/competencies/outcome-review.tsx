@@ -99,9 +99,8 @@ export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
   const hasRequirement =
     (typeof requirement === 'string' && !!requirement.trim()) ||
     s.requirements.references.some((r) => r.id === outcome.requirement_id);
+  // Заготовку из названия темы не перечисляем: об этом уже говорит текст результата выше.
   const reviewProblems = [
-    missing &&
-      'Укажите через «Редактировать», что учащийся сможет сделать после обучения: например, определить риск или обезличить данные.',
     !outcome.description.trim() &&
       'Формулировка результата отсутствует. Добавьте её через «Редактировать».',
     !outcomeCriteria(s, id).length &&
@@ -112,7 +111,7 @@ export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
       'Нет связанного обучения. Привяжите тему или практику ниже.',
     !hasRequirement && 'Нет исходного требования. Выберите его через «Изменить связи результата».',
   ].filter((problem): problem is string => !!problem);
-  const validReview = reviewProblems.length === 0;
+  const validReview = !missing && reviewProblems.length === 0;
   async function save(payload: Skeleton) {
     try {
       await command.mutateAsync({
@@ -160,10 +159,9 @@ export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
         <span className={`review-state ${status === 'Проверен' ? 'checked' : ''}`}>{status}</span>
       </div>
       <h2>{outcome.title || compactMapTitle(outcome.description)}</h2>
-      <p className="column-caption">Наблюдаемое действие учащегося</p>
       <p className="full-outcome-text">
         {missing
-          ? 'Наблюдаемое действие не задано: указано только название темы, без описания того, что учащийся сможет сделать после обучения.'
+          ? 'Не указано, что учащийся сможет сделать после обучения: пока это только название темы.'
           : outcome.description}
       </p>
       <div className="outcome-actions">
@@ -244,31 +242,29 @@ export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
       </details>
       {editable && status !== 'Проверен' && (
         <div className="outcome-check">
-          {validReview ? (
-            <p>
-              Подтвердите после проверки формулировки, критериев, требований и связанного
-              оценивания.
-            </p>
-          ) : (
+          {reviewProblems.length > 0 && (
             <ul className="review-problems">
               {reviewProblems.map((problem) => (
                 <li key={problem}>{problem}</li>
               ))}
             </ul>
           )}
-          <button
-            disabled={!validReview || command.isPending}
-            onClick={() => {
-              const checked = structuredClone(s);
-              checked.outcomes.find((o) => o.id === id)!.review = {
-                signature: outcomeReviewSignature(s, id),
-                checked_at: new Date().toISOString(),
-              };
-              void save(checked);
-            }}
-          >
-            Подтвердить проверку результата
-          </button>
+          {/* Недоступную кнопку не показываем: она отвлекает от того, что нужно исправить. */}
+          {validReview && (
+            <button
+              disabled={command.isPending}
+              onClick={() => {
+                const checked = structuredClone(s);
+                checked.outcomes.find((o) => o.id === id)!.review = {
+                  signature: outcomeReviewSignature(s, id),
+                  checked_at: new Date().toISOString(),
+                };
+                void save(checked);
+              }}
+            >
+              Подтвердить проверку результата
+            </button>
+          )}
         </div>
       )}
       {status === 'Проверен' && (

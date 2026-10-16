@@ -35,17 +35,9 @@ import { CurriculumTable, VolumeSummary } from './curriculum-table';
 import { CoverageMatrix } from '../competencies/coverage-matrix';
 import { VerdictBanner } from './verdict-banner';
 import './decision.css';
-const conciseOutcomes: Record<string, string> = {
-  'Риски, этика и данные детей': 'Оценивает риски и защищает данные детей',
-  'Запрос и проверка ответа ИИ': 'Составляет запрос и проверяет ответ ИИ',
-  'План урока': 'Создаёт план урока',
-  'Задания для учеников': 'Готовит задания для учеников',
-};
+// Заготовка результата содержит хвост «и объясняет решение» — в таблицах он только удлиняет строку.
 function outcomeText(description: string) {
-  const match = description.match(/^Выполняет учебную задачу «(.+)» и объясняет решение$/);
-  return match
-    ? conciseOutcomes[match[1]] || `Выполняет учебную задачу «${match[1]}»`
-    : description;
+  return description.replace(/^(Выполняет учебную задачу «.+») и объясняет решение$/, '$1');
 }
 const displayHours = (text: string) =>
   text
