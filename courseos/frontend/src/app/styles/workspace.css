@@ -220,12 +220,34 @@ a.text-link,
   border-bottom: 1px solid var(--border);
 }
 .breadcrumb {
-  color: var(--muted);
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
   flex: 1;
 }
-.breadcrumb span {
-  margin: 0 8px;
+.breadcrumb-link {
+  flex-shrink: 0;
+  color: var(--muted);
+  text-decoration: none;
+}
+.breadcrumb-link:hover,
+.breadcrumb-link:focus-visible {
+  color: var(--accent);
+  text-decoration: none;
+}
+.breadcrumb-separator {
+  flex-shrink: 0;
+  margin: 0 12px;
+  color: var(--theme-line, #c4c4c4);
+}
+.breadcrumb-current {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .topbar-actions {
   gap: 8px;
@@ -556,9 +578,6 @@ a.text-link,
     padding: 12px 24px;
     gap: 12px;
   }
-  .breadcrumb {
-    font-size: 11px;
-  }
   .topbar-actions > .badge {
     display: none;
   }
@@ -774,9 +793,9 @@ a.text-link,
 @media (min-width: 801px) {
   .topbar,
   .plan-shell .topbar {
-    min-height: 60px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    min-height: 52px;
+    padding-top: 8px;
+    padding-bottom: 8px;
   }
   .plan-shell main {
     padding-top: 24px;

@@ -320,7 +320,7 @@ code {
   font-size: 13px;
   color: var(--theme-muted, #868686);
 }
-.breadcrumb span {
+.breadcrumb-separator {
   margin: 0 12px;
   color: var(--theme-line, #c4c4c4);
 }

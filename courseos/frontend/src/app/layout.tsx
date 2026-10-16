@@ -337,14 +337,21 @@ function LayoutContent() {
             <Menu size={20} />
             <span>CourseOS</span>
           </button>
-          <span className="breadcrumb">
-            Программы <span>/</span>{' '}
-            {courseId
-              ? currentTitle || 'Программа'
-              : location.pathname === '/feedback'
-                ? 'Отзывы о генерации'
-                : 'Новая программа'}
-          </span>
+          <nav className="breadcrumb" aria-label="Хлебные крошки">
+            <Link to="/" className="breadcrumb-link">
+              Программы
+            </Link>
+            <span className="breadcrumb-separator" aria-hidden="true">
+              ›
+            </span>
+            <span className="breadcrumb-current" aria-current="page">
+              {courseId
+                ? currentTitle || 'Программа'
+                : location.pathname === '/feedback'
+                  ? 'Отзывы о генерации'
+                  : 'Новая программа'}
+            </span>
+          </nav>
           <div className="topbar-actions">
             <Badge tone={api.mode === 'demo' ? 'amber' : 'green'}>
               {api.mode === 'demo' ? 'Демо-режим' : 'LIVE · Данные сервера'}
