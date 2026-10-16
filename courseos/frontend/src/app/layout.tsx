@@ -240,25 +240,28 @@ function LayoutContent() {
             { path: 'audit', title: 'Проверка программы', Icon: ShieldCheck },
             { path: 'materials', title: 'Материалы и выгрузки', Icon: Files },
             { path: 'compare', title: 'Сравнение версий', Icon: GitCompareArrows },
-          ].map(({ path, title, Icon }) =>
-            courseId ? (
-              <NavLink
-                key={path}
-                title={title}
-                aria-label={title}
-                to={`/courses/${courseId}/${path}${versionSuffix}`}
-                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-              >
-                <Icon size={20} strokeWidth={1.75} />
-                <span>{title}</span>
-              </NavLink>
-            ) : (
-              <span className="nav-item disabled" key={path}>
-                <Icon size={20} strokeWidth={1.75} />
-                <span>{title}</span>
-              </span>
-            ),
-          )}
+          ]
+            // Сравнивать нечего, пока у программы одна версия.
+            .filter(({ path }) => path !== 'compare' || (course.data?.versions.length ?? 0) > 1)
+            .map(({ path, title, Icon }) =>
+              courseId ? (
+                <NavLink
+                  key={path}
+                  title={title}
+                  aria-label={title}
+                  to={`/courses/${courseId}/${path}${versionSuffix}`}
+                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                >
+                  <Icon size={20} strokeWidth={1.75} />
+                  <span>{title}</span>
+                </NavLink>
+              ) : (
+                <span className="nav-item disabled" key={path}>
+                  <Icon size={20} strokeWidth={1.75} />
+                  <span>{title}</span>
+                </span>
+              ),
+            )}
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-note">

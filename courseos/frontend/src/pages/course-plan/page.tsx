@@ -868,7 +868,7 @@ function Clarifications({ view }: { view: CourseView }) {
               <fieldset className="clarification-question" key={field}>
                 <legend>{question.label}</legend>
                 <p>{question.reason}</p>
-                <Field label="Вариант ответа" hint={`Агент предлагает: ${question.recommended}`}>
+                <Field label="Вариант ответа">
                   <select
                     name={field}
                     aria-label={question.label}
@@ -893,17 +893,19 @@ function Clarifications({ view }: { view: CourseView }) {
                     <option value="custom">Свой вариант</option>
                   </select>
                 </Field>
-                <Field label="Свой вариант">
-                  <input
-                    aria-label={`Свой вариант: ${question.label}`}
-                    value={custom ? answer : ''}
-                    placeholder="Напишите свой ответ"
-                    onChange={(event) => {
-                      setCustomAnswers((current) => ({ ...current, [field]: true }));
-                      form.setValue(field, event.target.value, { shouldValidate: true });
-                    }}
-                  />
-                </Field>
+                {custom && (
+                  <Field label="Свой вариант">
+                    <input
+                      aria-label={`Свой вариант: ${question.label}`}
+                      value={answer}
+                      placeholder="Напишите свой ответ"
+                      onChange={(event) => {
+                        setCustomAnswers((current) => ({ ...current, [field]: true }));
+                        form.setValue(field, event.target.value, { shouldValidate: true });
+                      }}
+                    />
+                  </Field>
+                )}
               </fieldset>
             );
           }

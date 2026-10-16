@@ -11,7 +11,6 @@ import {
 } from '../../entities/course/api/provider';
 import { inputSchema, type Requirements } from '../../entities/course/model/schema';
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
-import { StoragePanel } from '../../features/export-course/storage-panel';
 import { parameterDiscrepancies } from '../../entities/course/model/request-parameters';
 import { CreateReferences } from './create-references';
 import { ProfessionalStandardFields } from '../../features/professional-standard/professional-standard-fields';
@@ -337,7 +336,6 @@ export function CreateCoursePage() {
           </div>
         </Panel>
       )}
-      <StoragePanel />
       <ErrorMessage error={courses.error} />
       <ErrorMessage error={deleteCourse.error} />
     </div>

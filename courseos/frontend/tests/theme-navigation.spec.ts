@@ -69,8 +69,14 @@ test('navigation fits laptop and phone heights; theme survives reload and naviga
     expect(
       await sidebar.evaluate((element) => element.scrollHeight - element.clientHeight),
     ).toBeLessThanOrEqual(1);
-    const lastLink = page.getByRole('link', { name: 'Сравнение версий', exact: true });
-    await expect(lastLink).toBeInViewport();
+    // У новой программы одна версия, поэтому пункта сравнения нет и последний пункт — материалы.
+    const navigation = page.getByRole('navigation', { name: 'Экраны программы' });
+    await expect(navigation.getByRole('link', { name: 'Сравнение версий' })).toHaveCount(0);
+    await expect(
+      navigation.getByRole('link', { name: 'Материалы и выгрузки', exact: true }),
+    ).toBeInViewport();
+    // Через профиль открываются настройки и тема, поэтому он тоже должен помещаться.
+    await expect(page.locator('.profile-menu summary')).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );
@@ -83,12 +89,7 @@ test('navigation fits laptop and phone heights; theme survives reload and naviga
   await page.reload();
   await openProfileMenu(page);
   await expect(page.getByRole('button', { name: 'Включить светлую тему' })).toBeVisible();
-  for (const name of [
-    'Карта результатов',
-    'Проверка программы',
-    'Материалы и выгрузки',
-    'Сравнение версий',
-  ]) {
+  for (const name of ['Карта результатов', 'Проверка программы', 'Материалы и выгрузки']) {
     // На странице проверки есть одноимённая кнопка-ссылка, поэтому ищем в боковой навигации.
     await page
       .getByRole('navigation', { name: 'Экраны программы' })
