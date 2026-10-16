@@ -14,6 +14,7 @@
   padding: 40px 32px 28px;
   border-radius: 28px;
   background: var(--page-gradient);
+  background-color: var(--theme-paper, #ffffff);
   box-shadow: var(--glass-shadow, none);
 }
 .sign-in-card h2 {

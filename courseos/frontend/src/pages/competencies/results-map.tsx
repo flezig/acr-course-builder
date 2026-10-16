@@ -18,6 +18,7 @@ import {
   Link2,
   ChevronRight,
   Info,
+  SlidersHorizontal,
 } from 'lucide-react';
 import type { Skeleton, Snapshot } from '../../entities/course/model/schema';
 import { useCommand } from '../../entities/course/api/provider';
@@ -78,6 +79,7 @@ export function ResultsMap({
   const [search, setSearch] = useState(initialSearch);
   const [kind, setKind] = useState('');
   const [gapFilter, setGapFilter] = useState<GapFilter>('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [outcomeId, setOutcomeId] = useState<string | null>(null);
   const [selectedId, select] = useState<string | null>(null);
   const [hoveredId, hover] = useState<string | null>(null);
@@ -302,33 +304,22 @@ export function ResultsMap({
         <article key={n.id} className={`chain-card ${selectedId === n.id ? 'selected' : ''}`}>
           <span className="node-meta">{badge(n)}</span>
           <button className="chain-card-title map-inline-action" onClick={() => openDetails(n.id)}>
-            {n.title}
+            <span>{n.title}</span>
             <ChevronRight size={13} />
           </button>
-          <p className="element-role">
-            {!roleOutcome
-              ? 'Роль не определена: нет связи с результатом'
-              : n.column === 3
-                ? `Связано для проверки: ${roleOutcome.title}`
-                : n.id.startsWith('topic:')
-                  ? `Содержание: ${n.description || 'Не задано'}`
-                  : `Связано для практики: ${roleOutcome.title}`}
-          </p>
-          {n.column === 3 && (
-            <p className="element-role">
-              <strong>Критерий:</strong> {n.criterion || 'Не задан'}
-            </p>
+          {!roleOutcome && <p className="element-role">Нет связи с результатом</p>}
+          {n.id.startsWith('topic:') && n.description && n.description !== n.title && (
+            <p className="element-role">{n.description}</p>
           )}
           {n.column === 3 && (
             <details className="element-rationale">
-              <summary>Почему это проверяет результат</summary>
+              <summary>Критерий и обоснование</summary>
+              <p className="element-role">
+                <strong>Критерий:</strong> {n.criterion || 'Не задан'}
+              </p>
               {assessmentReason(n)}
             </details>
           )}
-          <p className="element-role">
-            Связано с {linkedResults.length}{' '}
-            {plural(linkedResults.length, ['результатом', 'результатами', 'результатами'])}
-          </p>
           <button
             className="map-inline-action"
             aria-controls={detailId}
@@ -489,7 +480,7 @@ export function ResultsMap({
       )}
       <ErrorMessage error={undoCommand.error} />
       <section
-        className="results-map results-workspace"
+        className={`results-map results-workspace ${mode === 'overview' ? 'results-table-view' : ''}`}
         style={{ '--map-sticky-top': `${headerHeight}px` } as CSSProperties}
         aria-label="Карта результатов"
       >
@@ -509,31 +500,48 @@ export function ResultsMap({
                 </button>
               )}
             </div>
-            <select
-              className={kind ? 'is-active' : ''}
-              aria-label="Тип результата"
-              value={kind}
-              onChange={(e) => setKind(e.target.value)}
+            {mode === 'overview' && (
+              <button
+                className={`map-filter-toggle ${kind || gapFilter ? 'is-active' : ''}`}
+                aria-expanded={filtersOpen}
+                aria-controls="map-filter-fields"
+                onClick={() => setFiltersOpen(!filtersOpen)}
+              >
+                <SlidersHorizontal size={16} />
+                Фильтры{kind || gapFilter ? ` · ${Number(!!kind) + Number(!!gapFilter)}` : ''}
+              </button>
+            )}
+            <div
+              id="map-filter-fields"
+              className="map-filter-fields"
+              hidden={mode === 'overview' && !filtersOpen}
             >
-              <option value="">Все типы результатов</option>
-              {Object.entries(kindLabels).map(([id, label]) => (
-                <option key={id} value={id}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <select
-              className={gapFilter ? 'is-active' : ''}
-              aria-label="Пробелы в связях"
-              value={gapFilter}
-              onChange={(e) => setGapFilter(e.target.value as GapFilter)}
-            >
-              {Object.entries(gapFilters).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              <select
+                className={kind ? 'is-active' : ''}
+                aria-label="Тип результата"
+                value={kind}
+                onChange={(e) => setKind(e.target.value)}
+              >
+                <option value="">Все типы результатов</option>
+                {Object.entries(kindLabels).map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
+                className={gapFilter ? 'is-active' : ''}
+                aria-label="Пробелы в связях"
+                value={gapFilter}
+                onChange={(e) => setGapFilter(e.target.value as GapFilter)}
+              >
+                {Object.entries(gapFilters).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
               className="map-mode-toggle"
               onClick={() => {
@@ -548,8 +556,8 @@ export function ResultsMap({
           {filtering && (
             <div className="map-active-filters" aria-label="Активные фильтры">
               <span role="status">
-                Показано {filteredOutcomes.length} из {outcomes.length} результатов ·{' '}
-                {orphans.length} объектов без результатов
+                Показано {filteredOutcomes.length} из {outcomes.length} результатов
+                {orphans.length > 0 && ` · ${orphans.length} объектов без результатов`}
               </span>
               {normalizedSearch && (
                 <button onClick={() => setSearch('')}>
@@ -582,20 +590,24 @@ export function ResultsMap({
             <strong>{outcomes.length}</strong>{' '}
             {plural(outcomes.length, ['результат', 'результата', 'результатов'])}
           </button>
-          <button
-            className={problemOutcomes.length ? 'summary-attention' : ''}
-            onClick={() => showSummary('problems')}
-          >
-            <AlertTriangle size={16} />
-            Требуют проверки: <strong>{problemOutcomes.length}</strong>
-          </button>
-          <button
-            className={allOrphans.length ? 'summary-attention' : ''}
-            onClick={() => showSummary('unlinked')}
-          >
-            <Link2 size={16} />
-            <strong>{allOrphans.length}</strong> объектов без результатов
-          </button>
+          {(mode === 'map' || problemOutcomes.length > 0) && (
+            <button
+              className={problemOutcomes.length ? 'summary-attention' : ''}
+              onClick={() => showSummary('problems')}
+            >
+              <AlertTriangle size={16} />
+              Требуют проверки: <strong>{problemOutcomes.length}</strong>
+            </button>
+          )}
+          {(mode === 'map' || allOrphans.length > 0) && (
+            <button
+              className={allOrphans.length ? 'summary-attention' : ''}
+              onClick={() => showSummary('unlinked')}
+            >
+              <Link2 size={16} />
+              <strong>{allOrphans.length}</strong> объектов без результатов
+            </button>
+          )}
         </nav>
         <div className="map-body">
           <div className="map-main">
@@ -643,11 +655,14 @@ export function ResultsMap({
                         </span>
                         <span>
                           <strong>{o.title}</strong>
-                          <small
-                            className={`review-state ${outcomeReviewStatus(snapshot.skeleton, o.sourceId) === 'Проверен' ? 'checked' : ''}`}
-                          >
-                            {outcomeReviewStatus(snapshot.skeleton, o.sourceId)}
-                          </small>
+                          {(!o.warnings.length ||
+                            outcomeReviewStatus(snapshot.skeleton, o.sourceId) === 'Проверен') && (
+                            <small
+                              className={`review-state ${outcomeReviewStatus(snapshot.skeleton, o.sourceId) === 'Проверен' ? 'checked' : ''}`}
+                            >
+                              {outcomeReviewStatus(snapshot.skeleton, o.sourceId)}
+                            </small>
+                          )}
                           {warnings(o)}
                         </span>
                         <ChevronRight size={14} />
@@ -698,130 +713,135 @@ export function ResultsMap({
                           </button>
                         )}
                       </div>
-                      <div className="result-requirements">
-                        <h3>
-                          <FileText size={14} />
-                          Исходные требования
-                        </h3>
-                        <p className="requirements-summary">
-                          {snapshot.skeleton.requirements.audience || 'Аудитория не указана'} ·{' '}
-                          {snapshot.skeleton.requirements.total_hours || '—'} уч. ч. ·{' '}
-                          {snapshot.skeleton.requirements.delivery || 'Формат не указан'}
-                        </p>
-                        <details>
-                          <summary>Показать исходный запрос</summary>
-                          <p className="request-full">
-                            {snapshot.skeleton.requirements.request ||
-                              'Исходный запрос отсутствует'}
-                          </p>
-                        </details>
-                        <details>
-                          <summary>Покрытие требований · {currentRequirements.length}</summary>
-                          {currentRequirements.map((r) => (
-                            <div key={r.id}>
-                              <strong>{r.title}</strong>
-                              {r.sourceId !== 'request' && <p>{r.description}</p>}
-                            </div>
-                          ))}
-                          <p>
-                            Связь указывает на источник требования. Точный фрагмент и полнота
-                            покрытия требуют проверки.
-                          </p>
-                          {(snapshot.skeleton.rationales || [])
-                            .filter(
-                              (r) =>
-                                r.element_id === currentOutcome.sourceId && r.kind === 'request',
-                            )
-                            .map((r) => (
-                              <p key={r.id}>
-                                {r.fragment}
-                                <br />
-                                {r.purpose} ·{' '}
-                                {r.status === 'confirmed' ? 'Подтверждено' : 'Нужна проверка'}
-                              </p>
-                            ))}
-                          {!(snapshot.skeleton.rationales || []).some(
-                            (r) => r.element_id === currentOutcome.sourceId && r.kind === 'request',
-                          ) && <p>Обоснование покрытия конкретного требования отсутствует.</p>}
-                          {outcomeGaps(currentOutcome, 0)}
-                        </details>
-                      </div>
-                      {warnings(currentOutcome)}
-                      {[...snapshot.audit.issues, ...snapshot.observations]
-                        .filter(
-                          (issue, index, all) =>
-                            issue.element_id === currentOutcome.sourceId &&
-                            all.findIndex((other) => other.id === issue.id) === index,
-                        )
-                        .map((issue) => (
-                          <div className="map-remark" key={issue.id}>
-                            <div>
-                              <strong>{issue.message}</strong>
-                              <p>{issue.suggested_fix}</p>
-                              {editable && (
-                                <button
-                                  className="map-inline-action"
-                                  onClick={() => setEditing(true)}
-                                >
-                                  Открыть исправление
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
                       <OutcomeReview
                         key={`${currentOutcome.id}-${snapshot.course_version}`}
                         snapshot={snapshot}
                         id={currentOutcome.sourceId}
                         editable={editable && !undoCommand.isPending}
                         onSaved={saved}
-                      />
-                      <div className="result-connections">
-                        <section className="learning-column" aria-label="Связанное обучение">
-                          <h3>
-                            <BookOpen size={17} />
-                            Обучение
-                            <span>
-                              {currentLinks.filter((n) => n.column === 2).length}{' '}
-                              {plural(currentLinks.filter((n) => n.column === 2).length, [
-                                'учебный элемент',
-                                'учебных элемента',
-                                'учебных элементов',
-                              ])}
-                            </span>
-                          </h3>
-                          <p className="column-caption">Где формируется результат</p>
-                          {group(
-                            currentLinks.filter((n) => n.id.startsWith('topic:')),
-                            'Темы',
-                          )}
-                          {group(
-                            currentLinks.filter((n) => n.id.startsWith('activity:')),
-                            'Практика',
-                          )}
-                          {outcomeGaps(currentOutcome, 2)}
-                        </section>
-                        <section className="assessment-column" aria-label="Связанное оценивание">
-                          <h3>
-                            <ClipboardCheck size={17} />
-                            Оценивание
-                            <span>
-                              {currentLinks.filter((n) => n.column === 3).length}{' '}
-                              {plural(currentLinks.filter((n) => n.column === 3).length, [
-                                'способ оценивания',
-                                'способа оценивания',
-                                'способов оценивания',
-                              ])}
-                            </span>
-                          </h3>
-                          <p className="column-caption">Чем проверяется достижение</p>
-                          {group(
-                            currentLinks.filter((n) => n.column === 3),
-                            'Способы оценивания',
-                          )}
-                          {outcomeGaps(currentOutcome, 3)}
-                        </section>
-                      </div>
+                        requirements={
+                          <div className="result-requirements">
+                            <h3>
+                              <FileText size={14} />
+                              Исходные требования
+                            </h3>
+                            <p className="requirements-summary">
+                              {snapshot.skeleton.requirements.audience || 'Аудитория не указана'} ·{' '}
+                              {snapshot.skeleton.requirements.total_hours || '—'} уч. ч. ·{' '}
+                              {snapshot.skeleton.requirements.delivery || 'Формат не указан'}
+                            </p>
+                            <details>
+                              <summary>Показать исходный запрос</summary>
+                              <p className="request-full">
+                                {snapshot.skeleton.requirements.request ||
+                                  'Исходный запрос отсутствует'}
+                              </p>
+                            </details>
+                            <section className="requirement-coverage">
+                              <h3>Связь с требованием · {currentRequirements.length}</h3>
+                              {currentRequirements.map((r) => (
+                                <div key={r.id}>
+                                  <strong>{r.title}</strong>
+                                  {r.sourceId !== 'request' && <p>{r.description}</p>}
+                                </div>
+                              ))}
+                              <p>
+                                Связь указывает на источник требования. Точный фрагмент и полнота
+                                покрытия требуют проверки.
+                              </p>
+                              {(snapshot.skeleton.rationales || [])
+                                .filter(
+                                  (r) =>
+                                    r.element_id === currentOutcome.sourceId &&
+                                    r.kind === 'request',
+                                )
+                                .map((r) => (
+                                  <p key={r.id}>
+                                    {r.fragment}
+                                    <br />
+                                    {r.purpose} ·{' '}
+                                    {r.status === 'confirmed' ? 'Подтверждено' : 'Нужна проверка'}
+                                  </p>
+                                ))}
+                              {!(snapshot.skeleton.rationales || []).some(
+                                (r) =>
+                                  r.element_id === currentOutcome.sourceId && r.kind === 'request',
+                              ) && <p>Обоснование покрытия конкретного требования отсутствует.</p>}
+                              {outcomeGaps(currentOutcome, 0)}
+                            </section>
+                          </div>
+                        }
+                      >
+                        {warnings(currentOutcome)}
+                        {[...snapshot.audit.issues, ...snapshot.observations]
+                          .filter(
+                            (issue, index, all) =>
+                              issue.element_id === currentOutcome.sourceId &&
+                              all.findIndex((other) => other.id === issue.id) === index,
+                          )
+                          .map((issue) => (
+                            <div className="map-remark" key={issue.id}>
+                              <div>
+                                <strong>{issue.message}</strong>
+                                <p>{issue.suggested_fix}</p>
+                                {editable && (
+                                  <button
+                                    className="map-inline-action"
+                                    onClick={() => setEditing(true)}
+                                  >
+                                    Открыть исправление
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        <div className="result-connections">
+                          <section className="learning-column" aria-label="Связанное обучение">
+                            <h3>
+                              <BookOpen size={17} />
+                              Обучение
+                              <span>
+                                {currentLinks.filter((n) => n.column === 2).length}{' '}
+                                {plural(currentLinks.filter((n) => n.column === 2).length, [
+                                  'учебный элемент',
+                                  'учебных элемента',
+                                  'учебных элементов',
+                                ])}
+                              </span>
+                            </h3>
+                            <p className="column-caption">Где формируется результат</p>
+                            {group(
+                              currentLinks.filter((n) => n.id.startsWith('topic:')),
+                              'Темы',
+                            )}
+                            {group(
+                              currentLinks.filter((n) => n.id.startsWith('activity:')),
+                              'Практика',
+                            )}
+                            {outcomeGaps(currentOutcome, 2)}
+                          </section>
+                          <section className="assessment-column" aria-label="Связанное оценивание">
+                            <h3>
+                              <ClipboardCheck size={17} />
+                              Оценивание
+                              <span>
+                                {currentLinks.filter((n) => n.column === 3).length}{' '}
+                                {plural(currentLinks.filter((n) => n.column === 3).length, [
+                                  'способ оценивания',
+                                  'способа оценивания',
+                                  'способов оценивания',
+                                ])}
+                              </span>
+                            </h3>
+                            <p className="column-caption">Чем проверяется достижение</p>
+                            {group(
+                              currentLinks.filter((n) => n.column === 3),
+                              'Способы оценивания',
+                            )}
+                            {outcomeGaps(currentOutcome, 3)}
+                          </section>
+                        </div>
+                      </OutcomeReview>
                     </article>
                   ) : (
                     <div className="map-empty orphan-context">

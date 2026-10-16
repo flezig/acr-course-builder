@@ -14,6 +14,7 @@ async function openMap(page: Page, preset = 'python', mode = 'overview') {
     .click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await answerDemoQuestions(page);
+  await expect(page.locator('.verdict')).toBeVisible();
   await expect(page).toHaveURL(/courses\//);
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await page.goto(`/courses/${id}/map`);
@@ -80,6 +81,59 @@ async function fixture(page: Page, id: string, fixture: 'gaps' | 'shared' | 'lar
 }
 const panel = (page: Page) => page.getByRole('complementary', { name: 'Детали карточки' });
 
+test('Компактная таблица сохраняет доступ к требованиям и фильтрам без повторов формулировки', async ({
+  page,
+}) => {
+  await openMap(page);
+  const resultTab = page.getByRole('tab', { name: 'Результат', exact: true });
+  const sourceTab = page.getByRole('tab', { name: 'Требования и источник', exact: true });
+  const filterToggle = page.getByRole('button', { name: 'Фильтры', exact: true });
+  await expect(page.getByLabel('Тип результата')).not.toBeVisible();
+  await expect(
+    page.getByLabel('Критерии достижения', { exact: true }).getByRole('listitem'),
+  ).toHaveCount(2);
+  await expect(page.locator('.full-outcome-text')).toHaveCount(0);
+  await expect(page.locator('.outcome-origin')).not.toContainText('демопример');
+  await expect(page.getByLabel('Сводка результатов')).not.toContainText(
+    '0 объектов без результатов',
+  );
+  await expect(page.getByLabel('Связанное обучение')).toBeVisible();
+  await page.screenshot({ path: '../reports/results-table-compact.png', fullPage: true });
+
+  await page.getByRole('button', { name: 'Проверить связь →', exact: true }).click();
+  await expect(sourceTab).toBeFocused();
+  await expect(
+    page.getByText('Обоснование покрытия конкретного требования отсутствует.', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Связанное обучение')).not.toBeVisible();
+  await page.getByText('Исходная формулировка и происхождение', { exact: true }).click();
+  await expect(page.getByText('Источник: демопример', { exact: true })).toBeVisible();
+  await sourceTab.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(resultTab).toBeFocused();
+  await expect(resultTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByLabel('Связанное обучение')).toBeVisible();
+
+  await filterToggle.click();
+  await page.getByLabel('Тип результата').selectOption('skill');
+  await expect(page.locator('.outcome-list-item')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Фильтры · 1', exact: true }).click();
+  await expect(page.getByLabel('Тип результата')).not.toBeVisible();
+  await expect(page.getByLabel('Активные фильтры')).toContainText('Умения');
+  await page.getByRole('button', { name: 'Сбросить фильтры' }).click();
+  await expect(page.locator('.outcome-list-item')).toHaveCount(3);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByLabel('Критерии достижения', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await sourceTab.click();
+  await page.getByText('Показать исходный запрос', { exact: true }).click();
+  await expect(page.locator('.request-full')).toBeVisible();
+  await page.screenshot({ path: '../reports/results-table-source-mobile.png', fullPage: true });
+  await page.setViewportSize({ width: 320, height: 740 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test('Результат — точка входа; обучение и оценивание рядом, полные тексты доступны', async ({
   page,
 }) => {
@@ -109,14 +163,21 @@ test('Результат — точка входа; обучение и оцен
   ).toBeVisible();
   await page.getByRole('button', { name: 'Закрыть детали' }).click();
   await expect(page.locator('.assessment-column .chain-card button').first()).toBeFocused();
+  await page.getByRole('tab', { name: 'Требования и источник', exact: true }).click();
   await page.getByText('Показать исходный запрос', { exact: true }).click();
   await expect(page.locator('.request-full')).toHaveText(original.requirements.request);
-  await page.getByText('Покрытие требований · 1', { exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Связь с требованием · 1', exact: true }),
+  ).toBeVisible();
   await expect(
     page.locator('.result-requirements').getByText(original.requirements.request, { exact: true }),
   ).toHaveCount(1);
   await page.locator('.outcome-list-item').nth(2).click();
   await expect(page.locator('.selected-result-heading')).toContainText('Результат 03 из 5');
+  await expect(page.getByRole('tab', { name: 'Результат', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   await page.screenshot({ path: '../reports/results-outcome-workspace.png', fullPage: true });
   expect(
     await page.evaluate(
@@ -131,6 +192,7 @@ test('Поиск раскрывает окружение объекта; тип,
   page,
 }) => {
   await openMap(page);
+  await page.getByRole('button', { name: 'Фильтры', exact: true }).click();
   await page.getByLabel('Тип результата').selectOption('skill');
   await expect(page.locator('.outcome-list-item')).toHaveCount(1);
   await expect(page.locator('.result-formulation')).toContainText('Применяет условия');
@@ -210,6 +272,7 @@ test('Пробелы сохраняют контекст; общая оценк�
     'Нет обучения · Нет оценивания',
   );
   await expect(page.getByLabel('Сводка результатов')).toContainText('Требуют проверки: 3');
+  await page.getByRole('button', { name: 'Фильтры', exact: true }).click();
   await page.getByLabel('Пробелы в связях').selectOption('assessment');
   await expect(page.locator('.outcome-list-item')).toHaveCount(1);
   await expect(page.locator('.result-requirements')).toContainText('Показать исходный запрос');
@@ -309,7 +372,9 @@ test('Большие списки, длинные названия, мобиль
   await expect(page.locator('.outcome-content')).toContainText('Нет обучения · Нет оценивания');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByText('Критерии достижения · 0', { exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Критерии достижения · 0', exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('Критерии не заданы.', { exact: false })).toBeVisible();
   await page.screenshot({ path: '../reports/results-mobile-workspace.png', fullPage: true });
   await page.getByRole('button', { name: 'Сбросить фильтры' }).click();

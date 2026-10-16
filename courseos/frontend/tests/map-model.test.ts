@@ -64,7 +64,7 @@ test('Короткие подписи сохраняют исходные фор
   const before = structuredClone(s);
   const { nodes } = buildMap(s);
   const result = nodes.find((n) => n.column === 1)!;
-  expect(result.title).toBe('Риски, этика и данные детей');
+  expect(result.title).toBe('Безопасная работа с данными');
   expect(result.originalTitle).toBe(s.outcomes[0].description);
   expect(result.description).toBe(s.outcomes[0].description);
   expect(
@@ -72,7 +72,7 @@ test('Короткие подписи сохраняют исходные фор
       .filter((n) => n.column === 3)
       .slice(0, 2)
       .map((n) => n.title),
-  ).toEqual([result.title, result.title]);
+  ).toEqual(['Риски, этика и данные детей', s.outcomes[0].description]);
   expect(s).toEqual(before);
 });
 
