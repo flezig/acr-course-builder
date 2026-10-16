@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowUp, Loader2, Trash2 } from 'lucide-react';
+import { ArrowRight, ArrowUp, Loader2, ChevronDown, Trash2 } from 'lucide-react';
 import {
   useApi,
   useCommand,
@@ -60,6 +60,18 @@ export function CreateCoursePage() {
     ?.requirements.request;
   const changedRequest = values.request !== exampleRequest;
   const discrepancies = parameterDiscrepancies(values);
+  // Короткая выжимка в свёрнутом заголовке: методист видит главное, не раскрывая форму.
+  const parameterPreview = [
+    { acr_general: 'Общеразвивающая', acr_professional: 'Повышение квалификации' }[
+      values.template_id as 'acr_general' | 'acr_professional'
+    ],
+    values.total_hours && `${values.total_hours} ч`,
+    values.calendar.calendar_days > 0 &&
+      `${Math.round((values.calendar.calendar_days / 7) * 10) / 10} нед.`,
+    values.delivery.trim(),
+  ]
+    .filter(Boolean)
+    .join(' · ');
   useEffect(() => {
     setConfirmed(false);
   }, [values.request]);
@@ -180,7 +192,13 @@ export function CreateCoursePage() {
             />
           </Field>
           <details className="parameter-summary" ref={parametersRef}>
-            <summary>Сводка параметров</summary>
+            <summary>
+              <span className="parameter-summary-heading">
+                <span>Сводка параметров</span>
+                <small>{parameterPreview || 'Заполнится по тексту запроса'}</small>
+              </span>
+              <ChevronDown size={18} aria-hidden="true" />
+            </summary>
             <p>
               {api.mode === 'demo'
                 ? 'Значения примера можно изменить вручную. Демо не анализирует изменённый запрос; сверьте все поля с текстом.'
