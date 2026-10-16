@@ -22,9 +22,9 @@ test('Calendar decisions require fresh consent and reflow', async ({ page }) => 
   await expect(form.locator('input[type=radio]:checked')).toHaveCount(0);
   const apply = form.getByRole('button', { name: 'Применить и пересчитать' });
   await expect(apply).toBeDisabled();
-  await form.getByText('Сохранить текущий календарь', { exact: true }).click();
+  await form.getByText('Сохранить с нехваткой часов', { exact: true }).click();
   await expect(form.locator('.calendar-result')).toContainText('Нехватка 11 уч. ч. сохранится');
-  await form.getByRole('radio', { name: /Сохранить текущий календарь/ }).focus();
+  await form.getByRole('radio', { name: /Сохранить с нехваткой часов/ }).focus();
   await page.keyboard.press('ArrowDown');
   await expect(form.getByRole('radio', { name: /Продлить календарь/ })).toBeChecked();
   await expect(form.locator('.calendar-result')).toContainText('8 учебных дней');
@@ -69,7 +69,7 @@ test('Empty, partial, invalid and sufficient calendar', async ({ page }) => {
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await answerDemoQuestions(page);
   await page.getByRole('link', { name: 'Календарь', exact: true }).click();
-  await expect(page.locator('.calendar-panel')).toContainText('Заполните параметры для расчёта');
+  await expect(page.locator('.calendar-panel')).toContainText('Настройте календарь');
   await page.getByRole('button', { name: 'Изменить календарь' }).click();
   const form = page.locator('.calendar-form');
   await expect(form.locator('.field-error')).toHaveCount(0);
@@ -94,8 +94,8 @@ test('Empty, partial, invalid and sufficient calendar', async ({ page }) => {
     'доступно 40 уч. ч. Часов достаточно',
   );
   await expect(form.locator('.has-deficit')).toHaveCount(0);
-  await form.getByText('Сохранить текущий календарь', { exact: true }).click();
-  const apply = form.getByRole('button', { name: 'Применить и пересчитать' });
+  await expect(form.getByRole('radio')).toHaveCount(0);
+  const apply = form.getByRole('button', { name: 'Сохранить календарь', exact: true });
   await expect(apply).toBeDisabled();
   await form.getByLabel('Подтверждаю даты и учебные дни', { exact: true }).check();
   await expect(apply).toBeEnabled();
@@ -104,3 +104,101 @@ test('Empty, partial, invalid and sufficient calendar', async ({ page }) => {
   await expect(form.locator('.calendar-problem')).toContainText('доступно 56 уч. ч.');
   await expect(apply).toBeDisabled();
 });
+
+for (const width of [1440, 390]) {
+  test(`Нехватка часов в расписании исправляется из блокировки: ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 950 });
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page
+      .getByRole('button', {
+        name: 'ИИ в работе учителя 36 часов · учителя · повышение квалификации',
+      })
+      .click();
+    await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+    await answerDemoQuestions(page);
+    await page.getByRole('link', { name: 'Календарь', exact: true }).click();
+    await page.getByRole('button', { name: 'Изменить календарь' }).click();
+    const form = page.locator('.calendar-form');
+    await form.getByLabel('Дата начала', { exact: true }).fill('2026-10-15');
+    await form.getByLabel('Календарных дней').fill('20');
+    await form.getByLabel('Максимум часов в день').fill('5');
+    await form.getByRole('checkbox', { name: 'Только будни', exact: true }).uncheck();
+    await form.locator('.calendar-schedule > summary').click();
+    await form
+      .getByRole('checkbox', { name: 'Назначить занятия по темам учебного плана', exact: true })
+      .check();
+    await expect(form.locator('.calendar-problem')).toContainText(
+      'доступно 10 уч. ч. Не хватает 26 уч. ч.',
+    );
+    await expect(page.locator('.calendar-overview')).toContainText(
+      'Не хватает 26 уч. ч. в расписании',
+    );
+    await form.getByRole('radio', { name: /Сохранить с нехваткой часов/ }).check();
+    await form
+      .getByRole('checkbox', { name: 'Подтверждаю сохранение календаря с нехваткой часов' })
+      .check();
+    await form.getByRole('button', { name: 'Применить и пересчитать' }).click();
+    await expect(form).toHaveCount(0);
+    await page.getByRole('link', { name: 'Решения', exact: true }).click();
+    const issue = page.locator('.decision-item').filter({
+      has: page.getByRole('heading', {
+        name: 'Расписание расходится с учебным планом',
+        exact: true,
+      }),
+    });
+    await expect(issue).toContainText('не хватает 26 уч. ч.');
+    await issue.getByRole('link', { name: 'Исправить календарь' }).click();
+    await expect(form).toBeVisible();
+    await expect(form.locator('.calendar-schedule')).toHaveAttribute('open', '');
+    await expect(form).not.toHaveClass(/field-highlight/);
+    await form.getByRole('radio', { name: /Продлить календарь/ }).check();
+    await expect(form.locator('.calendar-result')).toContainText('18 учебных дней');
+    await form
+      .getByRole('checkbox', { name: 'Подтверждаю изменение срока обучения', exact: true })
+      .check();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page
+      .locator('.calendar-panel')
+      .screenshot({ path: `../reports/calendar-redesign-${width}.png` });
+    await form.getByRole('button', { name: 'Применить и пересчитать' }).click();
+    await expect(form).toHaveCount(0);
+    await expect(page.locator('.calendar-overview')).toContainText(
+      'Календарь согласован с учебным планом',
+    );
+    const calendar = await page.evaluate(() => {
+      const database = JSON.parse(localStorage.getItem('courseos-demo-v1')!);
+      const course = Object.values(database.courses)[0] as {
+        snapshots: {
+          skeleton: {
+            requirements: { total_hours: string };
+            sessions: { hours: Record<string, string> }[];
+          };
+        }[];
+      };
+      return course.snapshots.at(-1)!.skeleton;
+    });
+    expect(calendar.requirements.total_hours).toBe('36');
+    expect(
+      calendar.sessions
+        .flatMap((session) => Object.values(session.hours))
+        .reduce((sum, hours) => sum + Number(hours), 0),
+    ).toBe(36);
+    await page
+      .locator('.calendar-panel')
+      .screenshot({ path: `../reports/calendar-resolved-${width}.png` });
+    await page.getByRole('button', { name: 'Изменить календарь', exact: true }).click();
+    await form.getByLabel('Максимум часов в день').fill('8');
+    await form
+      .getByRole('checkbox', {
+        name: 'Как методист, согласен с увеличением дневной нагрузки',
+        exact: true,
+      })
+      .check();
+    await form.getByRole('button', { name: 'Сохранить календарь', exact: true }).click();
+    await expect(form).toHaveCount(0);
+  });
+}

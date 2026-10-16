@@ -169,7 +169,9 @@ function DecisionItem({
               </button>
             )}
             <Link className="button secondary" to={href}>
-              Открыть место в программе
+              {issue.element_id === 'calendar'
+                ? 'Исправить календарь'
+                : 'Открыть место в программе'}
               <ArrowRight size={15} />
             </Link>
           </div>
