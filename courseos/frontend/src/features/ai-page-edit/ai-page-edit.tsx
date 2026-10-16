@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Check, Sparkles, Undo2, X } from 'lucide-react';
-import { useApi, useCommand, useCourse } from '../../entities/course/api/provider';
+import {
+  useApi,
+  useCommand,
+  useCourse,
+  useRecordAiEditOutcome,
+} from '../../entities/course/api/provider';
 import type { EditScope, ScopeEditProposal } from '../../entities/course/api/contract';
 import type { Skeleton } from '../../entities/course/model/schema';
 import { ErrorMessage, Notice } from '../../shared/ui/ui';
@@ -143,6 +148,7 @@ export function AiPageEdit() {
   const location = useLocation();
   const course = useCourse();
   const command = useCommand();
+  const recordOutcome = useRecordAiEditOutcome();
   const [open, setOpen] = useState(false);
   const [request, setRequest] = useState('');
   const [proposal, setProposal] = useState<ScopeEditProposal | null>(null);
@@ -182,15 +188,35 @@ export function AiPageEdit() {
     setSaved('');
     propose.reset();
     command.reset();
+    recordOutcome.reset();
   }
 
-  async function apply(accepted: TextChange[]) {
+  // Утверждённые и оставленные поля — оценка предложения, которую методист уже дал.
+  // Записываем её, только когда решено каждое поле, иначе картина будет неполной.
+  function recordDecisions(changes: TextChange[]) {
+    if (!proposal || !changes.length || changes.some((change) => !decisions[change.label])) return;
+    recordOutcome.mutate({
+      course_id: snapshot!.course_id,
+      course_version: snapshot!.course_version,
+      course_title: snapshot!.skeleton.requirements.title,
+      scope: scope!,
+      request: request.trim() || null,
+      response_note: proposal.note || null,
+      changes: changes.map((change) => ({
+        label: change.label,
+        decision: decisions[change.label],
+      })),
+    });
+  }
+
+  async function apply(accepted: TextChange[], changes: TextChange[]) {
     try {
       await command.mutateAsync({
         action: 'save_skeleton',
         expected_version: snapshot!.course_version,
         payload: withAccepted(snapshot!.skeleton, accepted),
       });
+      recordDecisions(changes);
       setProposal(null);
       setRequest('');
       setSaved('Изменения сохранены. Проверки пересчитаны.');
@@ -323,17 +349,37 @@ export function AiPageEdit() {
             );
           })}
           <div className="actions">
+            {changes.length > 0 && undecided === 0 && !accepted.length ? (
+              <button
+                className="primary"
+                type="button"
+                onClick={() => {
+                  recordDecisions(changes);
+                  setProposal(null);
+                  setSaved('Все правки оставлены как было. Это учтено в отзывах.');
+                }}
+              >
+                Завершить без изменений
+              </button>
+            ) : (
+              <button
+                className="primary"
+                type="button"
+                disabled={readonly || command.isPending || undecided > 0 || !accepted.length}
+                onClick={() => void apply(accepted, changes)}
+              >
+                {command.isPending
+                  ? 'Сохраняем…'
+                  : `Сохранить утверждённое (${accepted.length} из ${changes.length})`}
+              </button>
+            )}
             <button
-              className="primary"
               type="button"
-              disabled={readonly || command.isPending || undecided > 0 || !accepted.length}
-              onClick={() => void apply(accepted)}
+              onClick={() => {
+                recordDecisions(changes);
+                setProposal(null);
+              }}
             >
-              {command.isPending
-                ? 'Сохраняем…'
-                : `Сохранить утверждённое (${accepted.length} из ${changes.length})`}
-            </button>
-            <button type="button" onClick={() => setProposal(null)}>
               {api.mode === 'demo' && !request ? 'Написать свой запрос' : 'Уточнить запрос'}
             </button>
           </div>
@@ -347,7 +393,7 @@ export function AiPageEdit() {
           />
         </div>
       )}
-      <ErrorMessage error={propose.error || command.error} />
+      <ErrorMessage error={propose.error || command.error || recordOutcome.error} />
     </div>
   );
 }

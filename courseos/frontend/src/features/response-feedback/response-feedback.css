@@ -40,6 +40,19 @@
   color: var(--theme-paper, #ffffff);
 }
 
+.response-feedback-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.response-feedback-status .link-button {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  text-decoration: underline;
+}
+
 .response-feedback-reasons {
   display: flex;
   flex-wrap: wrap;

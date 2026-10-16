@@ -39,7 +39,15 @@ import { contentHash, canonicalJson } from '../../../shared/lib/decimal';
 import { proposedAssessment, proposedCalendar } from '../model/findings';
 import { assessmentLabels } from '../model/presets';
 import { ApiError } from '../../../shared/api/http';
-import { feedbackSchema, type FeedbackInput, type ResponseFeedback } from '../model/feedback';
+import {
+  aiEditOutcomeSchema,
+  feedbackSchema,
+  type AiEditOutcome,
+  type AiEditOutcomeInput,
+  type FeedbackInput,
+  type FeedbackPatch,
+  type ResponseFeedback,
+} from '../model/feedback';
 import {
   withManifest,
   type CommandEnvelope,
@@ -49,10 +57,12 @@ import {
   type ScopeEditRequest,
 } from './contract';
 const storageKey = 'courseos-demo-v1';
-// Отзывы лежат под своим ключом: их не затрагивают миграции и очистка истории курсов.
+// Отзывы и итоги правок ИИ лежат под своими ключами: их не затрагивают
+// миграции и очистка истории курсов.
 const feedbackStorageKey = 'courseos-feedback-demo';
-function loadFeedback(): ResponseFeedback[] {
-  const stored = localStorage.getItem(feedbackStorageKey);
+const aiEditOutcomesStorageKey = 'courseos-ai-edit-outcomes-demo';
+function loadList<T>(key: string, schema: z.ZodType<T>): T[] {
+  const stored = localStorage.getItem(key);
   if (!stored) return [];
   let raw: unknown;
   try {
@@ -60,10 +70,17 @@ function loadFeedback(): ResponseFeedback[] {
   } catch {
     throw new ApiError(422, 'Отзывы в браузере не читаются. Сбросьте демо-данные в настройках.');
   }
-  const parsed = feedbackSchema.array().safeParse(raw);
+  const parsed = z.array(schema).safeParse(raw);
   if (!parsed.success)
     throw new ApiError(422, 'Неизвестный формат отзывов в браузере. Сбросьте демо-данные.');
   return parsed.data;
+}
+function saveList(key: string, items: unknown[]) {
+  try {
+    localStorage.setItem(key, JSON.stringify(items));
+  } catch {
+    throw new ApiError(413, 'Хранилище браузера заполнено, отзыв не сохранён.');
+  }
 }
 interface StoredCourse {
   requirements: Requirements;
@@ -1210,23 +1227,45 @@ export class DemoCourseApi implements CourseApi {
       id: crypto.randomUUID(),
       mode: 'demo',
       created_at: now(),
+      status: 'new',
+      updated_at: null,
     };
-    const entries = [...loadFeedback(), entry];
-    try {
-      localStorage.setItem(feedbackStorageKey, JSON.stringify(entries));
-    } catch {
-      throw new ApiError(413, 'Хранилище браузера заполнено, отзыв не сохранён.');
-    }
+    saveList(feedbackStorageKey, [...loadList(feedbackStorageKey, feedbackSchema), entry]);
     return entry;
   }
   async listFeedback() {
-    return loadFeedback();
+    return loadList(feedbackStorageKey, feedbackSchema);
+  }
+  async updateFeedback(id: string, patch: FeedbackPatch) {
+    const entries = loadList(feedbackStorageKey, feedbackSchema);
+    const index = entries.findIndex((entry) => entry.id === id);
+    if (index < 0) throw new ApiError(404, 'Отзыв не найден.');
+    entries[index] = feedbackSchema.parse({ ...entries[index], ...patch, updated_at: now() });
+    saveList(feedbackStorageKey, entries);
+    return entries[index];
+  }
+  async recordAiEditOutcome(input: AiEditOutcomeInput) {
+    const outcome: AiEditOutcome = {
+      ...input,
+      id: crypto.randomUUID(),
+      mode: 'demo',
+      created_at: now(),
+    };
+    saveList(aiEditOutcomesStorageKey, [
+      ...loadList(aiEditOutcomesStorageKey, aiEditOutcomeSchema),
+      outcome,
+    ]);
+    return outcome;
+  }
+  async listAiEditOutcomes() {
+    return loadList(aiEditOutcomesStorageKey, aiEditOutcomeSchema);
   }
   async reset() {
     await this.queue;
     const clear = () => {
       localStorage.removeItem(storageKey);
       localStorage.removeItem(feedbackStorageKey);
+      localStorage.removeItem(aiEditOutcomesStorageKey);
       for (let index = localStorage.length - 1; index >= 0; index--) {
         const key = localStorage.key(index);
         if (

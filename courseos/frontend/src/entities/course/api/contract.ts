@@ -8,7 +8,13 @@ import type {
   Skeleton,
   Snapshot,
 } from '../model/schema';
-import type { FeedbackInput, ResponseFeedback } from '../model/feedback';
+import type {
+  AiEditOutcome,
+  AiEditOutcomeInput,
+  FeedbackInput,
+  FeedbackPatch,
+  ResponseFeedback,
+} from '../model/feedback';
 export type CourseCommand =
   | { action: 'start'; payload: Requirements }
   | { action: 'clarify'; payload: Requirements }
@@ -80,6 +86,9 @@ export interface CourseApi {
   // и остаются после удаления курса, чтобы по ним можно было разбирать ошибки генерации.
   recordFeedback(input: FeedbackInput): Promise<ResponseFeedback>;
   listFeedback(): Promise<ResponseFeedback[]>;
+  updateFeedback(id: string, patch: FeedbackPatch): Promise<ResponseFeedback>;
+  recordAiEditOutcome(input: AiEditOutcomeInput): Promise<AiEditOutcome>;
+  listAiEditOutcomes(): Promise<AiEditOutcome[]>;
 }
 // В демо DOCX и PPTX собираются в браузере из снимка версии, поэтому файл
 // есть всегда, когда в версии есть что выгружать. Для LMS формат не согласован.

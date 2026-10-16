@@ -8,7 +8,13 @@ import {
   requirementsSchema,
   skeletonSchema,
 } from '../model/schema';
-import { feedbackSchema, type FeedbackInput } from '../model/feedback';
+import {
+  aiEditOutcomeSchema,
+  feedbackSchema,
+  type AiEditOutcomeInput,
+  type FeedbackInput,
+  type FeedbackPatch,
+} from '../model/feedback';
 import { HttpTransport, ApiError } from '../../../shared/api/http';
 import type { CommandEnvelope, CourseApi, ScopeEditRequest } from './contract';
 const resultSchema = z.object({
@@ -122,6 +128,22 @@ export class HttpCourseApi implements CourseApi {
   }
   listFeedback() {
     return this.transport.request('/feedback', z.array(feedbackSchema));
+  }
+  updateFeedback(id: string, patch: FeedbackPatch) {
+    return this.transport.request(`/feedback/${encodeURIComponent(id)}`, feedbackSchema, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+  }
+  recordAiEditOutcome(input: AiEditOutcomeInput) {
+    return this.transport.request(
+      `/courses/${encodeURIComponent(input.course_id)}/ai-edit/outcomes`,
+      aiEditOutcomeSchema,
+      { method: 'POST', body: JSON.stringify(input) },
+    );
+  }
+  listAiEditOutcomes() {
+    return this.transport.request('/ai-edit/outcomes', z.array(aiEditOutcomeSchema));
   }
   async delete(id: string): Promise<void> {
     await this.transport.request(`/courses/${encodeURIComponent(id)}`, z.unknown(), {

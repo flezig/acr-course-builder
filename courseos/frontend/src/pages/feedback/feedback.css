@@ -115,3 +115,19 @@
   flex-wrap: wrap;
   gap: 6px;
 }
+
+.feedback-breakdown.nested {
+  margin-bottom: 0;
+}
+
+.feedback-breakdown.nested h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.feedback-entry-status {
+  width: auto;
+  margin-left: auto;
+  min-height: 32px;
+  padding: 4px 8px;
+}

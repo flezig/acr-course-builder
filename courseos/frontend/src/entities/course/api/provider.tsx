@@ -4,7 +4,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import type { CommandEnvelope, CourseApi, CourseCommand } from './contract';
 import { ApiError } from '../../../shared/api/http';
 import { canonicalJson } from '../../../shared/lib/decimal';
-import type { FeedbackInput } from '../model/feedback';
+import type { AiEditOutcomeInput, FeedbackInput, FeedbackPatch } from '../model/feedback';
 const ApiContext = createContext<{
   api: CourseApi;
   setMode: (mode: 'demo' | 'live') => void;
@@ -56,6 +56,30 @@ export function useRecordFeedback() {
   return useMutation({
     mutationFn: (input: FeedbackInput) => api.recordFeedback(input),
     onSuccess: () => query.invalidateQueries({ queryKey: [api.mode, 'feedback'] }),
+  });
+}
+export function useUpdateFeedback() {
+  const { api } = useApi();
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: FeedbackPatch }) =>
+      api.updateFeedback(id, patch),
+    onSuccess: () => query.invalidateQueries({ queryKey: [api.mode, 'feedback'] }),
+  });
+}
+export function useAiEditOutcomes() {
+  const { api } = useApi();
+  return useQuery({
+    queryKey: [api.mode, 'ai-edit-outcomes'],
+    queryFn: () => api.listAiEditOutcomes(),
+  });
+}
+export function useRecordAiEditOutcome() {
+  const { api } = useApi();
+  const query = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AiEditOutcomeInput) => api.recordAiEditOutcome(input),
+    onSuccess: () => query.invalidateQueries({ queryKey: [api.mode, 'ai-edit-outcomes'] }),
   });
 }
 export function useDeleteCourse() {
