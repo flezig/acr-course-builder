@@ -90,13 +90,6 @@ export function MaterialsPage() {
           <h1>Материалы программы</h1>
           <p>Планы лекций и содержание слайдов по модулям, практические задания и тесты.</p>
         </div>
-        <FeedbackPrompt
-          key={`${snapshot.course_id}-${snapshot.course_version}-materials`}
-          subject="generation"
-          section="materials"
-          actionLabel="Оценить материалы"
-          question="Насколько полезны материалы программы?"
-        />
       </header>
       <ProgramStatus status={status} />
       <JobPanel job={view.job} version={view.latest_version} readonly={!view.is_latest} compact />
@@ -241,6 +234,15 @@ export function MaterialsPage() {
                 <MaterialViewer material={material} snapshot={snapshot} readonly={readonly} />
               </Panel>
             ))}
+            {materials.length > 0 && !materials.some((material) => material.stale) && (
+              <FeedbackPrompt
+                key={`${snapshot.course_id}-${snapshot.course_version}-materials`}
+                subject="generation"
+                section="materials"
+                actionLabel="Оценить материалы"
+                question="Насколько полезны материалы программы?"
+              />
+            )}
             {!materials.length && (
               <Empty title="Материалов с таким фильтром нет">Выберите другой модуль или тип.</Empty>
             )}

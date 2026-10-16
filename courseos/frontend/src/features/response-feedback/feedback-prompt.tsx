@@ -1,7 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useMutationState } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MessageSquare, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import {
+  useApi,
   useCourse,
   useFeedback,
   useRecordFeedback,
@@ -15,7 +17,6 @@ import {
   type FeedbackSection,
 } from '../../entities/course/model/feedback';
 import { ErrorMessage } from '../../shared/ui/ui';
-import { DismissibleDetails } from '../../shared/ui/dismissible-details';
 import './response-feedback.css';
 
 /**
@@ -37,7 +38,12 @@ export function FeedbackPrompt({
   responseNote?: string | null;
   actionLabel?: string;
 }) {
-  const actionRef = useRef<HTMLDivElement>(null);
+  const [closed, setClosed] = useState(false);
+  const reopenRef = useRef<HTMLButtonElement>(null);
+  const { api } = useApi();
+  useEffect(() => {
+    if (closed) reopenRef.current?.focus();
+  }, [closed]);
   const course = useCourse();
   const feedback = useFeedback();
   const record = useRecordFeedback();
@@ -47,7 +53,18 @@ export function FeedbackPrompt({
     null,
   );
   const snapshot = course.data?.snapshot;
+  const commands = useMutationState({
+    filters: { mutationKey: ['course-command', api.mode, snapshot?.course_id] },
+    select: (mutation) => mutation.state.status,
+  });
   if (!snapshot) return null;
+  if (
+    subject === 'generation' &&
+    (course.isError ||
+      !['awaiting_approval', 'needs_review', 'succeeded'].includes(course.data!.job.status) ||
+      ['pending', 'error'].includes(commands.at(-1) ?? ''))
+  )
+    return null;
 
   // Раздел одной версии оценивают один раз: повторный заход показывает прежнюю
   // оценку, а не плодит дубли. Каждое предложение ИИ — отдельный ответ и отдельный отзыв.
@@ -67,11 +84,7 @@ export function FeedbackPrompt({
   const pending = record.isPending || update.isPending;
 
   function closeAction() {
-    const disclosure = actionRef.current?.querySelector('details');
-    if (disclosure) {
-      disclosure.open = false;
-      disclosure.querySelector('summary')?.focus();
-    }
+    setClosed(true);
   }
 
   async function rate(rating: FeedbackRating) {
@@ -210,12 +223,22 @@ export function FeedbackPrompt({
   );
   if (!actionLabel) return form;
   return (
-    <div className="feedback-action" ref={actionRef}>
-      <DismissibleDetails
-        dismissKey={`${snapshot.course_id}-${snapshot.course_version}-${section}`}
-      >
-        <summary
+    <div
+      className="feedback-action"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !closed) {
+          event.preventDefault();
+          event.stopPropagation();
+          closeAction();
+        }
+      }}
+    >
+      {closed ? (
+        <button
+          type="button"
+          ref={reopenRef}
           className="feedback-action-trigger"
+          onClick={() => setClosed(false)}
           aria-label={saved ? `${actionLabel}: оценка сохранена` : actionLabel}
         >
           {saved ? (
@@ -229,9 +252,10 @@ export function FeedbackPrompt({
           )}
           {actionLabel}
           {saved && <span className="feedback-action-saved">Сохранено</span>}
-        </summary>
-        {form}
-      </DismissibleDetails>
+        </button>
+      ) : (
+        form
+      )}
     </div>
   );
 }

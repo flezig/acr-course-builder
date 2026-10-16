@@ -98,6 +98,7 @@ export function useCommand() {
   const query = useQueryClient();
   const { courseId } = useParams();
   return useMutation({
+    mutationKey: ['course-command', api.mode, courseId],
     mutationFn: async (
       input: CourseCommand & { expected_version?: number; course_id?: string },
     ) => {

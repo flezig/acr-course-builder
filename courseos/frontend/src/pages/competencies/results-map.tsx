@@ -471,13 +471,6 @@ export function ResultsMap({
           <h1>Карта результатов</h1>
           <p>Выберите результат: где он формируется, чем проверяется и каких связей не хватает.</p>
         </div>
-        <FeedbackPrompt
-          key={`${snapshot.course_id}-${snapshot.course_version}-map`}
-          subject="generation"
-          section="map"
-          actionLabel="Оценить карту"
-          question="Насколько полезна карта результатов?"
-        />
       </header>
       {(feedback || (undo && editable && undo.version === snapshot.course_version)) && (
         <div className="outcome-save-feedback" role="status">
@@ -1034,6 +1027,13 @@ export function ResultsMap({
           </div>
         </div>
       </section>
+      <FeedbackPrompt
+        key={`${snapshot.course_id}-${snapshot.course_version}-map`}
+        subject="generation"
+        section="map"
+        actionLabel="Оценить карту"
+        question="Насколько полезна карта результатов?"
+      />
       {selected && (
         <aside
           ref={details}

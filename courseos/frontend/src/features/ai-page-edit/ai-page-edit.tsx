@@ -384,13 +384,16 @@ export function AiPageEdit() {
             </button>
           </div>
           {undecided > 0 && <small className="muted">Осталось решить по полям: {undecided}.</small>}
-          <FeedbackPrompt
-            subject="ai_edit"
-            section={scope}
-            question="Насколько полезно это предложение ИИ?"
-            request={request}
-            responseNote={proposal.note}
-          />
+          {!propose.isPending && !propose.isError && (
+            <FeedbackPrompt
+              key={propose.submittedAt}
+              subject="ai_edit"
+              section={scope}
+              question="Насколько полезно это предложение ИИ?"
+              request={request}
+              responseNote={proposal.note}
+            />
+          )}
         </div>
       )}
       <ErrorMessage error={propose.error || command.error || recordOutcome.error} />

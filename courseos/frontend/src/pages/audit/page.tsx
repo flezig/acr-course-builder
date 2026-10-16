@@ -48,13 +48,6 @@ export function AuditPage() {
           </p>
         </div>
         <div className="heading-buttons">
-          <FeedbackPrompt
-            key={`${snapshot.course_id}-${snapshot.course_version}-audit`}
-            subject="generation"
-            section="audit"
-            actionLabel="Оценить проверку"
-            question="Насколько полезны результаты проверки?"
-          />
           <button
             className="secondary"
             disabled={
@@ -157,6 +150,15 @@ export function AuditPage() {
           ? 'Программа утверждена.'
           : 'Программа ожидает утверждения методиста.'}
       </Notice>
+      {snapshot.audit.at && (
+        <FeedbackPrompt
+          key={`${snapshot.course_id}-${snapshot.course_version}-audit`}
+          subject="generation"
+          section="audit"
+          actionLabel="Оценить проверку"
+          question="Насколько полезны результаты проверки?"
+        />
+      )}
       <ErrorMessage error={command.error} />
     </>
   );
