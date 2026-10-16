@@ -338,6 +338,32 @@
   background: #ffffff;
   text-decoration: none;
 }
+/* В таблице сводка служит строкой навигации, а не вторым набором фильтров. */
+:root .results-workspace.results-table-view .map-summary {
+  gap: 6px 16px;
+  padding-block: 8px;
+  border-bottom: 1px solid var(--theme-border);
+}
+:root .results-workspace.results-table-view .map-summary button {
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+:root .results-workspace.results-table-view .map-summary button:hover {
+  background: transparent;
+  text-decoration: underline;
+}
+:root .results-workspace.results-table-view .map-summary svg {
+  display: none;
+}
+:root .results-workspace.results-table-view .outcome-list-item {
+  border-radius: 8px;
+}
+:root .results-workspace.results-table-view .outcome-tabs button {
+  border-radius: 0;
+}
 /* Синий оставляем только для связей выбранного узла — как волну в шапке. */
 :root:not([data-theme='dark']) .results-workspace .map-lines path.active {
   stroke: #2f6bff;

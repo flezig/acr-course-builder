@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Pencil, Sparkles, X } from 'lucide-react';
 import type { Skeleton, Snapshot } from '../../entities/course/model/schema';
 import { useCommand } from '../../entities/course/api/provider';
@@ -17,8 +17,10 @@ type Props = {
   id: string;
   editable: boolean;
   onSaved: (before: Skeleton, version: number) => void;
+  requirements: ReactNode;
+  children: ReactNode;
 };
-export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
+export function OutcomeReview({ snapshot, id, editable, onSaved, requirements, children }: Props) {
   const s = snapshot.skeleton;
   const outcome = s.outcomes.find((o) => o.id === id)!;
   const command = useCommand();
@@ -30,6 +32,8 @@ export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
   const [description, setDescription] = useState(outcome.description);
   const [criteria, setCriteria] = useState(outcomeCriteria(s, id).join('\n'));
   const [depth, setDepth] = useState(outcome.depth);
+  const [tab, setTab] = useState<'result' | 'source'>('result');
+  const tabId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const draftKey = `courseos-outcome-draft:${snapshot.mode}:${snapshot.course_id}:${snapshot.course_version}:${id}`;
   useEffect(() => {
@@ -99,6 +103,10 @@ export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
   const hasRequirement =
     (typeof requirement === 'string' && !!requirement.trim()) ||
     s.requirements.references.some((r) => r.id === outcome.requirement_id);
+  const hasRequirementRationale = s.rationales?.some(
+    (r) => r.element_id === id && r.kind === 'request',
+  );
+  const displayTitle = outcome.title || compactMapTitle(outcome.description);
   // Заготовку из названия темы не перечисляем: об этом уже говорит текст результата выше.
   const reviewProblems = [
     !outcome.description.trim() &&
@@ -152,18 +160,16 @@ export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
   return (
     <div className="result-formulation">
       <div className="outcome-origin">
-        <span className="node-badge">
-          {snapshot.mode === 'demo' ? 'Источник: демопример' : 'Создано ИИ'}
-        </span>
-        {outcome.edited_by && <span>Изменено вручную</span>}
         <span className={`review-state ${status === 'Проверен' ? 'checked' : ''}`}>{status}</span>
       </div>
-      <h2>{outcome.title || compactMapTitle(outcome.description)}</h2>
-      <p className="full-outcome-text">
-        {missing
-          ? 'Не указано, что учащийся сможет сделать после обучения: пока это только название темы.'
-          : outcome.description}
-      </p>
+      <h2>{displayTitle}</h2>
+      {(missing || outcome.description.trim() !== displayTitle.trim()) && (
+        <p className="full-outcome-text">
+          {missing
+            ? 'Не указано, что учащийся сможет сделать после обучения: пока это только название темы.'
+            : outcome.description}
+        </p>
+      )}
       <div className="outcome-actions">
         {editable && (
           <button className="map-inline-action" onClick={edit}>
@@ -174,21 +180,76 @@ export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
         <button
           className="map-inline-action"
           aria-expanded={aiOpen}
-          onClick={() => setAiOpen(!aiOpen)}
+          onClick={() => {
+            setTab('result');
+            setAiOpen(!aiOpen);
+          }}
         >
           <Sparkles size={14} />
           Уточнить с ИИ
         </button>
       </div>
-      {aiOpen && (
-        <div className="outcome-ai-panel">
-          <p>
-            <strong>ИИ-уточнение не подключено.</strong> Автоматические предложения недоступны.
-            Можно подготовить черновик вручную и проверить его перед применением.
-          </p>
-          <div className="outcome-actions">
-            {['Сделать формулировку измеримой', 'Изменить сложность', 'Предложить оценивание'].map(
-              (action) => (
+      <div className="outcome-tabs" role="tablist" aria-label="Подробности результата">
+        {(['result', 'source'] as const).map((name) => (
+          <button
+            key={name}
+            role="tab"
+            id={`${tabId}-${name}-tab`}
+            aria-controls={`${tabId}-${name}-panel`}
+            aria-selected={tab === name}
+            tabIndex={tab === name ? 0 : -1}
+            onClick={() => setTab(name)}
+            onKeyDown={(event) => {
+              if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+              event.preventDefault();
+              const next =
+                event.key === 'Home'
+                  ? 'result'
+                  : event.key === 'End'
+                    ? 'source'
+                    : name === 'result'
+                      ? 'source'
+                      : 'result';
+              setTab(next);
+              document.getElementById(`${tabId}-${next}-tab`)?.focus();
+            }}
+          >
+            {name === 'result' ? 'Результат' : 'Требования и источник'}
+          </button>
+        ))}
+      </div>
+      <section
+        role="tabpanel"
+        id={`${tabId}-result-panel`}
+        aria-labelledby={`${tabId}-result-tab`}
+        hidden={tab !== 'result'}
+      >
+        {hasRequirement && !hasRequirementRationale && (
+          <div className="outcome-requirement-note">
+            <p>Связь с исходным требованием указана без обоснования.</p>
+            <button
+              className="map-inline-action"
+              onClick={() => {
+                setTab('source');
+                document.getElementById(`${tabId}-source-tab`)?.focus();
+              }}
+            >
+              Проверить связь →
+            </button>
+          </div>
+        )}
+        {aiOpen && (
+          <div className="outcome-ai-panel">
+            <p>
+              <strong>ИИ-уточнение не подключено.</strong> Автоматические предложения недоступны.
+              Можно подготовить черновик вручную и проверить его перед применением.
+            </p>
+            <div className="outcome-actions">
+              {[
+                'Сделать формулировку измеримой',
+                'Изменить сложность',
+                'Предложить оценивание',
+              ].map((action) => (
                 <button
                   key={action}
                   aria-pressed={intent === action}
@@ -196,83 +257,97 @@ export function OutcomeReview({ snapshot, id, editable, onSaved }: Props) {
                 >
                   {action}
                 </button>
-              ),
+              ))}
+            </div>
+            {intent && (
+              <p role="status">
+                {intent}: требуется подключение ИИ.
+                {intent === 'Предложить оценивание' &&
+                  ' Существующее оценивание можно изменить в редакторе программы.'}
+              </p>
             )}
+            {editable && <button onClick={edit}>Подготовить предложение вручную</button>}
           </div>
-          {intent && (
-            <p role="status">
-              {intent}: требуется подключение ИИ.
-              {intent === 'Предложить оценивание' &&
-                ' Существующее оценивание можно изменить в редакторе программы.'}
+        )}
+        <section className="outcome-criteria" aria-label="Критерии достижения">
+          <h3>Критерии достижения · {outcomeCriteria(s, id).length}</h3>
+          {outcomeCriteria(s, id).length ? (
+            <>
+              <p className="column-caption">
+                {outcome.criteria
+                  ? 'Критерии результата, введённые вручную.'
+                  : 'Критерии из связанного оценивания — черновик для проверки.'}
+              </p>
+              <ul>
+                {outcomeCriteria(s, id).map((criterion, i) => (
+                  <li key={i}>{criterion}</li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p>
+              Критерии не заданы.{' '}
+              {editable && (
+                <button className="map-inline-action" onClick={edit}>
+                  Добавить критерии
+                </button>
+              )}
             </p>
           )}
-          {editable && <button onClick={edit}>Подготовить предложение вручную</button>}
-        </div>
-      )}
-      <details className="outcome-criteria">
-        <summary>Критерии достижения · {outcomeCriteria(s, id).length}</summary>
-        {outcomeCriteria(s, id).length ? (
-          <>
-            <p className="column-caption">
-              {outcome.criteria
-                ? 'Критерии результата, введённые вручную.'
-                : 'Критерии из связанного оценивания — черновик для проверки.'}
-            </p>
-            <ul>
-              {outcomeCriteria(s, id).map((criterion, i) => (
-                <li key={i}>{criterion}</li>
-              ))}
-            </ul>
-          </>
-        ) : (
-          <p>
-            Критерии не заданы.{' '}
-            {editable && (
-              <button className="map-inline-action" onClick={edit}>
-                Добавить критерии
+        </section>
+        {children}
+        {editable && status !== 'Проверен' && (
+          <div className="outcome-check">
+            {reviewProblems.length > 0 && (
+              <ul className="review-problems">
+                {reviewProblems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+            )}
+            {/* Недоступную кнопку не показываем: она отвлекает от того, что нужно исправить. */}
+            {validReview && (
+              <button
+                disabled={command.isPending}
+                onClick={() => {
+                  const checked = structuredClone(s);
+                  checked.outcomes.find((o) => o.id === id)!.review = {
+                    signature: outcomeReviewSignature(s, id),
+                    checked_at: new Date().toISOString(),
+                  };
+                  void save(checked);
+                }}
+              >
+                Подтвердить проверку результата
               </button>
             )}
+          </div>
+        )}
+        {status === 'Проверен' && (
+          <p className="column-caption">
+            Проверено пользователем{' '}
+            {new Date(outcome.review!.checked_at).toLocaleDateString('ru-RU')}. При изменении
+            содержания или связей потребуется повторная проверка.
           </p>
         )}
-        <details>
-          <summary>Исходная формулировка</summary>
+      </section>
+      <section
+        role="tabpanel"
+        id={`${tabId}-source-panel`}
+        aria-labelledby={`${tabId}-source-tab`}
+        hidden={tab !== 'source'}
+      >
+        {requirements}
+        <details className="outcome-source-details">
+          <summary>Исходная формулировка и происхождение</summary>
           <p>{outcome.description}</p>
           <p>{outcome.depth}</p>
+          <p className="column-caption">
+            {snapshot.mode === 'demo' ? 'Источник: демопример' : 'Создано ИИ'}
+            {outcome.edited_by && ' · Изменено вручную'}
+          </p>
         </details>
-      </details>
-      {editable && status !== 'Проверен' && (
-        <div className="outcome-check">
-          {reviewProblems.length > 0 && (
-            <ul className="review-problems">
-              {reviewProblems.map((problem) => (
-                <li key={problem}>{problem}</li>
-              ))}
-            </ul>
-          )}
-          {/* Недоступную кнопку не показываем: она отвлекает от того, что нужно исправить. */}
-          {validReview && (
-            <button
-              disabled={command.isPending}
-              onClick={() => {
-                const checked = structuredClone(s);
-                checked.outcomes.find((o) => o.id === id)!.review = {
-                  signature: outcomeReviewSignature(s, id),
-                  checked_at: new Date().toISOString(),
-                };
-                void save(checked);
-              }}
-            >
-              Подтвердить проверку результата
-            </button>
-          )}
-        </div>
-      )}
-      {status === 'Проверен' && (
-        <p className="column-caption">
-          Проверено пользователем {new Date(outcome.review!.checked_at).toLocaleDateString('ru-RU')}
-          . При изменении содержания или связей потребуется повторная проверка.
-        </p>
-      )}
+      </section>
       {!editing && <ErrorMessage error={command.error} />}
       {editing && (
         <dialog
