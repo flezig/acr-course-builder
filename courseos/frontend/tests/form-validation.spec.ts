@@ -133,7 +133,7 @@ test('Material editing validates before saving', async ({ page }) => {
     .getByRole('link', { name: 'Перейти к материалам', exact: true })
     .click();
   await expect(
-    page.locator('.job-panel').getByText('Нужна проверка', { exact: true }),
+    page.locator('.readiness').getByText('Статус программы: Материалы готовы', { exact: true }),
   ).toBeVisible();
   await page
     .locator('.material-list')

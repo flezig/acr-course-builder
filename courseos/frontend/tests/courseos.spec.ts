@@ -57,7 +57,7 @@ async function approveAndWait(page: Page) {
     .getByRole('link', { name: 'Перейти к материалам', exact: true })
     .click();
   await expect(
-    page.locator('.job-panel').getByText('Нужна проверка', { exact: true }),
+    page.locator('.readiness').getByText('Статус программы: Материалы готовы', { exact: true }),
   ).toBeVisible();
 }
 test('Полный путь: уточнения, правка структуры программы, аудит, ручная правка и выгрузка JSON', async ({
