@@ -49,10 +49,12 @@ export function ResultsMap({
   snapshot,
   editable,
   initialSearch,
+  initialOutcomeId,
 }: {
   snapshot: Snapshot;
   editable: boolean;
   initialSearch: string;
+  initialOutcomeId?: string;
 }) {
   const undoCommand = useCommand();
   const undoKey = `courseos-result-undo:${snapshot.mode}:${snapshot.course_id}`;
@@ -77,12 +79,15 @@ export function ResultsMap({
     setFeedback('Изменение сохранено в новой версии.');
   }
   const { nodes, edges } = useMemo(() => buildMap(snapshot.skeleton), [snapshot.skeleton]);
-  const [mode, setMode] = useState<'overview' | 'map'>('map');
+  const initialOutcome = nodes.find(
+    (node) => node.column === 1 && node.sourceId === initialOutcomeId,
+  );
+  const [mode, setMode] = useState<'overview' | 'map'>(initialOutcome ? 'overview' : 'map');
   const [search, setSearch] = useState(initialSearch);
   const [kind, setKind] = useState('');
   const [gapFilter, setGapFilter] = useState<GapFilter>('');
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [outcomeId, setOutcomeId] = useState<string | null>(null);
+  const [outcomeId, setOutcomeId] = useState<string | null>(initialOutcome?.id ?? null);
   const [selectedId, select] = useState<string | null>(null);
   const [hoveredId, hover] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);

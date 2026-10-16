@@ -1,9 +1,9 @@
 import { Fragment, useEffect, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ArrowUpRight, Check, CircleAlert, CircleCheck, Clock3, ChevronDown } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import type { Snapshot } from '../../entities/course/model/schema';
 import { assessmentLabels } from '../../entities/course/model/presets';
-import { Badge, Panel } from '../../shared/ui/ui';
+import { Panel } from '../../shared/ui/ui';
 import { buildCoverage } from './coverage-model';
 import { buildMap, compactMapTitle } from './map-model';
 import { MapLinkEditor, type LinkRequest } from './map-link-editor';
@@ -28,12 +28,14 @@ export function CoverageMatrix({
   const [linkRequest, setLinkRequest] = useState<LinkRequest | null>(null);
   const rows = buildCoverage(snapshot.skeleton);
   useEffect(() => {
-    const row = snapshot.skeleton.outcomes.find((outcome) =>
-      snapshot.skeleton.assessments.some(
-        (assessment) =>
-          assessment.outcome_ids.includes(outcome.id) &&
-          location.hash === `#coverage-${outcome.id}-${assessment.id}`,
-      ),
+    const row = snapshot.skeleton.outcomes.find(
+      (outcome) =>
+        location.hash === `#coverage-detail-${outcome.id}` ||
+        snapshot.skeleton.assessments.some(
+          (assessment) =>
+            assessment.outcome_ids.includes(outcome.id) &&
+            location.hash === `#coverage-${outcome.id}-${assessment.id}`,
+        ),
     );
     if (row) {
       setExpanded((previous) => (previous.includes(row.id) ? previous : [...previous, row.id]));
@@ -83,6 +85,11 @@ export function CoverageMatrix({
     )!;
     setLinkRequest({ node, target });
   }
+  function reviewHref(outcomeId: string) {
+    const search = new URLSearchParams(planHref.split('?')[1]);
+    search.set('outcome', outcomeId);
+    return `/courses/${snapshot.course_id}/map?${search}`;
+  }
   return (
     <Panel
       title="Покрытие результатов"
@@ -131,7 +138,7 @@ export function CoverageMatrix({
               const open = expanded.includes(outcome.id);
               return (
                 <Fragment key={outcome.id}>
-                  <tr className={gaps.length ? 'coverage-gap' : undefined}>
+                  <tr>
                     <th scope="row">
                       <strong>{outcome.title || compactMapTitle(outcome.description)}</strong>
                       <button
@@ -186,43 +193,55 @@ export function CoverageMatrix({
                       )}
                     </td>
                     <td data-label="Статус и замечания">
+                      <div className="coverage-status-line">
+                        <span
+                          className={`coverage-status ${gaps.length ? 'needs-work' : row.reviewed ? 'verified' : 'pending'}`}
+                        >
+                          {gaps.length ? (
+                            <CircleAlert size={14} aria-hidden="true" />
+                          ) : row.reviewed ? (
+                            <CircleCheck size={14} aria-hidden="true" />
+                          ) : (
+                            <Clock3 size={14} aria-hidden="true" />
+                          )}
+                          {gaps.length
+                            ? 'Нужно дополнить'
+                            : row.reviewed
+                              ? 'Проверено методистом'
+                              : 'Ожидает проверки'}
+                        </span>
+                        {(gaps.length > 0 || !row.reviewed) && (
+                          <Link
+                            className="coverage-status-action"
+                            to={
+                              gaps.length
+                                ? `${planHref}#coverage-detail-${outcome.id}`
+                                : reviewHref(outcome.id)
+                            }
+                          >
+                            {editable ? (gaps.length ? 'Исправить' : 'Проверить') : 'Посмотреть'}
+                            <ArrowUpRight size={14} aria-hidden="true" />
+                          </Link>
+                        )}
+                      </div>
                       {gaps.length ? (
-                        <ul className="coverage-gaps">
-                          {gaps.map((gap) => (
-                            <li key={gap}>{gap}</li>
-                          ))}
-                        </ul>
+                        <>
+                          <ul className="coverage-gaps">
+                            {gaps.map((gap) => (
+                              <li key={gap}>{gap}</li>
+                            ))}
+                          </ul>
+                          <p className="coverage-review-note">
+                            {row.reviewed
+                              ? 'Соответствие проверено методистом'
+                              : 'Методист ещё не проверил'}
+                          </p>
+                        </>
                       ) : (
-                        <Badge tone="green">Связи и критерии заполнены</Badge>
-                      )}
-                      <Badge tone={row.reviewed ? 'green' : 'amber'}>
-                        {row.reviewed
-                          ? 'Соответствие проверено методистом'
-                          : 'Соответствие требует проверки'}
-                      </Badge>
-                      {editable && (
-                        <div className="coverage-actions">
-                          {!topics.length && (
-                            <button onClick={() => link(outcome.id, 'topic')}>Связать тему</button>
-                          )}
-                          {row.missingAssessments && (
-                            <button onClick={() => link(outcome.id, 'assessment')}>
-                              Добавить проверку
-                            </button>
-                          )}
-                          {row.missingCriteria && (
-                            <button
-                              onClick={() =>
-                                edit(
-                                  assessments.find((assessment) => !assessment.criterion.trim())
-                                    ?.id || outcome.id,
-                                )
-                              }
-                            >
-                              Указать критерии
-                            </button>
-                          )}
-                        </div>
+                        <p className="coverage-complete-note">
+                          <Check size={14} aria-hidden="true" />
+                          Связи и критерии заполнены
+                        </p>
                       )}
                     </td>
                   </tr>
@@ -230,6 +249,7 @@ export function CoverageMatrix({
                     id={`coverage-detail-${outcome.id}`}
                     hidden={!open}
                     className="coverage-detail"
+                    tabIndex={-1}
                   >
                     <td colSpan={3}>
                       <p className="coverage-outcome-text">{outcome.description}</p>
@@ -283,13 +303,23 @@ export function CoverageMatrix({
                       })}
                       {editable && (
                         <div className="coverage-actions">
+                          {row.missingCriteria && (
+                            <button
+                              onClick={() =>
+                                edit(
+                                  assessments.find((assessment) => !assessment.criterion.trim())
+                                    ?.id || outcome.id,
+                                )
+                              }
+                            >
+                              Указать критерии
+                            </button>
+                          )}
                           <button onClick={() => link(outcome.id, 'topic')}>Связать тему</button>
                           <button onClick={() => link(outcome.id, 'assessment')}>
                             Добавить проверку
                           </button>
-                          <Link
-                            to={`/courses/${snapshot.course_id}/map?${new URLSearchParams({ filter: outcome.title || outcome.description })}`}
-                          >
+                          <Link to={reviewHref(outcome.id)}>
                             Проверить соответствие на карте связей
                           </Link>
                         </div>

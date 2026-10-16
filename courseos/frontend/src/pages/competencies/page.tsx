@@ -39,10 +39,11 @@ export function MapPage() {
   return (
     <>
       <ResultsMap
-        key={`map-${snapshot.course_id}`}
+        key={`map-${snapshot.course_id}-${search.get('outcome') || ''}`}
         snapshot={snapshot}
         editable={query.data.is_latest && !['queued', 'running'].includes(query.data.job.status)}
         initialSearch={search.get('filter') || ''}
+        initialOutcomeId={search.get('outcome') || undefined}
       />
       <div id="sources">
         <Panel

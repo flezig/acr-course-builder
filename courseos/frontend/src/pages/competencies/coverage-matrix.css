@@ -30,9 +30,6 @@
   color: var(--muted);
   font-size: 12px;
 }
-.coverage-matrix .coverage-gap {
-  background: var(--theme-amber-surface, #fbf3e6);
-}
 .coverage-matrix .gap-count {
   font-weight: 650;
   color: var(--theme-amber-ink, #8a5a0f);
@@ -100,10 +97,88 @@
 .coverage-matrix details[open] > .coverage-criterion {
   display: list-item;
 }
-.coverage-gaps {
-  margin: 0 0 8px;
-  padding-left: 16px;
+.coverage-status-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.coverage-matrix .coverage-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin: 0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.coverage-matrix .coverage-status.pending {
+  background: var(--surface);
+  color: var(--muted);
+}
+.coverage-matrix .coverage-status.needs-work {
+  background: var(--theme-amber-surface, #fbf3e6);
   color: var(--theme-amber-ink, #8a5a0f);
+}
+.coverage-matrix .coverage-status.verified {
+  background: var(--theme-green-surface, #edf7f1);
+  color: var(--theme-green-ink, #297353);
+}
+.coverage-status-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 4px;
+}
+.coverage-status-action:hover {
+  text-decoration-color: currentColor;
+}
+.coverage-status-line svg,
+.coverage-complete-note svg {
+  flex-shrink: 0;
+}
+.coverage-gaps {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--theme-amber-ink, #8a5a0f);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.coverage-gaps li + li {
+  margin-top: 4px;
+}
+.coverage-complete-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.coverage-complete-note svg {
+  color: var(--theme-green-ink, #297353);
+}
+.coverage-review-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+.coverage-status-action:focus-visible,
+.coverage-detail:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 .coverage-actions {
   display: flex;
@@ -180,7 +255,8 @@
   max-height: none;
   overflow: visible;
 }
-.coverage-panel .coverage-matrix th {
+.coverage-panel .coverage-matrix th,
+.coverage-panel .coverage-matrix th:first-child {
   position: static;
   min-width: 0;
   max-width: none;
