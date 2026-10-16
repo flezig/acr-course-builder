@@ -24,7 +24,6 @@ export function MaterialViewer({
             Ручная правка защищена
           </Badge>
         )}
-        <small>{material.id}</small>
         {!readonly && !material.stale && (
           <ElementEditor
             material={material}
@@ -129,9 +128,7 @@ export function MaterialViewer({
                 <p>
                   <b>Объяснение:</b> {question.explanation}
                 </p>
-                <small>
-                  {question.id} · {question.outcome_ids.join(', ')}
-                </small>
+                <small>{question.outcome_ids.join(', ')}</small>
               </div>
             </section>
           ))}
@@ -143,7 +140,7 @@ export function MaterialViewer({
           {material.slides.map((slide, index) => (
             <div className="slide" key={slide.id}>
               <span>
-                СЛАЙД {index + 1} · {slide.id}
+                СЛАЙД {index + 1}
               </span>
               <h3>{slide.title}</h3>
               {!readonly && !material.stale && (
