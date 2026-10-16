@@ -5,9 +5,12 @@ async function openSection(
   name: 'Сводка параметров' | 'Материалы для программы',
 ) {
   const section = page.locator(
-    name === 'Сводка параметров' ? '.parameter-summary' : '.create-references > details',
+    name === 'Сводка параметров' ? '.parameter-summary' : '.create-references',
   );
-  if (!(await section.evaluate((element) => (element as HTMLDetailsElement).open))) {
+  if (
+    name === 'Сводка параметров' &&
+    !(await section.evaluate((element) => (element as HTMLDetailsElement).open))
+  ) {
     await section.locator('summary').click();
   }
   return section;
@@ -21,27 +24,29 @@ test('Создание курса сохраняет прошлую програ
   const previous = await openSection(page, 'Материалы для программы');
   await expect(page.getByLabel('Текст прошлой программы')).toHaveCount(0);
   await expect(page.getByLabel('Название прошлой программы')).toHaveCount(0);
-  await previous.getByLabel('Ссылка на прошлую программу').fill('https://example.com/previous');
+  await expect(page.getByLabel('Название ссылки')).toHaveCount(0);
+  await expect(previous.getByLabel('Ссылка на материал')).toBeVisible();
+  await expect(previous.getByLabel('Ссылка на материал')).toHaveCount(1);
+  await previous.getByLabel('Ссылка на материал').fill('https://example.com/previous');
+  await previous.getByRole('button', { name: 'Добавить ещё ссылку' }).click();
   const standards = await openSection(page, 'Сводка параметров');
   await expect(standards.getByLabel('Профстандарт программы')).toHaveValue('teachers');
   await standards.getByLabel('Профстандарт программы').selectOption('devops');
   const links = await openSection(page, 'Материалы для программы');
-  await links.getByLabel('Название ссылки').fill('Руководство по практике');
-  await links.getByLabel('URL полезной ссылки').fill('ftp://example.com/guide');
+  await links.getByLabel('Ссылка на материал').nth(1).fill('ftp://example.com/guide');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(links.getByLabel('URL полезной ссылки')).toBeFocused();
-  await expect(links.getByLabel('URL полезной ссылки')).toHaveAccessibleDescription(
+  await expect(links.getByLabel('Ссылка на материал').nth(1)).toBeFocused();
+  await expect(links.getByLabel('Ссылка на материал').nth(1)).toHaveAccessibleDescription(
     /Введите полную ссылку/,
   );
-  await links.getByLabel('URL полезной ссылки').fill('https://example.com/guide');
+  await links.getByLabel('Ссылка на материал').nth(1).fill('https://example.com/guide');
   await links.getByRole('button', { name: 'Добавить ещё ссылку' }).click();
-  await links.getByLabel('Название ссылки').nth(1).fill('Дополнительные задания');
-  await links.getByLabel('URL полезной ссылки').nth(1).fill('https://example.com/tasks');
+  await links.getByLabel('Ссылка на материал').nth(2).fill('https://example.com/tasks');
   await expect(page.getByText('Происхождение и проверка фрагмента')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Получить текст по ссылке' })).toHaveCount(0);
   await page.reload();
   await openSection(page, 'Материалы для программы');
-  await expect(page.getByLabel('Ссылка на прошлую программу')).toHaveValue(
+  await expect(page.getByLabel('Ссылка на материал').first()).toHaveValue(
     'https://example.com/previous',
   );
   await openSection(page, 'Сводка параметров');
@@ -53,19 +58,17 @@ test('Создание курса сохраняет прошлую програ
   await page.getByRole('link', { name: 'Учебный план', exact: true }).click();
   await page.getByRole('link', { name: 'О программе', exact: true }).click();
   await expect(page.locator('#standard')).toContainText('06.026');
-  await expect(page.locator('#program-references')).toContainText('Прошлая программа');
-  await expect(page.locator('#program-references')).toContainText('Руководство по практике');
-  await expect(page.locator('#program-references')).toContainText('Дополнительные задания');
+  await expect(page.locator('#program-references')).toContainText('Полезная ссылка');
   await page.getByRole('link', { name: 'Карта результатов', exact: true }).click();
   const sources = page.locator('#sources .source');
   await expect(sources).toHaveCount(4);
   await expect(sources).toContainText([
-    'Прошлая программа',
+    'Полезная ссылка',
+    'Полезная ссылка',
     'Профстандарт 06.026',
-    'Руководство по практике',
-    'Дополнительные задания',
+    'Полезная ссылка',
   ]);
-  const guide = sources.filter({ hasText: 'Руководство по практике' });
+  const guide = sources.filter({ has: page.locator('a[href="https://example.com/guide"]') });
   await guide.locator('summary').click();
   await expect(guide).toContainText('Содержимое URL не загружено');
   await expect(guide.getByRole('link')).toHaveAttribute('href', 'https://example.com/guide');
@@ -81,7 +84,7 @@ test('Свой профстандарт и референсы примера з�
   await page.getByRole('button', { name: /DevOps: Linux/ }).click();
   const previous = await openSection(page, 'Материалы для программы');
   await expect(previous).toContainText(/Образец АЦР.*текст сохранён/);
-  await expect(previous.getByRole('textbox')).toHaveCount(3);
+  await expect(previous.getByRole('textbox')).toHaveCount(1);
   const standards = await openSection(page, 'Сводка параметров');
   await expect(standards.getByLabel('Профстандарт программы')).toHaveValue('devops');
   await standards.getByLabel('Профстандарт программы').selectOption('custom');

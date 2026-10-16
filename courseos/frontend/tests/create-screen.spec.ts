@@ -15,7 +15,7 @@ for (const [width, height] of [
     await page.setViewportSize({ width, height });
     await page.goto('/');
     await expect(page.locator('.parameter-summary')).not.toHaveAttribute('open');
-    await expect(page.locator('.create-references > details')).not.toHaveAttribute('open');
+    await expect(page.getByLabel('Ссылка на материал')).toBeVisible();
     const submit = page.getByRole('button', { name: 'Отправить запрос', exact: true });
     await expect(page.getByLabel('Запрос методиста')).toBeInViewport({ ratio: 1 });
     const request = await page.getByLabel('Запрос методиста').boundingBox();
