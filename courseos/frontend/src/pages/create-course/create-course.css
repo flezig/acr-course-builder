@@ -228,12 +228,57 @@
   border-bottom: 1px solid var(--theme-border, #e0e2e5);
 }
 .create-workspace .parameter-summary > summary {
-  padding: 14px 0;
-  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 -12px;
+  padding: 12px;
+  border-radius: 10px;
+  list-style: none;
   overflow-wrap: anywhere;
+  transition: background-color 120ms ease;
+}
+.create-workspace .parameter-summary > summary::-webkit-details-marker {
+  display: none;
+}
+.create-workspace .parameter-summary > summary:hover {
+  background: var(--theme-subtle, #f6f7fa);
+}
+.parameter-summary-heading {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+.parameter-summary-heading > span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.parameter-summary-heading > small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.create-workspace .parameter-summary > summary > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+.create-workspace .parameter-summary[open] > summary > svg {
+  transform: rotate(180deg);
 }
 .create-workspace .parameter-summary[open] {
   padding-bottom: 14px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .create-workspace .parameter-summary > summary,
+  .create-workspace .parameter-summary > summary > svg {
+    transition: none;
+  }
 }
 /* Поле запроса и вложения выглядят одним блоком, как композер в чатах:
    текст сверху, материалы и кнопка «+» внизу. */
