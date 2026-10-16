@@ -50,25 +50,12 @@
 .create-workspace :is(input, textarea)::placeholder {
   color: var(--muted);
 }
-.create-workspace .create-submit {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 3px;
-}
-.create-workspace .create-submit .primary {
-  flex-shrink: 0;
-  min-height: 46px;
-  padding: 12px 20px;
-  font-size: 14px;
-}
-.create-workspace .create-submit small {
-  max-width: 260px;
+.create-workspace .create-submit-hint {
+  display: block;
+  margin-top: 12px;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
-}
-.create-workspace .create-submit .primary:hover:not(:disabled) {
-  opacity: 0.88;
 }
 .create-workspace .examples {
   grid-area: examples;
@@ -165,10 +152,6 @@
   .create-workspace .example-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .create-workspace .create-submit {
-    flex-wrap: wrap;
-    gap: 10px;
-  }
 }
 @media (max-width: 600px) {
   .create-workspace .create-heading {
@@ -215,12 +198,6 @@
   .create-workspace .example-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-  .create-workspace .create-submit .primary {
-    width: 100%;
-  }
-  .create-workspace .create-submit small {
-    max-width: none;
-  }
 }
 
 .create-workspace .parameter-summary {
@@ -228,57 +205,12 @@
   border-bottom: 1px solid var(--theme-border, #e0e2e5);
 }
 .create-workspace .parameter-summary > summary {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 -12px;
-  padding: 12px;
-  border-radius: 10px;
-  list-style: none;
+  padding: 14px 0;
+  margin-bottom: 0;
   overflow-wrap: anywhere;
-  transition: background-color 120ms ease;
-}
-.create-workspace .parameter-summary > summary::-webkit-details-marker {
-  display: none;
-}
-.create-workspace .parameter-summary > summary:hover {
-  background: var(--theme-subtle, #f6f7fa);
-}
-.parameter-summary-heading {
-  display: grid;
-  flex: 1;
-  min-width: 0;
-  gap: 2px;
-}
-.parameter-summary-heading > span {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-}
-.parameter-summary-heading > small {
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 400;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.create-workspace .parameter-summary > summary > svg {
-  flex-shrink: 0;
-  color: var(--muted);
-  transition: transform 160ms ease;
-}
-.create-workspace .parameter-summary[open] > summary > svg {
-  transform: rotate(180deg);
 }
 .create-workspace .parameter-summary[open] {
   padding-bottom: 14px;
-}
-@media (prefers-reduced-motion: reduce) {
-  .create-workspace .parameter-summary > summary,
-  .create-workspace .parameter-summary > summary > svg {
-    transition: none;
-  }
 }
 /* Поле запроса и вложения выглядят одним блоком, как композер в чатах:
    текст сверху, материалы и кнопка «+» внизу. */
@@ -327,19 +259,20 @@
 .attachment-chip,
 .attachment-link {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   min-width: 0;
-  padding: 6px 6px 6px 10px;
-  border-radius: 10px;
+  min-height: 40px;
+  padding: 2px 4px 2px 12px;
+  border: 1px solid var(--theme-border, #e4e4e4);
+  border-radius: 12px;
   background: var(--theme-subtle, #f6f7fa);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 .attachment-chip > svg,
 .attachment-link > svg {
   flex-shrink: 0;
-  margin-top: 8px;
 }
 .attachment-chip > span {
   flex: 1;
@@ -348,10 +281,19 @@
   overflow-wrap: anywhere;
   color: var(--ink);
 }
+.attachment-link {
+  flex-wrap: wrap;
+  background: var(--theme-paper, #ffffff);
+}
+.attachment-link:focus-within {
+  border-color: var(--theme-border-strong, #8b8b8b);
+}
+.attachment-link:has(.has-error) {
+  border-color: var(--error-ink, var(--theme-red-ink, #a52c2c));
+}
+/* Ошибка переносится на отдельную строку под полем, не растягивая саму пилюлю. */
 .attachment-link-field.field {
-  flex: 1;
-  margin: 0;
-  gap: 4px;
+  display: contents;
 }
 .attachment-link-field > .field-label {
   position: absolute;
@@ -361,9 +303,27 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.create-workspace .attachment-link-field input {
-  padding: 6px 10px;
+.create-workspace .request-composer .attachment-link .attachment-link-field.field > input {
+  flex: 1;
+  width: auto;
+  min-height: 0;
+  padding: 6px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   font-size: 13px;
+}
+.create-workspace
+  .request-composer
+  .attachment-link
+  .attachment-link-field.field
+  > input:focus-visible {
+  outline: none !important;
+}
+.attachment-link-field > .field-error {
+  order: 3;
+  flex-basis: 100%;
+  padding: 0 0 6px 24px;
 }
 :is(.attachment-chip, .attachment-link) > button {
   flex-shrink: 0;
@@ -385,7 +345,7 @@
   align-items: center;
   gap: 10px;
 }
-.create-workspace .attachment-trigger {
+.create-workspace .request-composer.field .attachment-trigger {
   width: 36px;
   min-height: 36px;
   padding: 0;
@@ -394,10 +354,40 @@
   background: transparent;
   color: var(--muted);
 }
-.create-workspace .attachment-trigger:hover,
-.create-workspace .attachment-trigger[aria-expanded='true'] {
+.create-workspace .request-composer.field .attachment-trigger:hover,
+.create-workspace .request-composer.field .attachment-trigger[aria-expanded='true'] {
   background: var(--theme-raised, #eef0f3);
   color: var(--ink);
+}
+/* Кнопка отправки как в чатах: серая, пока запрос пуст, и тёмная, когда текст введён. */
+.create-workspace .request-composer.field .send-request {
+  flex-shrink: 0;
+  width: 36px;
+  min-height: 36px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: var(--theme-line, #c9ccd3);
+  color: var(--theme-paper, #ffffff);
+  transition: background 0.15s;
+}
+.create-workspace .request-composer.field .send-request:hover:not(:disabled) {
+  background: var(--theme-dim, #9a9fab);
+}
+.create-workspace .request-composer.field .send-request.ready {
+  background: var(--ink);
+}
+.create-workspace .request-composer.field .send-request.ready:hover:not(:disabled) {
+  background: var(--ink);
+  opacity: 0.85;
+}
+:root[data-theme='dark'] .create-workspace .request-composer.field .send-request {
+  color: var(--theme-muted);
+}
+:root[data-theme='dark'] .create-workspace .request-composer.field .send-request.ready {
+  background: var(--theme-control);
+  color: var(--theme-control-ink);
 }
 .attachment-hint {
   min-width: 0;

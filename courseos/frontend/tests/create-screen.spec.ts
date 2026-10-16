@@ -22,7 +22,10 @@ for (const [width, height] of [
     const upload = await page.locator('.attachment-trigger').boundingBox();
     const submitBounds = await submit.boundingBox();
     expect(upload!.y).toBeGreaterThanOrEqual(request!.y + request!.height);
-    expect(submitBounds!.y).toBeGreaterThanOrEqual(upload!.y + upload!.height);
+    // Отправка стоит в той же строке композера, что и «+», у правого края.
+    expect(Math.abs(submitBounds!.y - upload!.y)).toBeLessThan(2);
+    expect(submitBounds!.x).toBeGreaterThan(upload!.x + upload!.width);
+    await expect(submit).not.toHaveClass(/ready/);
     await expect(page.getByText('Сначала структура программы', { exact: true })).toHaveCount(0);
     await expect(page.getByText('ОБРАЗЕЦ АЦР', { exact: true })).toHaveCount(0);
     if (width > 1000) {
@@ -97,6 +100,7 @@ for (const [width, height] of [
     await expect(first).toHaveAttribute('aria-pressed', 'true');
     expect(await first.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid');
     await page.getByLabel('Запрос методиста').fill('Моя программа с изменённой темой');
+    await expect(submit).toHaveClass(/ready/);
     await page.reload();
     await expect(page.getByLabel('Запрос методиста')).toHaveValue(
       'Моя программа с изменённой темой',

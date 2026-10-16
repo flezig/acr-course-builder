@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FileText, Link2, Paperclip, Plus, X } from 'lucide-react';
 import type { Requirements } from '../../entities/course/model/schema';
 import { useApi } from '../../entities/course/api/provider';
@@ -10,13 +10,15 @@ import {
 } from '../../entities/course/model/user-reference';
 import { Field, Notice } from '../../shared/ui/ui';
 
-/** Вложения запроса: кнопка «+» с меню, как в чат-композерах, и список добавленных материалов. */
+/** Нижняя часть композера запроса: материалы, кнопка «+» с меню и кнопка отправки справа. */
 export function CreateReferences({
   references,
   onChange,
+  sendButton,
 }: {
   references: Requirements['references'];
   onChange: (references: Requirements['references']) => void;
+  sendButton: ReactNode;
 }) {
   const { api } = useApi();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -90,7 +92,7 @@ export function CreateReferences({
                     type="url"
                     required
                     value={source.url}
-                    placeholder="https://… — прошлая программа или другой материал"
+                    placeholder="Вставьте ссылку на прошлую программу или материал"
                     ref={(input) => {
                       if (input && focusLinkId === source.id) {
                         input.focus();
@@ -98,6 +100,11 @@ export function CreateReferences({
                       }
                     }}
                     onChange={(event) => updateUrl(source, event.target.value)}
+                    // Пустая строка ссылки ничего не добавляет к запросу, поэтому не держим её
+                    // с ошибкой «заполните поле», а убираем, как пустое вложение в чате.
+                    onBlur={(event) => {
+                      if (!event.target.value.trim()) remove(source);
+                    }}
                   />
                 </Field>
                 <button type="button" aria-label="Убрать ссылку" onClick={() => remove(source)}>
@@ -177,6 +184,7 @@ export function CreateReferences({
             event.target.value = '';
           }}
         />
+        {sendButton}
       </div>
       {uploadError && <Notice tone="error">{uploadError}</Notice>}
     </section>

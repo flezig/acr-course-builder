@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, Trash2 } from 'lucide-react';
+import { ArrowRight, ArrowUp, Loader2, Trash2 } from 'lucide-react';
 import {
   useApi,
   useCommand,
@@ -60,18 +60,6 @@ export function CreateCoursePage() {
     ?.requirements.request;
   const changedRequest = values.request !== exampleRequest;
   const discrepancies = parameterDiscrepancies(values);
-  // Короткая выжимка в свёрнутом заголовке: методист видит главное, не раскрывая форму.
-  const parameterPreview = [
-    { acr_general: 'Общеразвивающая', acr_professional: 'Повышение квалификации' }[
-      values.template_id as 'acr_general' | 'acr_professional'
-    ],
-    values.total_hours && `${values.total_hours} ч`,
-    values.calendar.calendar_days > 0 &&
-      `${Math.round((values.calendar.calendar_days / 7) * 10) / 10} нед.`,
-    values.delivery.trim(),
-  ]
-    .filter(Boolean)
-    .join(' · ');
   useEffect(() => {
     setConfirmed(false);
   }, [values.request]);
@@ -174,16 +162,25 @@ export function CreateCoursePage() {
             <CreateReferences
               references={values.references}
               onChange={(value) => form.setValue('references', value, { shouldDirty: true })}
+              sendButton={
+                <button
+                  className={`send-request ${values.request.trim() ? 'ready' : ''}`}
+                  disabled={command.isPending}
+                  type="submit"
+                  aria-label="Отправить запрос"
+                  title={command.isPending ? 'Запрос сохраняется…' : 'Отправить запрос'}
+                >
+                  {command.isPending ? (
+                    <Loader2 className="spin" size={18} />
+                  ) : (
+                    <ArrowUp size={18} />
+                  )}
+                </button>
+              }
             />
           </Field>
           <details className="parameter-summary" ref={parametersRef}>
-            <summary>
-              <span className="parameter-summary-heading">
-                <span>Сводка параметров</span>
-                <small>{parameterPreview || 'Заполнится по тексту запроса'}</small>
-              </span>
-              <ChevronDown size={18} aria-hidden="true" />
-            </summary>
+            <summary>Сводка параметров</summary>
             <p>
               {api.mode === 'demo'
                 ? 'Значения примера можно изменить вручную. Демо не анализирует изменённый запрос; сверьте все поля с текстом.'
@@ -279,13 +276,9 @@ export function CreateCoursePage() {
             {confirmationError && <Notice tone="error">{confirmationError}</Notice>}
           </details>
           <ErrorMessage error={command.error} />
-          <div className="create-submit">
-            <button className="primary" disabled={command.isPending} type="submit">
-              {command.isPending ? 'Запрос сохраняется…' : 'Отправить запрос'}
-              <ArrowRight size={18} />
-            </button>
-            <small>Вы сможете проверить и изменить программу перед утверждением</small>
-          </div>
+          <small className="create-submit-hint">
+            Вы сможете проверить и изменить программу перед утверждением
+          </small>
         </Panel>
         <section className="examples" aria-labelledby="examples-title">
           <h2 id="examples-title">Попробуйте на примере</h2>

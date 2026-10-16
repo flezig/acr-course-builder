@@ -36,10 +36,15 @@ test('Создание курса сохраняет прошлую програ
   await expect(previous.getByLabel('Ссылка на материал')).toBeFocused();
   await previous.getByLabel('Ссылка на материал').fill('https://example.com/previous');
   await addLink(page);
+  await expect(previous.getByLabel('Ссылка на материал')).toHaveCount(2);
+  // Пустая ссылка убирается, когда фокус уходит из неё.
+  await page.getByLabel('Запрос методиста').click();
+  await expect(previous.getByLabel('Ссылка на материал')).toHaveCount(1);
   const standards = await openSection(page, 'Сводка параметров');
   await expect(standards.getByLabel('Профстандарт программы')).toHaveValue('teachers');
   await standards.getByLabel('Профстандарт программы').selectOption('devops');
   const links = await openSection(page, 'Материалы для программы');
+  await addLink(page);
   await links.getByLabel('Ссылка на материал').nth(1).fill('ftp://example.com/guide');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(links.getByLabel('Ссылка на материал').nth(1)).toBeFocused();
@@ -70,8 +75,8 @@ test('Создание курса сохраняет прошлую програ
   await expect(sources).toHaveCount(4);
   await expect(sources).toContainText([
     'Полезная ссылка',
-    'Полезная ссылка',
     'Профстандарт 06.026',
+    'Полезная ссылка',
     'Полезная ссылка',
   ]);
   const guide = sources.filter({ has: page.locator('a[href="https://example.com/guide"]') });
