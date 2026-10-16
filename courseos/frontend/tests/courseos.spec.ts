@@ -268,11 +268,13 @@ test('HTTP-сбой: нет скрытого demo; request_id переживае
   page,
 }) => {
   const ids: string[] = [];
+  const payloads: unknown[] = [];
   await page.route('**/api/v1/courses', (route) =>
     route.fulfill({ contentType: 'application/json', body: '[]' }),
   );
   await page.route('**/api/v1/agent', async (route) => {
     ids.push(route.request().postDataJSON().request_id);
+    payloads.push(route.request().postDataJSON().payload);
     await route.abort('failed');
   });
   await page.getByLabel('Режим работы', { exact: true }).selectOption('live');
@@ -289,7 +291,9 @@ test('HTTP-сбой: нет скрытого demo; request_id переживае
   await expect(page.getByRole('alert').filter({ hasText: 'Сервер недоступен' })).toBeVisible();
   expect(ids).toHaveLength(2);
   expect(ids[0]).toBe(ids[1]);
+  expect(payloads[0]).toEqual(payloads[1]);
   await page.getByLabel('Запрос методиста').fill('Курс Python для школьников на 17 часов');
+  await page.getByLabel('Объём в часах', { exact: true }).fill('17');
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Сервер недоступен' })).toBeVisible();
   expect(ids).toHaveLength(3);

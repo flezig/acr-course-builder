@@ -44,7 +44,11 @@ export function CreateCoursePage() {
   });
   const allowNavigation = useUnsavedChanges(form.formState.isDirty && !command.isSuccess);
   useEffect(() => {
-    const subscription = form.watch((value) => {
+    const subscription = form.watch((value, { name }) => {
+      if (name && name !== 'parameters_confirmation' && value.parameters_confirmation) {
+        form.setValue('parameters_confirmation', undefined);
+        return;
+      }
       localStorage.setItem(`courseos-create-draft-${api.mode}`, JSON.stringify(value));
     });
     return () => subscription.unsubscribe();
@@ -67,6 +71,12 @@ export function CreateCoursePage() {
     }
     try {
       const title = values.title.trim() || values.request.trim().split('\n')[0].slice(0, 80);
+      const confirmation =
+        values.parameters_confirmation?.request === values.request
+          ? values.parameters_confirmation
+          : { request: values.request, actor: 'methodist', at: new Date().toISOString() };
+      // Сохраняем дату до отправки: повтор после сетевого сбоя должен иметь тот же payload.
+      form.setValue('parameters_confirmation', confirmation);
       const result = await command.mutateAsync({
         action: 'start',
         payload: {
@@ -83,11 +93,7 @@ export function CreateCoursePage() {
               return { ...source, hash: await contentHash({ text: source.text, url: source.url }) };
             }),
           ),
-          parameters_confirmation: {
-            request: values.request,
-            actor: 'methodist',
-            at: new Date().toISOString(),
-          },
+          parameters_confirmation: confirmation,
           calendar: {
             ...values.calendar,
             description: `${values.calendar.calendar_days} календарных дней (${values.calendar.calendar_days / 7} нед.); ${values.calendar.daily_limit ? `до ${values.calendar.daily_limit} ч/день` : 'дневная нагрузка уточняется'}`,
