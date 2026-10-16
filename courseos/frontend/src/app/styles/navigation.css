@@ -124,6 +124,7 @@
   display: flex;
   gap: 8px;
   align-items: center;
+  justify-content: flex-start;
   width: 100%;
   min-height: 0;
   padding: 10px 8px;
@@ -137,4 +138,12 @@
 }
 .sidebar .profile-options button:hover {
   background: var(--theme-subtle, #f3f3f3);
+}
+@media (min-width: 801px) {
+  /* В свёрнутой панели всё помещается по высоте, а меню профиля шире самой панели:
+     без этого прокрутка панели обрезала бы его, а контент страницы перекрывал. */
+  .sidebar-collapsed .sidebar {
+    z-index: 20;
+    overflow: visible;
+  }
 }
