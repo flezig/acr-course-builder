@@ -124,18 +124,28 @@ test('Material editing validates before saving', async ({ page }) => {
     .locator('.verdict')
     .getByRole('link', { name: 'Перейти к материалам', exact: true })
     .click();
+  await expect(
+    page.locator('.job-panel').getByText('Нужна проверка', { exact: true }),
+  ).toBeVisible();
   await page
-    .getByRole('button', { name: 'Практикум: Знакомство с Python Семинар', exact: true })
+    .locator('.material-list')
+    .getByRole('button', {
+      name: 'Рабочая программа: Знакомство с Python Рабочая программа',
+      exact: true,
+    })
     .click();
   await expect(page.locator('.material-viewer')).toHaveCount(1);
   await page.getByRole('button', { name: 'Ручная правка', exact: true }).click();
   const content = page.getByLabel('Содержание материала', { exact: true });
   await content.fill('   ');
-  await page.getByRole('button', { name: 'Сохранить и защитить ручную правку' }).click();
+  await page.getByRole('button', { name: 'Посмотреть изменения и зависимости' }).click();
   await expect(content).toBeFocused();
   await expect(content).toHaveAccessibleDescription('Заполните это поле.');
   await content.fill('Задание: проверьте два сценария ввода.');
-  await page.getByRole('button', { name: 'Сохранить и защитить ручную правку' }).click();
+  await page.getByRole('button', { name: 'Посмотреть изменения и зависимости' }).click();
+  await page
+    .getByRole('button', { name: 'Применить правку и сохранить версию', exact: true })
+    .click();
   await expect(page.getByText('Ручная правка защищена')).toBeVisible();
 });
 
