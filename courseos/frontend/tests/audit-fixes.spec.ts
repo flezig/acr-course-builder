@@ -163,7 +163,7 @@ test('расписание Python содержит два занятия в не
   await page.goto(`/courses/${id}/audit`);
   await expect(
     page.locator('.checklist-item').filter({ hasText: 'Выгрузка в .docx' }),
-  ).toContainText('Недоступно в демо');
+  ).toContainText('DOCX создан');
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(

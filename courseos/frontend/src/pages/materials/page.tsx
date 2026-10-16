@@ -87,11 +87,7 @@ export function MaterialsPage() {
       <header id="exports" className="page-heading">
         <div>
           <h1>Материалы программы</h1>
-          <p>
-            Планы лекций и содержание слайдов по модулям, практические задания и тесты.
-            {snapshot.mode === 'demo' &&
-              ' В демо это текстовые черновики; скачивание презентаций в .pptx недоступно.'}
-          </p>
+          <p>Планы лекций и содержание слайдов по модулям, практические задания и тесты.</p>
         </div>
       </header>
       <ProgramStatus status={status} />

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
+import JSZip from 'jszip';
 import { DemoCourseApi } from '../src/entities/course/api/demo-course-api';
 import { presets } from '../src/entities/course/model/presets';
 import { auditSnapshot, calendarCalculation, hourTotals } from '../src/entities/course/model/rules';
@@ -207,12 +208,43 @@ it('48 ч / три недели: текст, план, календарь, ау�
     calendar: { calendar_days: 21 },
   });
 });
-it('DOCX/PPTX/LMS не засчитываются готовыми, JSON проверяется отдельно', async () => {
+it('DOCX и PPTX готовы в демо, LMS не засчитывается, JSON проверяется отдельно', async () => {
   const snapshot = await fullPython();
   const checks = generalRequirements(snapshot);
-  for (const id of ['exports', 'export-pptx', 'export-lms'])
-    expect(checks.find((c) => c.id === id)!.status).toBe('not_checked');
+  for (const id of ['exports', 'export-pptx'])
+    expect(checks.find((c) => c.id === id)!.status).toBe('passed');
+  expect(checks.find((c) => c.id === 'export-lms')!.status).toBe('not_checked');
   expect(checks.find((c) => c.id === 'export-json')!.status).toBe('passed');
+});
+it('DOCX и PPTX собираются из выбранной версии без технических идентификаторов', async () => {
+  const snapshot = await fullPython();
+  // Упаковка ZIP в библиотеках выгрузки ждёт настоящих таймеров.
+  vi.useRealTimers();
+  const file = (format: string) =>
+    api.downloadFile(snapshot.export_manifest.find((f) => f.format === format)!.file_id!);
+  const unzip = async (blob: Blob) => JSZip.loadAsync(await blob.arrayBuffer());
+  const docx = await unzip(await file('docx'));
+  const documentXml = await docx.file('word/document.xml')!.async('string');
+  expect(documentXml).toContain(snapshot.skeleton.requirements.title);
+  expect(documentXml).toContain('Приказ № ____');
+  expect(documentXml).toContain('Ключ: ');
+  expect(documentXml).not.toMatch(/outcome-\d|topic-\d/);
+  const pptx = await unzip(await file('pptx'));
+  const lecture = snapshot.materials.find((m) => m.type === 'lecture' && m.slides.length)!;
+  const slides = await Promise.all(
+    Object.keys(pptx.files)
+      .filter((name) => /^ppt\/(slides|notesSlides)\/\w+\.xml$/.test(name))
+      .map((name) => pptx.file(name)!.async('string')),
+  );
+  expect(slides.join('')).toContain(lecture.slides[0].title);
+  if (process.env.COURSEOS_EXPORT_DIR) {
+    const { writeFile } = await import('node:fs/promises');
+    for (const format of ['docx', 'pptx'])
+      await writeFile(
+        `${process.env.COURSEOS_EXPORT_DIR}/sample.${format}`,
+        Buffer.from(await (await file(format)).arrayBuffer()),
+      );
+  }
 });
 it('повторы под разными заголовками и пустые обязательные поля оставляют программу незавершённой', async () => {
   const snapshot = await fullPython();

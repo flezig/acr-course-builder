@@ -76,20 +76,31 @@ export interface CourseApi {
   reset(): Promise<void>;
   proposeScopeEdit(input: ScopeEditRequest): Promise<ScopeEditProposal>;
 }
+// В демо DOCX и PPTX собираются в браузере из снимка версии, поэтому файл
+// есть всегда, когда в версии есть что выгружать. Для LMS формат не согласован.
 export function withManifest(snapshot: Snapshot): Snapshot {
-  snapshot.export_manifest = (['json', 'docx', 'pptx', 'lms'] as const).map((format) => ({
-    format,
-    status: format === 'json' ? 'ready' : 'unavailable',
-    course_version: snapshot.course_version,
-    file_id: format === 'json' ? `json-${snapshot.course_id}-v${snapshot.course_version}` : null,
-    filename: `${snapshot.course_id}-v${snapshot.course_version}.${format}`,
-    reason:
-      format === 'json'
-        ? 'Полный демонстрационный snapshot; черновик для проверки'
-        : format === 'lms'
-          ? 'Целевая LMS и согласованный формат неизвестны; нужен экспортёр и пробный импорт.'
-          : 'Серверный экспортёр не подключён. Существующий файл этой версии отсутствует.',
-    hash: null,
-  }));
+  const hasLectures = snapshot.materials.some((m) => m.type === 'lecture' && m.slides.length);
+  const reasons = {
+    json: 'Полный демонстрационный snapshot; черновик для проверки',
+    docx: 'Программа по шаблону АЦР с учебным планом, рабочими программами, тестами и заданиями. Реквизиты приказа, ФИО и подписи оставлены пустыми.',
+    pptx: hasLectures
+      ? 'Слайды лекций по темам; пояснения преподавателя — в заметках докладчика.'
+      : 'В этой версии нет лекций со слайдами.',
+    lms: 'Целевая LMS и согласованный формат неизвестны; нужен экспортёр и пробный импорт.',
+  };
+  snapshot.export_manifest = (['json', 'docx', 'pptx', 'lms'] as const).map((format) => {
+    const ready =
+      format === 'json' ||
+      (snapshot.materials.length > 0 && (format === 'docx' || (format === 'pptx' && hasLectures)));
+    return {
+      format,
+      status: ready ? 'ready' : 'unavailable',
+      course_version: snapshot.course_version,
+      file_id: ready ? `${format}:${snapshot.course_id}:${snapshot.course_version}` : null,
+      filename: `${snapshot.course_id}-v${snapshot.course_version}.${format}`,
+      reason: reasons[format],
+      hash: null,
+    };
+  });
   return snapshot;
 }

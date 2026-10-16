@@ -529,6 +529,8 @@ export class DemoCourseApi implements CourseApi {
       if (current) {
         current.approvals = structuredClone(course.approvals);
         current.approval_applicable = approvalMatches(current);
+        // Снимки, сохранённые до появления выгрузок, получают актуальный список файлов.
+        withManifest(current);
       }
       return courseViewSchema.parse({
         course_id: id,
@@ -1097,8 +1099,16 @@ export class DemoCourseApi implements CourseApi {
       type: 'text/markdown;charset=utf-8',
     });
   }
-  async downloadFile(_id: string): Promise<Blob> {
-    throw new ApiError(404, 'Файл этой версии не создан. Подключите серверный экспортёр.');
+  async downloadFile(fileId: string): Promise<Blob> {
+    const [format, courseId, version] = fileId.split(':');
+    if (format !== 'docx' && format !== 'pptx')
+      throw new ApiError(404, 'Файл этой версии не создан.');
+    const view = await this.get(courseId, Number(version));
+    if (!view.snapshot) throw new ApiError(404, 'Snapshot ещё не создан.');
+    // Библиотеки DOCX и PPTX тяжёлые, поэтому загружаются только при скачивании.
+    if (format === 'docx')
+      return (await import('../export/program-docx')).buildProgramDocx(view.snapshot);
+    return (await import('../export/lecture-pptx')).buildLecturePptx(view.snapshot);
   }
   async retrieveReference(_id: string, _url: string): Promise<Requirements['references'][number]> {
     throw new ApiError(
