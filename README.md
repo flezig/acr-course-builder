@@ -100,6 +100,7 @@ VITE_COURSE_API_URL=/api/v1
 
 ```sh
 npm run typecheck  # Проверить типы TypeScript
+npm run lint       # Проверить форматирование исходников и тестов
 npm test          # Запустить тесты логики
 npm run build     # Проверить типы и собрать приложение в dist
 ```

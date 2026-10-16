@@ -20,6 +20,9 @@ test('Creation requires a request before submitting', async ({ page }) => {
   await expect(request).toBeFocused();
   await expect(request).toHaveAttribute('aria-invalid', 'true');
   await request.fill('Курс Python для школьников без опыта программирования, 16 часов');
+  await page
+    .getByRole('checkbox', { name: 'Подтверждаю параметры изменённого запроса вручную' })
+    .check();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.locator('.verdict')).toBeVisible();
 });
@@ -152,6 +155,7 @@ test('Material editing validates before saving', async ({ page }) => {
 test('Outcome editing uses inline required checks for controlled fields', async ({ page }) => {
   await pythonCourse(page);
   await page.getByRole('link', { name: 'Карта результатов', exact: true }).click();
+  await page.getByRole('button', { name: 'Перейти к таблице' }).click();
   await page
     .locator('.outcome-content')
     .getByRole('button', { name: 'Редактировать', exact: true })

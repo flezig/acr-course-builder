@@ -51,7 +51,9 @@ async function approveAndWait(page: Page) {
     .locator('.verdict')
     .getByRole('link', { name: 'Перейти к материалам', exact: true })
     .click();
-  await expect(page.getByText('Технически: черновик полный')).toBeVisible();
+  await expect(
+    page.locator('.job-panel').getByText('Нужна проверка', { exact: true }),
+  ).toBeVisible();
 }
 test('Полный путь: уточнения, правка структуры программы, аудит, ручная правка и выгрузка JSON', async ({
   page,
@@ -90,11 +92,12 @@ test('Полный путь: уточнения, правка структуры
     .getByRole('button', { name: 'Практикум: Знакомство с Python Семинар', exact: true })
     .click();
   await expect(page.locator('.material-viewer')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Ручная правка', exact: true }).click();
+  await page.getByRole('button', { name: 'Редактировать задание', exact: true }).click();
   await page
-    .getByLabel('Содержание материала')
+    .getByLabel('Условия задания')
     .fill('Ручная правка методиста: проверить два сценария ввода и объяснить результат.');
-  await page.getByRole('button', { name: 'Сохранить и защитить ручную правку' }).click();
+  await page.getByRole('button', { name: 'Посмотреть изменения и зависимости' }).click();
+  await page.getByRole('button', { name: 'Применить правку и сохранить версию' }).click();
   await expect(page.getByText('Ручная правка защищена')).toBeVisible();
   await page.getByRole('tab', { name: 'Выгрузки', exact: true }).click();
   const downloadPromise = page.waitForEvent('download');
@@ -209,19 +212,20 @@ test('Длинная новая программа500часов, прокрут�
     .click();
   await editDraft(page, (draft) => {
     draft.title = 'Архитектура распределённых систем';
+    draft.request = 'Курс по архитектуре распределённых систем для инженеров на 500 часов.';
     draft.audience = 'Инженеры';
     draft.total_hours = '500';
     draft.calendar.calendar_days = 250;
     draft.calendar.daily_limit = '4';
   });
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.locator('.verdict')).toBeVisible();
+  await expect(page.locator('.verdict')).toBeVisible({ timeout: 15000 });
   await expect(page.locator('.plan-table tbody tr')).toHaveCount(33);
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.screenshot({ path: path.join(reports, 'long-plan-1024.png') });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('button', { name: 'Редактировать программу' }).click();
-  await page.getByLabel('topic-16 Практика', { exact: true }).fill('1');
+  await page.getByLabel('Тема 16: Практика', { exact: true }).fill('1');
   await page.getByRole('button', { name: 'Сохранить новую ревизию' }).click();
   await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await expect(

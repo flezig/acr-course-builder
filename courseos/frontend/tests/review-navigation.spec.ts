@@ -34,7 +34,7 @@ test('Decision queue: verdict counts, keyboard tabs, open place and keep with re
     'aria-selected',
     'true',
   );
-  await expect(page.locator('.verdict')).toContainText('Блокирует:');
+  await expect(page.locator('.verdict')).toContainText(`Блокируют утверждение: ${blocking}`);
   await expect(page.locator('.rationale-panel')).toBeHidden();
   expect(
     (await page
