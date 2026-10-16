@@ -194,7 +194,10 @@ export function ComparisonPage() {
             <Link className="button" to={`/courses/${courseId}/audit`}>
               Повторный аудит
             </Link>
-            <Link className="button" to={`/courses/${courseId}/materials?tab=exports`}>
+            <Link
+              className="button"
+              to={`/courses/${courseId}/materials?version=${afterVersion}&tab=exports`}
+            >
               Выгрузки новой версии
             </Link>
             <Link
