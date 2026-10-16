@@ -1,0 +1,97 @@
+.export-panel {
+  container-type: inline-size;
+}
+.export-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.export-file {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.export-file-format {
+  padding-top: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.export-file-content {
+  min-width: 0;
+}
+.export-file-content h3 {
+  font-size: 15px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.export-file-content p {
+  margin: 5px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.export-file-details {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.export-file-details summary {
+  width: fit-content;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--muted);
+  cursor: pointer;
+}
+.export-file-details[open] > summary {
+  margin-bottom: 0;
+}
+.export-file-details summary:hover {
+  color: var(--ink);
+}
+.export-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.export-file-actions .badge {
+  justify-content: center;
+  width: 132px;
+}
+.export-file-actions button {
+  width: 150px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+@container (max-width: 760px) {
+  .export-file-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+@container (max-width: 520px) {
+  .export-file {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 12px;
+    padding: 16px;
+  }
+  .export-file-actions {
+    grid-column: 2;
+    align-items: flex-start;
+  }
+  .export-file-actions .badge {
+    width: auto;
+  }
+  .export-file-actions button {
+    width: 100%;
+  }
+}

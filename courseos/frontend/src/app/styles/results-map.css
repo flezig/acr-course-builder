@@ -653,9 +653,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
 .results-workspace .map-stage-heading h3 {
   font-size: 13px;
+  font-weight: 550;
   margin: 0;
 }
 .results-workspace .map-stage-heading small {
@@ -663,6 +666,7 @@
   margin-left: auto;
   color: var(--theme-muted, #606976);
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .results-workspace .map-card {
   width: 248px;

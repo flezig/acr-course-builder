@@ -78,7 +78,7 @@ test('Полный путь: уточнения, правка каркаса, а
   await expect(page.getByRole('heading', { name: 'Редактирование программы' })).toHaveCount(0);
   await approveAndWait(page);
   await page
-    .locator('#main')
+    .locator('.sidebar')
     .getByRole('link', { name: 'Проверка программы', exact: true })
     .click();
   await expect(

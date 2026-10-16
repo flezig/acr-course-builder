@@ -7,6 +7,12 @@
   vertical-align: top;
   text-align: left;
 }
+.coverage-matrix tbody th {
+  font-weight: 400;
+}
+.coverage-matrix tbody th > strong {
+  font-weight: 500;
+}
 .coverage-matrix tbody th small {
   display: block;
   color: var(--muted);
@@ -81,6 +87,7 @@
   display: block;
   margin-top: 10px;
   font-size: 12px;
+  font-weight: 500;
   text-align: left;
 }
 .coverage-criterion {

@@ -30,7 +30,6 @@ import { buildMap, relatedChain, type MapNode } from './map-model';
 import { MapLinkEditor, type LinkRequest } from './map-link-editor';
 import { plural } from '../../shared/lib/plural';
 
-const columnIcons = [FileText, Target, BookOpen, ClipboardCheck];
 const layers = ['Требования', 'Результаты', 'Обучение', 'Оценивание'];
 const gapFilters = {
   '': 'Все состояния связей',
@@ -917,22 +916,18 @@ export function ResultsMap({
                       className="map-canvas"
                       style={{ width: 1184, height, transform: `scale(${zoom})` }}
                     >
-                      {layers.map((label, i) => {
-                        const Icon = columnIcons[i];
-                        return (
-                          <div
-                            className="map-column-title"
-                            key={label}
-                            style={{ left: 24 + i * 290 }}
-                          >
-                            <div className="map-stage-heading">
-                              <Icon size={16} />
-                              <h3>{label}</h3>
-                              <small>{mapNodes.filter((n) => n.column === i).length}</small>
-                            </div>
+                      {layers.map((label, i) => (
+                        <div
+                          className="map-column-title"
+                          key={label}
+                          style={{ left: 24 + i * 290 }}
+                        >
+                          <div className="map-stage-heading">
+                            <h3>{label}</h3>
+                            <small>{mapNodes.filter((n) => n.column === i).length}</small>
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                       <svg className="map-lines" width={1184} height={height} aria-hidden="true">
                         <defs>
                           <marker

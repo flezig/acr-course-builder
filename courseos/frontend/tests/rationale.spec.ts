@@ -37,7 +37,7 @@ test('Основания в интерфейсе, JSON и MD относятся 
   await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Почему курс устроен так' })).toBeVisible();
-  await page.getByRole('button', { name: /^Практика/ }).click();
+  await page.getByRole('button', { name: 'Темы и порядок', exact: true }).click();
   await page.locator('[data-decision-id="activity-topic-4"]').click();
   const basis = page.locator('[id="basis-activity-topic-4"]');
   await expect(basis).toContainText('Почему');
@@ -59,11 +59,9 @@ test('Основания в интерфейсе, JSON и MD относятся 
     timeout: 15000,
   });
   await page.goto(`/courses/${id}/materials?tab=exports`);
-  await expect(
-    page.getByRole('button', { name: 'Скачать описание курса (.md)', exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Скачать MD', exact: true })).toBeVisible();
   const mdDownload = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Скачать описание курса (.md)', exact: true }).click();
+  await page.getByRole('button', { name: 'Скачать MD', exact: true }).click();
   const md = await contents(await mdDownload);
   const jsonDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Скачать JSON', exact: true }).click();

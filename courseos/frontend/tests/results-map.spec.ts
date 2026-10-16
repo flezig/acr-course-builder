@@ -154,7 +154,7 @@ test('Полная карта: компактные карточки, прямы
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await openMap(page, 'teachers', 'map');
-  await expect(page.locator('.map-card')).toHaveCount(27);
+  await expect(page.locator('.map-card')).toHaveCount(28);
   // Курсор не должен остаться над карточкой: наведение тоже показывает её связи.
   await page.mouse.move(0, 0);
   await page
