@@ -139,9 +139,7 @@ export function MaterialViewer({
           <h3>Содержание слайдов и пояснения преподавателя</h3>
           {material.slides.map((slide, index) => (
             <div className="slide" key={slide.id}>
-              <span>
-                СЛАЙД {index + 1}
-              </span>
+              <span>СЛАЙД {index + 1}</span>
               <h3>{slide.title}</h3>
               {!readonly && !material.stale && (
                 <ElementEditor
