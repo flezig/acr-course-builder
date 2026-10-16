@@ -1,4 +1,4 @@
-import catalog from './professional-standards/catalog.json';
+import catalog from './professional-standards/catalog.json' with { type: 'json' };
 import type { Requirements } from './schema';
 
 export const professionalStandards = catalog;
