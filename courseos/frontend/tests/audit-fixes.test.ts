@@ -181,7 +181,7 @@ it('арифметику и календарный конфликт нельзя
 });
 it('48 ч / три недели: текст, план, календарь, аудит и экспорт используют подтверждённые параметры', async () => {
   const r = preset('bank');
-  r.request = r.request.replace('72 часа', '48 часов').replace('четыре недели', 'три недели');
+  r.request = r.request.replace('72 часа', '48 часов').replace('4 недели', 'три недели');
   expect(explicitRequestParameters(r.request)).toMatchObject({ hours: '48', weeks: 3 });
   expect(parameterDiscrepancies(r)).toHaveLength(2);
   r.total_hours = '48';
