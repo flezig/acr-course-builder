@@ -300,7 +300,7 @@ test('HTTP-сбой: нет скрытого demo; request_id переживае
 test('PDF/DOCX в demo показывают недоступность реальной обработки', async ({ page }) => {
   await page
     .getByLabel('Загрузить PDF или DOCX')
-    .setInputFiles(path.resolve('../../6aa380dc-cb63-4bbe-9f91-41943b00d8c8.docx'));
+    .setInputFiles(path.resolve('../../Пример ДООП — Интенсив по ИИ-продуктам.docx'));
   await expect(
     page.getByRole('alert').filter({ hasText: 'извлечение PDF/DOCX требует backend' }),
   ).toBeVisible();
