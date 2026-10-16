@@ -44,12 +44,17 @@ export function ComparisonPage() {
   const afterQuery = useQuery({
     queryKey: [api.mode, 'course', courseId, afterVersion],
     queryFn: () => api.get(courseId, afterVersion),
-    enabled: !!courseId && !!current.data && afterVersion !== latestVersion,
+    enabled: !!courseId && !!current.data,
   });
   if (current.isPending || before.isPending) return <Loading />;
   if (!current.data || !before.data) return <ErrorMessage error={current.error || before.error} />;
-  const afterView = afterVersion === latestVersion ? current.data : afterQuery.data;
+  const afterView = afterQuery.data;
   if (!afterView) return afterQuery.error ? <ErrorMessage error={afterQuery.error} /> : <Loading />;
+  if (
+    before.data.snapshot?.course_version !== beforeVersion ||
+    afterView.snapshot?.course_version !== afterVersion
+  )
+    return <Notice tone="error">Получены данные другой версии. Обновите сравнение.</Notice>;
   const after = afterView.snapshot;
   const base = before.data.snapshot;
   const chooseVersion = (side: 'before' | 'after', version: number) => {
@@ -191,7 +196,7 @@ export function ComparisonPage() {
         <div className="compare-cta">
           <Badge tone={after.approval_applicable ? 'green' : 'amber'}>{approvalLabel}</Badge>
           <div className="actions">
-            <Link className="button" to={`/courses/${courseId}/audit`}>
+            <Link className="button" to={`/courses/${courseId}/audit?version=${afterVersion}`}>
               Повторный аудит
             </Link>
             <Link
@@ -202,7 +207,7 @@ export function ComparisonPage() {
             </Link>
             <Link
               className="button primary"
-              to={`/courses/${courseId}/${after.approval_applicable ? 'materials' : 'plan'}`}
+              to={`/courses/${courseId}/${after.approval_applicable ? 'materials' : 'plan'}?version=${afterVersion}`}
             >
               {after.approval_applicable
                 ? 'Открыть материалы'

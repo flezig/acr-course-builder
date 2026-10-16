@@ -101,15 +101,19 @@ export function proposedCalendar(requirements: Requirements): Requirements['cale
     if (day !== 0 && day !== 6) days++;
   }
   if (!days) return null;
-  const limit = new Decimal(requirements.total_hours).div(days).div('0.5').ceil().times('0.5');
+  const weekdaysOnly = calendar.daily_limit ? calendar.weekdays_only : true;
+  if (!weekdaysOnly) days = calendar.calendar_days;
+  const limit = calendar.daily_limit
+    ? new Decimal(calendar.daily_limit)
+    : new Decimal(requirements.total_hours).div(days).div('0.5').ceil().times('0.5');
   const weeks = Math.ceil(calendar.calendar_days / 7);
   return {
     ...calendar,
-    weekdays_only: true,
+    weekdays_only: weekdaysOnly,
     daily_limit: limit.toString(),
     confirmed: true,
     same_units: true,
-    description: `${weeks} нед. по будням: ${days} учебных дней, до ${formatHours(limit.toString())} ч в день. Подтверждено методистом.`,
+    description: `${weeks} нед. ${weekdaysOnly ? 'по будням' : 'ежедневно'}: ${days} учебных дней, до ${formatHours(limit.toString())} ч в день. Подтверждено методистом.`,
   };
 }
 
@@ -120,7 +124,7 @@ export function calendarProposalText(requirements: Requirements) {
   const days = proposal.description.match(/(\d+) учебных дней/)?.[1];
   const capacity = new Decimal(proposal.daily_limit).times(days || 0);
   const weekly = new Decimal(requirements.total_hours).div(weeks).toDecimalPlaces(1);
-  return `${weeks} нед. по будням, до ${formatHours(proposal.daily_limit)} ч в день: ${days} дней × ${formatHours(proposal.daily_limit)} ч = ${formatHours(capacity.toString())} ч ≥ ${formatHours(requirements.total_hours)} ч; в среднем ${formatHours(weekly.toString())} ч в неделю.`;
+  return `${weeks} нед. ${proposal.weekdays_only ? 'по будням' : 'ежедневно'}, до ${formatHours(proposal.daily_limit)} ч в день: ${days} дней × ${formatHours(proposal.daily_limit)} ч = ${formatHours(capacity.toString())} ч ${capacity.gte(requirements.total_hours) ? '≥' : '<'} ${formatHours(requirements.total_hours)} ч; в среднем ${formatHours(weekly.toString())} ч в неделю.${capacity.lt(requirements.total_hours) ? ` Не хватает ${formatHours(new Decimal(requirements.total_hours).minus(capacity).toString())} ч; нужно минимум ${new Decimal(requirements.total_hours).div(proposal.daily_limit).ceil()} учебных дней. Подтверждение не меняет лимит.` : ''}`;
 }
 
 const bankContext = ['клиент', 'кредит', 'просроч', 'отток', 'портфел', 'вклад', 'отделени'];

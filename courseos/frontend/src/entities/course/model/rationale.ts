@@ -401,7 +401,9 @@ export function skeletonRationaleMarkdown(snapshot: Snapshot): string {
     req.calendar.confirmed
       ? 'Условия календаря подтверждены в запросе.'
       : 'Условия календаря пока не подтверждены.',
-    'Проверка календаря показывает, помещается ли объём в выбранный период. Даты отдельных занятий нужно составить отдельно; также нужно уточнить, используются академические или астрономические часы.',
+    s.sessions?.length
+      ? 'Даты и виды работы отдельных занятий приведены в согласованном расписании. Итоговая аттестация включена один раз.'
+      : 'Вместимость проверена; расписание не составлено. Уточните единицы часов и назначьте занятия.',
   );
   if (s.conflicts.length) {
     lines.push('### Что мешает выполнить план');
@@ -512,6 +514,70 @@ export function skeletonRationaleMarkdown(snapshot: Snapshot): string {
         lines.push('Этого основания пока недостаточно, чтобы считать решение подтверждённым.');
     }
   }
+  if (s.sessions?.length)
+    lines.push(
+      '## Согласованное расписание',
+      ...s.sessions.map(
+        (session) =>
+          `${session.date}: ${s.topics.find((t) => t.id === session.topic_id)?.title}; ${Object.entries(
+            session.hours,
+          )
+            .filter(([, v]) => Number(v) > 0)
+            .map(([k, v]) => `${k}: ${v} ч`)
+            .join(', ')}`,
+      ),
+    );
+  if (snapshot.sections.length)
+    lines.push(
+      '## Разделы программы',
+      ...snapshot.sections.flatMap((section) => [`### ${section.title}`, section.content]),
+    );
+  if (snapshot.materials.length) {
+    lines.push('## Созданные материалы');
+    for (const material of snapshot.materials) {
+      lines.push(
+        `### ${material.title}`,
+        material.content,
+        `Ожидаемый результат: ${material.expected}`,
+        ...material.criteria.map((criterion) => `- ${criterion}`),
+      );
+      if (material.test_policy)
+        lines.push(
+          `Вопросов: ${material.questions.length}; порог: ${material.test_policy.pass_count} верных ответов.`,
+        );
+      for (const question of material.questions)
+        lines.push(
+          question.text,
+          ...question.options.map((option, i) => `${i + 1}. ${option}`),
+          `Ключ: ${question.correct_index + 1}. ${question.explanation}`,
+          `Результаты: ${question.outcome_ids.join(', ')}`,
+        );
+      for (const slide of material.slides)
+        lines.push(
+          `#### ${slide.title}`,
+          ...slide.bullets.map((bullet) => `- ${bullet}`),
+          `Заметки преподавателя: ${slide.notes}`,
+        );
+      for (const dataset of material.datasets || [])
+        lines.push(
+          `#### Данные: ${dataset.name}`,
+          dataset.description,
+          `| ${dataset.columns.join(' | ')} |`,
+          `| ${dataset.columns.map(() => '---').join(' | ')} |`,
+          ...dataset.rows.map(
+            (row) => `| ${row.map((value) => cell(String(value ?? 'NULL'))).join(' | ')} |`,
+          ),
+        );
+    }
+  }
+  if (snapshot.decisions.length)
+    lines.push(
+      '## Принятые исключения',
+      ...snapshot.decisions.map(
+        (decision) =>
+          `Исходное замечание: ${decision.finding || decision.issue_id}. Причина: ${decision.reason}. Область: ${decision.scope || 'сохранённая ревизия'}; hash: ${decision.scope_hash || snapshot.skeleton_hash}. Решение не подтверждает соответствие требованию.`,
+      ),
+    );
   lines.push(
     '## О работе с этим описанием',
     snapshot.mode === 'demo'

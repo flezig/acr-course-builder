@@ -4,6 +4,8 @@ import { useCourse } from '../../entities/course/api/provider';
 import { materialLabels } from '../../entities/course/model/presets';
 import { Badge, Empty, ErrorMessage, Loading, Notice, Panel } from '../../shared/ui/ui';
 import { JobPanel } from '../../entities/job/job-panel';
+import { sectionCompleteness } from '../../entities/course/model/sections';
+import { StoragePanel } from '../../features/export-course/storage-panel';
 import { ExportPanel } from '../../features/export-course/export-panel';
 import { MaterialViewer } from './material-viewer';
 export function MaterialsPage() {
@@ -25,9 +27,16 @@ export function MaterialsPage() {
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(search);
     next.set(key, value);
+    if (key === 'module' || key === 'type') next.delete('material');
     setSearch(next);
   };
-  const tab = search.get('tab') || 'content';
+  const tab =
+    search.get('tab') ||
+    (window.location.hash.startsWith('#section')
+      ? 'sections'
+      : window.location.hash === '#exports'
+        ? 'exports'
+        : 'content');
   const moduleId = search.get('module') || '';
   const type = search.get('type') || '';
   const selected = search.get('material');
@@ -38,7 +47,7 @@ export function MaterialsPage() {
   );
   return (
     <>
-      <header className="page-heading">
+      <header id="exports" className="page-heading">
         <div>
           <h1>Материалы программы</h1>
           <p>
@@ -65,6 +74,7 @@ export function MaterialsPage() {
         {[
           { id: 'content', label: 'Содержание' },
           { id: 'exports', label: 'Выгрузки' },
+          { id: 'sections', label: 'Разделы программы' },
         ].map((item) => (
           <button
             key={item.id}
@@ -77,8 +87,36 @@ export function MaterialsPage() {
           </button>
         ))}
       </div>
-      {tab === 'exports' ? (
-        <ExportPanel snapshot={snapshot} />
+      {tab === 'sections' ? (
+        <Panel
+          title="Разделы выбранного образца"
+          subtitle="Проверяется наличие необходимых полей. Предметная и нормативная экспертиза не выполнена."
+        >
+          <div id="sections">
+            {sectionCompleteness(snapshot).map((item) => (
+              <details
+                key={item.title}
+                id={item.section?.id}
+                open={window.location.hash === `#${item.section?.id}`}
+              >
+                <summary>
+                  {item.title} · {item.complete ? 'Поля заполнены' : 'Не завершён'}
+                </summary>
+                {item.section ? (
+                  <pre className="material-content">{item.section.content}</pre>
+                ) : (
+                  <p>Раздел ещё не создан.</p>
+                )}
+                {!item.complete && <p>Нужно заполнить: {item.missing.join('; ')}</p>}
+              </details>
+            ))}
+          </div>
+        </Panel>
+      ) : tab === 'exports' ? (
+        <>
+          <ExportPanel snapshot={snapshot} />
+          <StoragePanel snapshot={snapshot} versions={view.versions} />
+        </>
       ) : !snapshot.materials.length ? (
         <Empty title={active ? 'Создаются материалы по модулям' : 'Сначала утвердите каркас'}>
           <Link to={`/courses/${snapshot.course_id}/plan`}>Перейти к каркасу →</Link>
@@ -155,13 +193,14 @@ export function MaterialsPage() {
                 требует решения кейсодателя. Нули в учебном плане сохранены.
               </Notice>
             )}
-            {(selected ? snapshot.materials.filter((m) => m.id === selected) : materials).map(
-              (material) => (
-                <Panel key={material.id}>
-                  <MaterialViewer material={material} snapshot={snapshot} readonly={readonly} />
-                </Panel>
-              ),
-            )}
+            {(selected && materials.some((m) => m.id === selected)
+              ? materials.filter((m) => m.id === selected)
+              : materials
+            ).map((material) => (
+              <Panel key={material.id}>
+                <MaterialViewer material={material} snapshot={snapshot} readonly={readonly} />
+              </Panel>
+            ))}
             {!materials.length && (
               <Empty title="Материалов с таким фильтром нет">Выберите другой модуль или тип.</Empty>
             )}

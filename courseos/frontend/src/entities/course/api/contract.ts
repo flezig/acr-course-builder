@@ -20,6 +20,7 @@ export type CourseCommand =
       payload: { message: string; element_id: string; blocking: boolean };
     }
   | { action: 'resolve_observation'; payload: { issue_id: string; correction: string } }
+  | { action: 'prune_history'; payload: { keep_versions: number[]; archive_saved: boolean } }
   | { action: 'audit'; payload: Record<string, never> }
   | { action: 'retry' | 'cancel'; payload: { job_id: string } }
   | { action: 'manual_material'; payload: { material_id: string; content: string } }

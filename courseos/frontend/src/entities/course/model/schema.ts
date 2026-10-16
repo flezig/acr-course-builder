@@ -41,7 +41,25 @@ export const requirementsSchema = z.object({
   delivery: z.string(),
   assessment: z.string(),
   constraints: z.string(),
+  original_limits: z
+    .object({
+      total_hours: z.string(),
+      daily_limit: z.string(),
+      calendar_days: z.number(),
+    })
+    .optional(),
+  parameters_confirmation: z
+    .object({ request: z.string(), actor: z.string(), at: z.string() })
+    .optional(),
   calendar: z.object({
+    schedule: z
+      .object({
+        weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+        sessions_per_week: z.number().int().min(1).max(7),
+        duration: decimalSchema.refine((v) => new Decimal(v).gt(0), 'Длительность больше нуля'),
+        confirmed: z.boolean(),
+      })
+      .optional(),
     description: z.string(),
     start: z.string(),
     calendar_days: z
@@ -259,6 +277,19 @@ export const skeletonSchema = z.object({
       z.object({ id: z.string(), input_signature: z.string(), output_ids: z.array(z.string()) }),
     )
     .optional(),
+  sessions: z
+    .array(
+      z.object({
+        id: z.string(),
+        date: z.string(),
+        topic_id: z.string(),
+        hours: hoursSchema,
+      }),
+    )
+    .optional(),
+  content_review: z
+    .object({ reason: z.string(), affected_ids: z.array(z.string()), change_id: z.string() })
+    .optional(),
   conflicts: z.array(conflictSchema),
 });
 export type Skeleton = z.infer<typeof skeletonSchema>;
@@ -283,6 +314,17 @@ export const materialSchema = z.object({
   content: z.string(),
   expected: z.string(),
   criteria: z.array(z.string()),
+  test_policy: z.object({ pass_count: z.number().int().min(1) }).optional(),
+  datasets: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string(),
+        columns: z.array(z.string()),
+        rows: z.array(z.array(z.union([z.string(), z.number(), z.null()]))),
+      }),
+    )
+    .optional(),
   questions: z.array(
     z.object({
       id: z.string(),
@@ -361,7 +403,14 @@ export const snapshotSchema = z.object({
   skeleton_hash: z.string(),
   skeleton: skeletonSchema,
   materials: z.array(materialSchema),
-  sections: z.array(z.object({ id: z.string(), title: z.string(), content: z.string() })),
+  sections: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      content: z.string(),
+      fields: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+    }),
+  ),
   sources: requirementsSchema.shape.references,
   edges: z.array(
     z.object({ from_id: z.string(), to_id: z.string(), relation: z.string(), reason: z.string() }),
@@ -371,7 +420,15 @@ export const snapshotSchema = z.object({
   observations: z.array(issueSchema).default([]),
   decisions: z
     .array(
-      z.object({ issue_id: z.string(), reason: z.string(), actor: z.string(), at: z.string() }),
+      z.object({
+        issue_id: z.string(),
+        reason: z.string(),
+        actor: z.string(),
+        at: z.string(),
+        scope_hash: z.string().optional(),
+        scope: z.string().optional(),
+        finding: z.string().optional(),
+      }),
     )
     .default([]),
   approvals: z.array(approvalSchema),
@@ -451,12 +508,33 @@ export const courseViewSchema = z.object({
 export type CourseView = z.infer<typeof courseViewSchema>;
 export const changeInputSchema = z
   .object({
-    type: z.enum(['question', 'project', 'topic', 'hours', 'audience']),
+    type: z.enum([
+      'question',
+      'slide',
+      'assignment',
+      'material',
+      'project',
+      'topic',
+      'hours',
+      'audience',
+    ]),
     target_id: z.string(),
     request: z.string().trim().min(3, 'Опишите причину изменения — не менее 3 символов'),
     replacement: z.string().trim().min(2, 'Введите новый текст — не менее 2 символов'),
     correct_index: z.number().int().optional(),
     explanation: z.string().optional(),
+    options: z.array(z.string().trim().min(1)).min(2).optional(),
+    outcome_ids: z.array(z.string()).min(1).optional(),
+    slide: z
+      .object({
+        title: z.string().trim().min(1),
+        bullets: z.array(z.string().trim().min(1)).min(1),
+        notes: z.string().trim().min(1),
+      })
+      .optional(),
+    expected: z.string().trim().min(1).optional(),
+    criteria: z.array(z.string().trim().min(1)).min(1).optional(),
+    manual: z.boolean().optional(),
   })
   .superRefine((input, ctx) => {
     if (input.type !== 'hours') return;

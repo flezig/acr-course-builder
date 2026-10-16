@@ -1,3 +1,4 @@
+import { bankSeminars } from '../src/entities/course/model/bank-materials';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { DemoCourseApi } from '../src/entities/course/api/demo-course-api';
 import { presets } from '../src/entities/course/model/presets';
@@ -367,7 +368,9 @@ describe('Согласование, задачи и версии demo', () => {
     vi.advanceTimersByTime(1500);
     const final = await api.get(initial.course_id);
     expect(final.job.id).toBe(partial.job.id);
-    expect(final.job.status).toBe('succeeded');
+    expect(final.job.status).toBe('needs_review');
+    expect(final.snapshot?.audit.technical_ready).toBe(false);
+    expect(final.snapshot?.materials.length).toBeGreaterThan(0);
     expect(final.versions).toHaveLength(2);
     expect((await api.get(initial.course_id)).versions).toHaveLength(2);
   });
@@ -394,7 +397,9 @@ describe('Согласование, задачи и версии demo', () => {
     const final = await api.get(initial.course_id);
     expect(final.job.id).toBe(result.job.id);
     expect(final.job.attempt).toBe(2);
-    expect(final.job.status).toBe('succeeded');
+    expect(final.job.status).toBe('needs_review');
+    expect(final.snapshot?.audit.technical_ready).toBe(false);
+    expect(final.snapshot?.materials.length).toBeGreaterThan(0);
   });
   it('уточняет только пять отсутствующих полей и сохраняет аудиторию/текст', async () => {
     const requirements = preset('security');
@@ -435,7 +440,10 @@ describe('Согласование, задачи и версии demo', () => {
     const expected = seminar.outcome_ids.flatMap(
       (id) => skeleton.outcomes.find((o) => o.id === id)!.criteria!,
     );
-    expect(seminar.criteria).toEqual([...new Set(expected)]);
+    expect(seminar.criteria).toEqual([
+      ...new Set([...expected, ...bankSeminars[seminar.topic_id].criteria]),
+    ]);
+    expect(seminar.expected).toContain('14000');
     expect(seminar.criteria).not.toContain('Результат соответствует заданию');
   });
   it.each(['teachers', 'bank', 'devops'])(
@@ -991,7 +999,9 @@ describe('Статусы отчёта проверки', () => {
       at: new Date().toISOString(),
     };
     const item = generalRequirements(snapshot).find((item) => item.id === 'standard-exists')!;
-    expect(item.status).toBe('passed');
+    expect(item.status).toBe('exception_accepted');
+    expect(item.factual_status).toBe('not_checked');
+    expect(item.evidence).toContain('Фактический результат не подтверждён');
     expect(item.evidence).toContain(finding.decision.reason);
   });
 });
@@ -1103,7 +1113,8 @@ describe('Блокеры календаря и инструментов', () => 
       at: new Date().toISOString(),
       reason: 'Версии проверены на учебном стенде',
     };
-    expect(toolCheck().status).toBe('passed');
+    expect(toolCheck().status).toBe('exception_accepted');
+    expect(toolCheck().factual_status).toBe('manual_review');
     expect(toolCheck().evidence).toContain(finding.decision.reason);
   });
 });

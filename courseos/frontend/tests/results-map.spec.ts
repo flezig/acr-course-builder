@@ -433,6 +433,17 @@ test('Связи можно просмотреть до сохранения и 
   await expect(dialog.getByLabel('Предпросмотр изменений связей')).toContainText('Убрать:');
   await dialog.getByRole('button', { name: 'Сохранить связи' }).click();
   await expect(dialog).not.toBeVisible();
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const database = JSON.parse(localStorage.getItem('courseos-demo-v1')!);
+        const course = Object.values(database.courses)[0] as {
+          snapshots: { skeleton: Skeleton }[];
+        };
+        return course.snapshots.at(-1)!.skeleton.topics[0].outcome_ids;
+      }),
+    )
+    .not.toContain('outcome-1');
   await expect(learning).toHaveCount(count - 1);
   await page.getByRole('button', { name: 'Отменить последнее изменение' }).click();
   await expect(learning).toHaveCount(count);
@@ -441,7 +452,9 @@ test('Связи можно просмотреть до сохранения и 
   await page.screenshot({ path: '../reports/results-review-mobile.png', fullPage: true });
 });
 
-test('Полная карта открывается по ширине и прокручивается по вертикали', async ({ page }) => {
+test('Полная карта открывается по ширине и прокручивается вместе со страницей', async ({
+  page,
+}) => {
   await openMap(page, 'teachers', 'map');
   const zoom = page.getByLabel('Масштаб', { exact: true });
   const before = parseInt(await zoom.innerText());
@@ -450,11 +463,7 @@ test('Полная карта открывается по ширине и про
     Math.round(Math.min(1, el.clientWidth / 1184) * 100),
   );
   expect(before).toBe(expectedScale);
-  await viewport.evaluate((el) => {
-    el.scrollTop = 200;
-  });
-  expect(await viewport.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
-  await viewport.evaluate((el) => {
-    el.scrollTop = 0;
-  });
+  expect(await viewport.evaluate((el) => el.clientHeight >= el.scrollHeight - 1)).toBe(true);
+  await page.mouse.wheel(0, 400);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 });

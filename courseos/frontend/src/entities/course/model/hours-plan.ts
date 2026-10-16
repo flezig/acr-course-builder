@@ -139,43 +139,35 @@ export type WeekLoad = {
   assessment: Decimal;
 };
 
-// Распределяет темы по неделям в порядке учебного плана. Ёмкость недели — равная доля объёма,
-// разложенная тем же шагом, что и часы плана, чтобы недельные значения тоже были «круглыми».
+// Недельная нагрузка считается только по назначенным занятиям. Вместимость не заменяет расписание.
 export function weeklyLoad(skeleton: Skeleton): WeekLoad[] {
   const requirements = skeleton.requirements;
   const weeks = Math.max(1, Math.ceil(requirements.calendar.calendar_days / 7));
   if (!requirements.calendar.calendar_days || !requirements.total_hours) return [];
-  const total = new Decimal(requirements.total_hours);
-  const capacities = allocateHours(total, Array(weeks).fill(1), hourStep(requirements, total));
-  const rows: WeekLoad[] = capacities.map((_, index) => ({
-    week: index + 1,
-    total: new Decimal(0),
-    contact: new Decimal(0),
-    remote: new Decimal(0),
-    assessment: new Decimal(0),
-  }));
-  let week = 0;
-  const place = (kind: 'contact' | 'remote' | 'assessment', hours: Decimal) => {
-    let left = hours;
-    while (left.gt(0)) {
-      const free = capacities[week].minus(rows[week].total);
-      if (free.lte(0) && week < weeks - 1) {
-        week++;
-        continue;
-      }
-      const chunk = week === weeks - 1 ? left : Decimal.min(free, left);
-      rows[week][kind] = rows[week][kind].plus(chunk);
-      rows[week].total = rows[week].total.plus(chunk);
-      left = left.minus(chunk);
+  if (skeleton.sessions?.length) {
+    const start = Date.parse(`${requirements.calendar.start}T00:00:00Z`);
+    const rows: WeekLoad[] = Array.from({ length: weeks }, (_, index) => ({
+      week: index + 1,
+      total: new Decimal(0),
+      contact: new Decimal(0),
+      remote: new Decimal(0),
+      assessment: new Decimal(0),
+    }));
+    for (const session of skeleton.sessions) {
+      const week = Math.floor((Date.parse(`${session.date}T00:00:00Z`) - start) / (7 * 86400000));
+      if (!rows[week]) continue;
+      const h = session.hours;
+      rows[week].contact = rows[week].contact.plus(h.lecture).plus(h.practice).plus(h.lab);
+      rows[week].remote = rows[week].remote.plus(h.self_study);
+      rows[week].assessment = rows[week].assessment.plus(h.assessment);
+      rows[week].total = rows[week].total
+        .plus(h.lecture)
+        .plus(h.practice)
+        .plus(h.lab)
+        .plus(h.self_study)
+        .plus(h.assessment);
     }
-  };
-  for (const topic of skeleton.topics) {
-    place(
-      'contact',
-      new Decimal(topic.hours.lecture).plus(topic.hours.practice).plus(topic.hours.lab),
-    );
-    place('remote', new Decimal(topic.hours.self_study));
-    place('assessment', new Decimal(topic.hours.assessment));
+    return rows;
   }
-  return rows;
+  return [];
 }

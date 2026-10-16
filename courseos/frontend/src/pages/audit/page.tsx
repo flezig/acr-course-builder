@@ -11,6 +11,7 @@ import { programVerdict } from '../../entities/course/model/rules';
 import './audit.css';
 const checklistStatuses: Record<ChecklistItem['status'], string> = {
   passed: 'Пройдено',
+  exception_accepted: 'Принято исключение',
   problem: 'Проблема',
   not_checked: 'Не проверено: не хватает данных',
   manual_review: 'Проверяет методист',
@@ -32,7 +33,7 @@ export function AuditPage() {
     all.filter((item) => item.status === status).length;
   const itemHref = ({ target }: ChecklistItem) =>
     target.screen === 'materials'
-      ? `/courses/${snapshot.course_id}/materials${suffix}`
+      ? `/courses/${snapshot.course_id}/materials${suffix}${target.hash ? `#${target.hash}` : ''}`
       : `/courses/${snapshot.course_id}/${target.screen}${suffix}${target.hash ? `#${target.hash}` : ''}`;
   return (
     <>
@@ -83,6 +84,10 @@ export function AuditPage() {
           <div>
             <dt>Не проверено</dt>
             <dd>{count('not_checked')}</dd>
+          </div>
+          <div>
+            <dt>Принято исключение</dt>
+            <dd>{count('exception_accepted')}</dd>
           </div>
           <div>
             <dt>Проверяет методист</dt>

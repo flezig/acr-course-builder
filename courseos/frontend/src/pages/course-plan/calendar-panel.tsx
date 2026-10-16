@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Decimal from 'decimal.js';
 import type { Snapshot, Requirements } from '../../entities/course/model/schema';
 import { calendarCalculation } from '../../entities/course/model/rules';
+import { buildSessions } from '../../entities/course/model/schedule';
 import { useCommand } from '../../entities/course/api/provider';
 import { Form, ErrorMessage, Field, Panel } from '../../shared/ui/ui';
 
@@ -40,6 +41,10 @@ export function CalendarPanel({
       same_units: true,
     },
   });
+  useEffect(() => {
+    form.reset({ ...snapshot.skeleton.requirements.calendar, confirmed: false });
+    setOption(null);
+  }, [snapshot.course_version, form]);
   useEffect(() => {
     if (!focusIssue) {
       setEditing(false);
@@ -187,7 +192,7 @@ export function CalendarPanel({
     {
       id: 'raise',
       title: 'Увеличить дневную нагрузку',
-      description: `Не менее ${calc.minimumLimit ? dailyHours(calc.minimumLimit) : '—'}. Требуется согласие методиста`,
+      description: `Исходный лимит ${snapshot.skeleton.requirements.original_limits?.daily_limit || snapshot.skeleton.requirements.calendar.daily_limit || 'не задан'} ч/день → ${calc.minimumLimit || '—'} ч/день. Меньше времени на отдых; требуется повторное утверждение.`,
     },
   ];
   return (
@@ -227,6 +232,7 @@ export function CalendarPanel({
         )}
         {valid && (
           <CalendarLoad
+            skeleton={snapshot.skeleton}
             calendar={normalized}
             totalHours={requirements.total_hours}
             deficit={calc.deficit}
@@ -242,9 +248,10 @@ export function CalendarPanel({
             onChange={(event) => {
               if (
                 event.target instanceof HTMLInputElement &&
-                ['start', 'calendar_days', 'daily_limit', 'weekdays_only'].includes(
+                (['start', 'calendar_days', 'daily_limit', 'weekdays_only'].includes(
                   event.target.name,
-                )
+                ) ||
+                  event.target.name.startsWith('schedule.'))
               ) {
                 form.setValue('confirmed', false);
                 setOption(null);
@@ -291,6 +298,64 @@ export function CalendarPanel({
             <label className="checkbox">
               <input type="checkbox" {...form.register('weekdays_only')} /> Только будни
             </label>
+            <details>
+              <summary>Фактические занятия: дни, частота и длительность</summary>
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={!!calendar.schedule?.confirmed}
+                  onChange={(e) => {
+                    form.setValue('schedule', {
+                      weekdays: calendar.schedule?.weekdays || [3, 6],
+                      sessions_per_week: calendar.schedule?.sessions_per_week || 2,
+                      duration: calendar.schedule?.duration || '2',
+                      confirmed: e.target.checked,
+                    });
+                    form.setValue('confirmed', false);
+                  }}
+                />
+                Назначить занятия по темам учебного плана
+              </label>
+              {calendar.schedule && (
+                <>
+                  <Field label="Занятий в неделю">
+                    <input
+                      type="number"
+                      min="1"
+                      max="7"
+                      {...form.register('schedule.sessions_per_week', { valueAsNumber: true })}
+                    />
+                  </Field>
+                  <Field label="Длительность занятия в часах">
+                    <input {...form.register('schedule.duration')} inputMode="decimal" />
+                  </Field>
+                  <fieldset>
+                    <legend>Дни проведения</legend>
+                    {['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'].map((label, day) => (
+                      <label className="checkbox" key={day}>
+                        <input
+                          type="checkbox"
+                          checked={calendar.schedule?.weekdays.includes(day) || false}
+                          onChange={(e) => {
+                            const days = calendar.schedule?.weekdays || [];
+                            form.setValue(
+                              'schedule.weekdays',
+                              e.target.checked ? [...days, day] : days.filter((d) => d !== day),
+                            );
+                            form.setValue('confirmed', false);
+                          }}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </fieldset>
+                  <p>
+                    Число выбранных дней должно совпадать с частотой. Темы и виды работы переносятся
+                    в занятия по порядку; аттестация включается один раз.
+                  </p>
+                </>
+              )}
+            </details>
             <p className="calendar-hint">
               Только будни: учебными считаются понедельник–пятница. Выходные входят в календарный
               срок, но не добавляют учебных часов. Без этой настройки каждый календарный день
@@ -425,7 +490,12 @@ export function CalendarPanel({
                         {option === 'reduce' && (
                           <p>Программа потребует пересмотра и утверждения.</p>
                         )}
-                        {option === 'raise' && <p>Требуется согласие методиста.</p>}
+                        {option === 'raise' && (
+                          <p>
+                            Меняется исходное ограничение. Нагрузка выше, времени на отдых меньше.
+                            Требуется повторное утверждение каркаса.
+                          </p>
+                        )}
                         {option === 'reduce' && new Decimal(calc.capacity).lt(16) && (
                           <p className="calendar-shortfall">
                             Объём должен быть не менее 16 уч. ч. Измените параметры.
@@ -472,10 +542,12 @@ export function CalendarPanel({
 }
 
 function CalendarLoad({
+  skeleton,
   calendar,
   totalHours,
   deficit,
 }: {
+  skeleton: Snapshot['skeleton'];
   calendar: Requirements['calendar'];
   totalHours: string;
   deficit: string;
@@ -484,26 +556,39 @@ function CalendarLoad({
   const maxWeek = Math.ceil(calendar.calendar_days / 7) - 1;
   const selectedWeek = Math.min(week, maxWeek);
   const limit = new Decimal(calendar.daily_limit);
-  const total = new Decimal(totalHours);
+  const sessions = buildSessions(skeleton, calendar);
   const start = new Date(`${calendar.start}T00:00:00Z`);
   const hasDeficit = new Decimal(deficit).gt(0);
   const cells = [];
-  let assigned = new Decimal(0);
+
   for (let day = 0; day < Math.min((selectedWeek + 1) * 7, calendar.calendar_days); day++) {
     const date = new Date(start);
     date.setUTCDate(date.getUTCDate() + day);
     const off = calendar.weekdays_only && [0, 6].includes(date.getUTCDay());
-    const load = off ? new Decimal(0) : Decimal.min(limit, Decimal.max(total.minus(assigned), 0));
-    assigned = assigned.plus(load);
+    const daySessions = sessions.filter((s) => s.date === date.toISOString().slice(0, 10));
+    const load = daySessions.reduce(
+      (sum, s) =>
+        sum
+          .plus(s.hours.lecture)
+          .plus(s.hours.practice)
+          .plus(s.hours.lab)
+          .plus(s.hours.self_study)
+          .plus(s.hours.assessment),
+      new Decimal(0),
+    );
     if (day >= selectedWeek * 7)
-      cells.push({ date, off, load, last: day === calendar.calendar_days - 1 });
+      cells.push({ date, off, load, daySessions, last: day === calendar.calendar_days - 1 });
   }
   return (
     <section className="calendar-load" aria-label="Расчёт учебной нагрузки по дням">
       <div className="load-heading">
         <div>
           <h3>Нагрузка по дням</h3>
-          <p>Расчёт по дневному лимиту · {hours(calendar.daily_limit)} уч. ч. в день</p>
+          <p>
+            {sessions.length
+              ? `Расписание занятий · объём ${hours(totalHours)} ч`
+              : 'Вместимость проверена; расписание не составлено'}
+          </p>
         </div>
         <div className="week-switch">
           <button
@@ -528,7 +613,7 @@ function CalendarLoad({
         </div>
       </div>
       <div className="load-days">
-        {cells.map(({ date, off, load, last }) => (
+        {cells.map(({ date, off, load, daySessions, last }) => (
           <div
             className={`load-day ${off ? 'day-off' : ''} ${last && hasDeficit ? 'day-conflict' : ''}`}
             key={date.toISOString()}
@@ -544,16 +629,43 @@ function CalendarLoad({
             <div className="load-bar">
               <span style={{ width: `${load.div(limit).times(100).toNumber()}%` }} />
             </div>
-            <span>{off ? 'Выходной' : `${hours(load.toString())} уч. ч.`}</span>
+            <span>
+              {off
+                ? 'Выходной'
+                : sessions.length
+                  ? `${hours(load.toString())} уч. ч.`
+                  : 'Не назначено'}
+            </span>
+            {daySessions.map((s) => (
+              <small key={s.id}>
+                {skeleton.topics.find((t) => t.id === s.topic_id)?.title} ·{' '}
+                {Object.entries(s.hours)
+                  .filter(([, v]) => Number(v) > 0)
+                  .map(
+                    ([k, v]) =>
+                      `${({ lecture: 'ЛК', practice: 'ПР', lab: 'ЛБ', self_study: 'СРС', assessment: 'ИА' } as Record<string, string>)[k]} ${v}`,
+                  )
+                  .join(', ')}
+              </small>
+            ))}
             {last && hasDeficit && <small>! Не хватает часов</small>}
           </div>
         ))}
       </div>
+      {sessions.length > 0 && (
+        <p>
+          Сумма недели {selectedWeek + 1}:{' '}
+          {hours(cells.reduce((sum, cell) => sum.plus(cell.load), new Decimal(0)).toString())} ч.
+          Темы и виды работы показаны в днях занятий.
+        </p>
+      )}
       <p className={hasDeficit ? 'load-conflict' : 'load-note'}>
         {hasDeficit
-          ? `⚠ Не размещено ${hours(deficit)} уч. ч. — измените срок или дневную нагрузку.`
+          ? `⚠ Дефицит вместимости ${hours(deficit)} уч. ч. — измените срок или дневную нагрузку.`
           : 'Объём помещается в календарь.'}{' '}
-        Расчёт показывает вместимость; даты отдельных занятий не заданы.
+        {sessions.length
+          ? 'Дни и недели рассчитаны по занятиям; итоговая аттестация включена один раз.'
+          : 'Расчёт показывает вместимость; даты отдельных занятий не заданы.'}
       </p>
     </section>
   );

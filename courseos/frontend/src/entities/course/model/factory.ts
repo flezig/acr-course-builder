@@ -1,8 +1,11 @@
-import { professionalStandardEvidence } from './professional-standards';
+import { devopsInterviews } from './devops-interviews';
+import { demoQuestions } from './demo-questions';
+import { bankDatasets, bankSeminars } from './bank-materials';
+import { buildSessions } from './schedule';
 import Decimal from 'decimal.js';
 import { initializeRationales } from './rationale';
 import { addMethodologyRationales } from './methodology';
-import type { Requirements, Skeleton, Material, Snapshot } from './schema';
+import type { Requirements, Skeleton, Material } from './schema';
 import { calendarCalculation, calendarSummary, hourTotals } from './rules';
 import { contentHash, formatHours, sumHours } from '../../../shared/lib/decimal';
 import { assessmentLabels } from './presets';
@@ -25,50 +28,7 @@ import {
   bankTools,
   bankTopics,
 } from './bank-scenario';
-export const generalSections = [
-  'Титульный лист',
-  'Пояснительная записка',
-  '1.1 Актуальность',
-  '1.2 Категории обучающихся',
-  '1.3 Цель и задачи',
-  '1.4 Сроки реализации',
-  '1.5 Знания, умения и навыки',
-  '1.6 Календарный график',
-  '2.1 Учебный план',
-  '2.2 Учебно-тематический план',
-  '2.3 Оценочные материалы',
-  '2.4 Методические рекомендации',
-  '3.1 Материально-технические условия',
-  '3.2 Учебно-методическое обеспечение',
-  '3.3.1 Основная литература',
-  '3.3.2 Дополнительная литература',
-  '3.3.3 Интернет-ресурсы',
-  '3.4 Кадровое обеспечение',
-];
-export const professionalSections = [
-  'Титульный лист',
-  '1.1 Аннотация',
-  '1.2 Цель реализации',
-  '1.3 Результаты обучения',
-  '1.4 Основания разработки',
-  '1.5 Профессиональные компетенции и трудовые функции',
-  '1.6 Требования к слушателям',
-  '1.7 Форма обучения',
-  '1.8 Объём',
-  '1.9 Выдаваемый документ',
-  '2.1 Учебный план',
-  '2.2 Учебно-тематический план',
-  '2.3 Календарный график',
-  '2.4 Рабочие программы',
-  '2.5 Текущая и итоговая оценка',
-  '2.5.3 Анализ удовлетворённости',
-  '3.1 Техническое обеспечение',
-  '3.2 Информационное обеспечение и литература',
-  '3.3 Организация обучения',
-  '3.4 Кадровое обеспечение',
-  'Приложение 1 Текущий контроль',
-  'Приложение 2 Итоговая аттестация',
-];
+export { generalSections, professionalSections, makeSections } from './sections';
 export function missingQuestions(requirements: Requirements) {
   return [
     ['template_id', 'Какой тип программы нужен?'],
@@ -107,6 +67,12 @@ function scenarioTopics(kind: ScenarioKind, requirements: Requirements): Scenari
 // восьмое занятие, в остальных — оценка, которая помечена как непроверенная.
 const finalHours = new Decimal(2);
 export function makeSkeleton(requirements: Requirements, previous?: Skeleton): Skeleton {
+  requirements = structuredClone(requirements);
+  requirements.original_limits ??= {
+    total_hours: requirements.total_hours,
+    daily_limit: requirements.calendar.daily_limit,
+    calendar_days: requirements.calendar.calendar_days,
+  };
   const kind = scenarioKind(requirements);
   const design = scenarioTopics(kind, requirements);
   const names = design.map((topic) => topic.title);
@@ -349,6 +315,7 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
 }
 export function refreshExplanations(skeleton: Skeleton): Skeleton {
   const requirements = skeleton.requirements;
+  skeleton.sessions = buildSessions(skeleton);
   const calculation = calendarCalculation(requirements);
   const totals = hourTotals(skeleton);
   const actual = sumHours(Object.values(totals));
@@ -403,7 +370,11 @@ export function refreshExplanations(skeleton: Skeleton): Skeleton {
       options: [],
       decision: null,
     });
-  else if (requirements.calendar.same_units && new Decimal(calculation.deficit).gt(0))
+  if (
+    !calendarIncomplete &&
+    requirements.calendar.same_units &&
+    new Decimal(calculation.deficit).gt(0)
+  )
     skeleton.conflicts.push({
       id: 'calendar-capacity',
       requirement_ids: ['calendar', 'total_hours', 'daily_limit'],
@@ -697,7 +668,7 @@ export async function makeMaterials(skeleton: Skeleton): Promise<Material[]> {
           kind === 'python'
             ? `Учебные данные: игрок начинает с 3 жизнями. Введите выбор «налево» или «направо». Создайте фрагмент игры по теме «${topic.title}», проверьте два ввода и объясните изменившееся состояние.`
             : kind === 'bank'
-              ? `Используйте условный обезличенный набор: client_id A01/A02/A03, debt 0/1200/500, overdue_days 0/30/5. По теме «${topic.title}» подготовьте шаг обработки, проверку пропусков и вывод без персональных данных.`
+              ? bankSeminars[topic.id].content
               : kind === 'teachers'
                 ? `Для условного урока без данных учеников подготовьте ${topic.title.toLowerCase()}. Укажите класс, цель, запрос к разрешённому сервису (доступность предварительно проверить), ошибки ответа и исправленную версию.`
                 : `На изолированном учебном примере выполните действие по теме «${topic.title}». Запишите исходные условия, шаги, ожидаемый результат и одну проверку ошибки.`,
@@ -705,7 +676,20 @@ export async function makeMaterials(skeleton: Skeleton): Promise<Material[]> {
             expected:
               kind === 'python'
                 ? 'Работающий фрагмент программы и два проверенных сценария ввода'
-                : 'Артефакт, журнал проверки и объяснение решения',
+                : kind === 'bank'
+                  ? bankSeminars[topic.id].expected
+                  : 'Артефакт, журнал проверки и объяснение решения',
+            ...(kind === 'bank'
+              ? {
+                  datasets: structuredClone(bankDatasets),
+                  criteria: [
+                    ...new Set([
+                      ...assessmentCriteria(skeleton, topic.outcome_ids),
+                      ...bankSeminars[topic.id].criteria,
+                    ]),
+                  ],
+                }
+              : {}),
           },
         ),
       );
@@ -764,13 +748,14 @@ export async function makeMaterials(skeleton: Skeleton): Promise<Material[]> {
           topic,
           'mentor_interview',
           `Собеседование: ${topic.title}`,
-          `1. Какую задачу решает ${topic.title}?\n2. Покажите выполненный шаг на учебном сервисе.\n3. Как проверить ошибку и безопасно отменить действие?\n4. Какие сведения вы включите в отчёт?`,
+          devopsInterviews[topic.id].content,
           {
             assessment_id:
               skeleton.assessments.find(
                 (a) => a.topic_id === topic.id && a.type === 'mentor_interview',
               )?.id || null,
-            expected: 'Ответы с журналом действий и воспроизводимой демонстрацией',
+            expected: devopsInterviews[topic.id].expected,
+            criteria: devopsInterviews[topic.id].criteria,
           },
         ),
       );
@@ -780,7 +765,9 @@ export async function makeMaterials(skeleton: Skeleton): Promise<Material[]> {
     skeleton.topics[0],
     'test',
     'Итоговый тест с ключами',
-    'Выберите один ответ. Ключ и объяснение видны методисту; для слушателей нужен отдельный экспорт.',
+    kind === 'generic'
+      ? 'Предметный тест не разработан. Добавьте вопросы, ключи, объяснения и связи с результатами; универсальные вопросы не подставляются.'
+      : `Выберите один ответ. Вопросов: ${kind === 'python' ? 10 : demoQuestions(kind).length}; порог: ${kind === 'python' ? 8 : Math.ceil(demoQuestions(kind).length * 0.8)} верных ответов. Ключ и объяснение видны методисту.`,
     {
       id: 'test-final',
       outcome_ids: skeleton.outcomes.map((o) => o.id),
@@ -794,19 +781,11 @@ export async function makeMaterials(skeleton: Skeleton): Promise<Material[]> {
               explanation: question[3],
               outcome_ids: [i < 3 ? 'outcome-1' : i < 6 ? 'outcome-2' : 'outcome-3'],
             }))
-          : skeleton.outcomes.map((o, i) => ({
-              id: `question-${i + 1}`,
-              text: `Как проверить результат «${o.description}»?`,
-              options: [
-                'Воспроизвести действие и сопоставить с критерием',
-                'Достаточно назвать инструмент',
-                'Не проверять',
-              ],
-              correct_index: 0,
-              explanation:
-                'Проверка требует наблюдаемого действия, а не названия инструмента. Вопрос — демонстрационная структура; нужна предметная вычитка.',
-              outcome_ids: [o.id],
-            })),
+          : demoQuestions(kind),
+      test_policy:
+        kind === 'generic'
+          ? undefined
+          : { pass_count: kind === 'python' ? 8 : Math.ceil(demoQuestions(kind).length * 0.8) },
     },
   );
   if (kind !== 'devops') materials.push(test);
@@ -824,11 +803,11 @@ export async function makeMaterials(skeleton: Skeleton): Promise<Material[]> {
             ? 'Отчёт о стажировке и защита'
             : 'Итоговый проект',
       kind === 'python'
-        ? 'Создайте простую игру или чат-бота: храните состояние в переменных, предусмотрите две ветки выбора и повторение до команды выхода. Внешний API допустим только после обсуждения с преподавателем. Демосценарий показывает последующее сужение проекта до текстовой игры.'
+        ? 'Создайте простую игру или чат-бота: храните состояние в переменных, предусмотрите две ветки выбора и повторение до команды выхода. В демо проект — текстовая игра или локальный бот без внешнего API; используются только изученные конструкции.'
         : kind === 'teachers'
           ? 'Представьте три материала: план урока, задание ученикам и проверочную работу с ключами. Для каждого приложите цель, запрос без данных детей, ответ ИИ, найденные ошибки и исправленный вариант. Проверьте факты самостоятельно.'
           : kind === 'bank'
-            ? 'На условных обезличенных данных подготовьте очистку в pandas, SQL-выгрузку, визуализацию и статистический вывод. Передайте notebook, словарь данных и объясните ограничения анализа. Не используйте реальные данные клиентов.'
+            ? final.content
             : kind === 'security'
               ? 'На изолированном стенде определите открытый сервис, проверьте права тестового пользователя, найдите событие в журнале и предложите защитную настройку. Работайте только в разрешённом стенде. Приложите журнал действий и восстановите исходное состояние.'
               : kind === 'devops'
@@ -841,7 +820,10 @@ export async function makeMaterials(skeleton: Skeleton): Promise<Material[]> {
         expected:
           kind === 'teachers'
             ? 'Три проверенных материала и обоснование исправлений'
-            : 'Артефакт, демонстрация и ответы на вопросы',
+            : kind === 'bank'
+              ? 'Notebook, SQL-запрос, словарь данных, 3–5 графиков, записка на одну страницу и защита по критериям плана'
+              : 'Артефакт, демонстрация и ответы на вопросы',
+        ...(kind === 'bank' ? { datasets: structuredClone(bankDatasets) } : {}),
         criteria: skeleton.assessments
           .filter((a) => a.topic_id === 'topic-final')
           .map((a) => `${a.action}: ${a.criterion}`),
@@ -854,38 +836,4 @@ export async function makeMaterials(skeleton: Skeleton): Promise<Material[]> {
 export async function materialHash(material: Material) {
   const { hash: _hash, stale: _stale, manual: _manual, ...content } = material;
   return contentHash(content);
-}
-export function makeSections(snapshot: Snapshot): Snapshot['sections'] {
-  const r = snapshot.skeleton.requirements;
-  const names = r.template_id === 'acr_general' ? generalSections : professionalSections;
-  return names.map((title, index) => ({
-    id: `section-${index}`,
-    title,
-    content:
-      index === 0
-        ? `${r.title}\nЧерновик — требует проверки методистом. Приказ: ____; дата: ____; подпись: ____.`
-        : title.includes('Кадров')
-          ? 'По каждому модулю: ФИО ____; квалификация ____; должность ____. Подтверждённые сведения заполняет организация.'
-          : title.includes('литератур') ||
-              title.includes('Литератур') ||
-              title.includes('Информацион') ||
-              title.includes('Интернет')
-            ? `${snapshot.sources.map((s) => `${s.name}: ${s.status}; ${s.claim}`).join('\n') || 'Основные, дополнительные и интернет-источники предстоит предоставить и проверить.'}\nСуществование и поддержка утверждений не подтверждены автоматически.`
-            : title.includes('Основания') || title.includes('функции')
-              ? `${professionalStandardEvidence(r)} Расхождение №499/№266 из брифа требует согласования.`
-              : title.includes('Выдаваем')
-                ? 'Удостоверение о повышении квалификации; выдача по решению организации.'
-                : title.includes('удовлетворён')
-                  ? 'До и после курса: спросить ожидания, соответствие нагрузки, полезность задач и трудности; сохранить ответы без персональных данных.'
-                  : title.includes('обеспеч') ||
-                      title.includes('условия') ||
-                      title.includes('Организация')
-                    ? `Для формы «${r.delivery}» нужны рабочее место и учебная среда по теме ${r.title}. Доступы проверяются до начала. Работа: разобранный пример → активность → обратная связь → оценивание. Для стажировки наставник проверяет журнал; контактные часы остаются нулевыми.`
-                    : title.includes('контроль') ||
-                        title.includes('аттеста') ||
-                        title.includes('оценка') ||
-                        title.includes('Оценоч')
-                      ? `${r.assessment}. Допуск: выполненные активности. Наблюдаемые критерии:\n${snapshot.skeleton.assessments.map((a) => `${a.action} — ${a.criterion}`).join('\n')}`
-                      : `${r.title}. Аудитория: ${r.audience}; уровень: ${r.entry_level}.\nЦель: ${snapshot.skeleton.goal}.\n${r.total_hours} ч; ${r.calendar.description}.\n${snapshot.skeleton.topics.map((t) => `${t.title} — ${sumHours(Object.values(t.hours))} ч; ${t.control}`).join('\n')}\n${snapshot.skeleton.outcomes.map((o) => o.description).join('; ')}.\nМетодическое содержание — демонстрационный черновик, требует вычитки.`,
-  }));
 }

@@ -64,6 +64,7 @@ export const presets: {
       constraints: 'Практики минимум 8 часов; 10 вопросов; слайды занятий 1–2',
       calendar: {
         description: '8 занятий по 2 часа, дважды в неделю, 4 недели',
+        schedule: { weekdays: [3, 6], sessions_per_week: 2, duration: '2', confirmed: true },
         start: '2026-10-14',
         calendar_days: 28,
         weekdays_only: false,

@@ -103,7 +103,11 @@ export function ExportPanel({ snapshot }: { snapshot: Snapshot }) {
                 )}
               </div>
               <div className="export-file-actions">
-                <Badge tone={status.tone}>{status.label}</Badge>
+                <Badge tone={status.tone}>
+                  {file.status === 'unavailable' && snapshot.mode === 'demo'
+                    ? 'Недоступно в демо'
+                    : status.label}
+                </Badge>
                 <button
                   className={file.format === 'md' ? 'primary' : undefined}
                   disabled={file.status !== 'ready' || pending}

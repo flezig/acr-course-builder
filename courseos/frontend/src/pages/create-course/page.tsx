@@ -11,8 +11,10 @@ import {
 } from '../../entities/course/api/provider';
 import { inputSchema, type Requirements } from '../../entities/course/model/schema';
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
+import { StoragePanel } from '../../features/export-course/storage-panel';
+import { parameterDiscrepancies } from '../../entities/course/model/request-parameters';
 import { ReferenceEditor } from '../../features/upload-reference/reference-editor';
-import { Form, Badge, ErrorMessage, Field, Panel, statuses } from '../../shared/ui/ui';
+import { Form, Badge, ErrorMessage, Field, Notice, Panel, statuses } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 import './create-course.css';
 export function CreateCoursePage() {
@@ -22,6 +24,8 @@ export function CreateCoursePage() {
   const deleteCourse = useDeleteCourse();
   const navigate = useNavigate();
   const [presetId, setPresetId] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
+  const [confirmationError, setConfirmationError] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
   const form = useForm<Requirements>({
     mode: 'onChange',
@@ -44,13 +48,39 @@ export function CreateCoursePage() {
     });
     return () => subscription.unsubscribe();
   }, [form, api.mode]);
+  const values = form.watch();
+  const exampleRequest = presets.find((p) => p.id === presetId)?.requirements.request;
+  const changedRequest = values.request !== exampleRequest;
+  const discrepancies = parameterDiscrepancies(values);
+  useEffect(() => {
+    setConfirmed(false);
+  }, [values.request]);
   const submit = form.handleSubmit(async (values) => {
+    if (discrepancies.length || (api.mode === 'demo' && changedRequest && !confirmed)) {
+      setConfirmationError(
+        discrepancies.length
+          ? 'Устраните расхождения текста и сводки.'
+          : 'Сверьте и подтвердите параметры. В демо изменённый запрос не анализируется моделью.',
+      );
+      return;
+    }
     try {
-      // Отдельного поля названия нет: до уточнений курс подписан началом запроса.
       const title = values.title.trim() || values.request.trim().split('\n')[0].slice(0, 80);
       const result = await command.mutateAsync({
         action: 'start',
-        payload: { ...values, title },
+        payload: {
+          ...values,
+          title,
+          parameters_confirmation: {
+            request: values.request,
+            actor: 'methodist',
+            at: new Date().toISOString(),
+          },
+          calendar: {
+            ...values.calendar,
+            description: `${values.calendar.calendar_days} календарных дней (${values.calendar.calendar_days / 7} нед.); ${values.calendar.daily_limit ? `до ${values.calendar.daily_limit} ч/день` : 'дневная нагрузка уточняется'}`,
+          },
+        },
       });
       localStorage.removeItem(`courseos-create-draft-${api.mode}`);
       form.reset(emptyRequirements);
@@ -62,6 +92,7 @@ export function CreateCoursePage() {
   });
   const choose = (id: string) => {
     setPresetId(id);
+    setConfirmationError('');
     form.reset(structuredClone(presets.find((p) => p.id === id)!.requirements));
     formRef.current?.querySelector('.create-request')?.scrollIntoView({
       behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -98,6 +129,87 @@ export function CreateCoursePage() {
               placeholder="Для кого курс, чему нужно научить, сколько часов и какие ограничения важно учесть?"
             />
           </Field>
+          <details className="parameter-summary" open>
+            <summary>Сводка параметров перед построением</summary>
+            <p>
+              {api.mode === 'demo'
+                ? 'Значения примера можно изменить вручную. Демо не анализирует изменённый запрос; сверьте все поля с текстом.'
+                : 'Проверьте параметры перед отправкой на сервер.'}
+            </p>
+            <div className="form-grid">
+              <Field label="Название программы">
+                <input {...form.register('title')} />
+              </Field>
+              <Field label="Тип программы">
+                <select {...form.register('template_id')}>
+                  <option value="unknown">Уточнить</option>
+                  <option value="acr_general">Общеразвивающая</option>
+                  <option value="acr_professional">Повышение квалификации</option>
+                </select>
+              </Field>
+              <Field label="Аудитория">
+                <input {...form.register('audience')} />
+              </Field>
+              <Field label="Входной уровень">
+                <input {...form.register('entry_level')} />
+              </Field>
+              <Field label="Объём в часах">
+                <input inputMode="decimal" {...form.register('total_hours')} />
+              </Field>
+              <Field label="Форма обучения">
+                <input {...form.register('delivery')} />
+              </Field>
+              <Field label="Срок в неделях">
+                <input
+                  type="number"
+                  min="0"
+                  max="521"
+                  step="0.142857142857"
+                  value={values.calendar.calendar_days / 7}
+                  onChange={(e) => {
+                    form.setValue(
+                      'calendar.calendar_days',
+                      Math.round(Number(e.target.value) * 7),
+                      { shouldDirty: true },
+                    );
+                    form.setValue('calendar.confirmed', false);
+                  }}
+                />
+              </Field>
+              <Field label="Дата начала">
+                <input type="date" {...form.register('calendar.start')} />
+              </Field>
+              <Field label="Максимум часов в день">
+                <input inputMode="decimal" {...form.register('calendar.daily_limit')} />
+              </Field>
+              <Field label="Итоговая аттестация">
+                <input {...form.register('assessment')} />
+              </Field>
+            </div>
+            <Field label="Цель">
+              <textarea {...form.register('goal')} rows={2} />
+            </Field>
+            <Field label="Ограничения">
+              <textarea {...form.register('constraints')} rows={2} />
+            </Field>
+            {!!discrepancies.length && (
+              <Notice tone="warning">{discrepancies.join(' ')} Исправьте текст или поля.</Notice>
+            )}
+            {api.mode === 'demo' && changedRequest && (
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={confirmed}
+                  onChange={(e) => {
+                    setConfirmed(e.target.checked);
+                    setConfirmationError('');
+                  }}
+                />
+                Подтверждаю параметры изменённого запроса вручную
+              </label>
+            )}
+            {confirmationError && <Notice tone="error">{confirmationError}</Notice>}
+          </details>
           <ReferenceEditor
             uploadOnly
             references={form.watch('references')}
@@ -179,6 +291,7 @@ export function CreateCoursePage() {
           </div>
         </Panel>
       )}
+      <StoragePanel />
       <ErrorMessage error={courses.error} />
       <ErrorMessage error={deleteCourse.error} />
     </div>

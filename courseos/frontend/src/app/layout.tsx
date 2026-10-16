@@ -353,6 +353,7 @@ function LayoutContent() {
           {/* Переключатель нужен, только когда есть прошлые версии: с одной версией
               он предлагал выбрать её же как «актуальную» и как «архив». */}
           {courseId &&
+            !location.pathname.endsWith('/compare') &&
             (archivedVersions.length > 0 || snapshot?.provenance === 'previous_live') && (
               <div className="versionbar">
                 <div>

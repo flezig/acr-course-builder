@@ -1,4 +1,6 @@
 import { isProfessionalStandardReference } from '../model/professional-standards';
+import { isElementEdit, previewElementEdit } from '../model/material-edit';
+import { assessmentMaterial } from '../model/material-readiness';
 import { skeletonRationaleMarkdown } from '../model/rationale';
 import Decimal from 'decimal.js';
 import { invalidateRationales } from '../model/rationale';
@@ -9,6 +11,8 @@ import {
   snapshotSchema,
   courseViewSchema,
   changePlanSchema,
+  changeInputSchema,
+  courseHoursSchema,
   jobSchema,
   type ChangePlan,
   type Job,
@@ -16,7 +20,12 @@ import {
   type Skeleton,
   type Snapshot,
 } from '../model/schema';
-import { approvalMatches, auditSnapshot, calendarCalculation } from '../model/rules';
+import {
+  approvalMatches,
+  auditSnapshot,
+  calendarCalculation,
+  canAcceptException,
+} from '../model/rules';
 import {
   makeMaterials,
   makeSections,
@@ -46,65 +55,91 @@ interface StoredCourse {
   plans: ChangePlan[];
 }
 interface StoredDatabase {
+  schema_version: number;
+  recovery: Record<string, unknown>;
   courses: Record<string, StoredCourse>;
   operations: Record<string, { payload: string; result: CommandResult }>;
 }
-const databaseSchema = z.object({
-  courses: z.record(
-    z.string(),
-    z.object({
-      requirements: requirementsSchema,
-      snapshots: z.array(snapshotSchema),
-      job: jobSchema,
-      approvals: z.array(snapshotSchema.shape.approvals.element),
-      plans: z.array(changePlanSchema),
-    }),
-  ),
-  operations: z.record(
-    z.string(),
-    z.object({
-      payload: z.string(),
-      result: z.object({
-        course_id: z.string(),
-        job: jobSchema,
-        change_plan: changePlanSchema.nullable(),
-      }),
-    }),
-  ),
+const storedCourseSchema = z.object({
+  requirements: requirementsSchema,
+  snapshots: z.array(snapshotSchema),
+  job: jobSchema,
+  approvals: z.array(snapshotSchema.shape.approvals.element),
+  plans: z.array(changePlanSchema).default([]),
 });
+const storageVersion = 2;
 function load(): StoredDatabase {
   const stored = localStorage.getItem(storageKey);
-  if (!stored) return { courses: {}, operations: {} };
+  if (!stored) return { schema_version: storageVersion, courses: {}, operations: {}, recovery: {} };
+  let raw: Record<string, unknown>;
   try {
-    return databaseSchema.parse(JSON.parse(stored));
+    raw = JSON.parse(stored);
   } catch {
     throw new ApiError(
       422,
-      'Сохранённые демоданные не соответствуют текущей схеме. Можно явно сбросить демоданные.',
+      'Хранилище не читается. Скачайте исходные данные в разделе «Хранилище» до сброса.',
     );
   }
+  if (
+    !raw ||
+    typeof raw !== 'object' ||
+    !raw.courses ||
+    typeof raw.courses !== 'object' ||
+    (raw.schema_version !== undefined &&
+      raw.schema_version !== 1 &&
+      raw.schema_version !== storageVersion)
+  )
+    throw new ApiError(
+      422,
+      'Неизвестный формат хранилища. Исходные данные доступны для скачивания до сброса.',
+    );
+  const database: StoredDatabase = {
+    schema_version: storageVersion,
+    courses: {},
+    operations: {},
+    recovery:
+      raw.recovery && typeof raw.recovery === 'object'
+        ? (raw.recovery as Record<string, unknown>)
+        : {},
+  };
+  // Совместимые поля старой схемы получают безопасные значения; каркас и его hash не меняются.
+  for (const [id, course] of Object.entries(raw.courses)) {
+    const parsed = storedCourseSchema.safeParse(course);
+    if (parsed.success) {
+      if (raw.schema_version !== storageVersion)
+        for (const snapshot of parsed.data.snapshots) {
+          snapshot.audit = auditSnapshot(snapshot);
+          snapshot.approval_applicable = approvalMatches(snapshot);
+        }
+      database.courses[id] = parsed.data;
+    } else database.recovery[id] = course;
+  }
+  const operationSchema = z.object({
+    payload: z.string(),
+    result: z.object({
+      course_id: z.string(),
+      job: jobSchema,
+      change_plan: changePlanSchema.nullable(),
+    }),
+  });
+  if (raw.operations && typeof raw.operations === 'object')
+    for (const [key, operation] of Object.entries(raw.operations)) {
+      const parsed = operationSchema.safeParse(operation);
+      if (parsed.success) database.operations[key] = parsed.data;
+    }
+  return database;
 }
-// Каждая правка сохраняет полную копию курса вместе с материалами, поэтому без
-// ограничения история за несколько десятков правок упирается в квоту localStorage
-// (~5 МБ). Старые версии в демо не нужны для работы: сравнение и откат опираются
-// на недавние снимки.
-const keptSnapshotsPerCourse = 15;
 const keptOperations = 200;
-function pruneHistory(database: StoredDatabase) {
-  for (const course of Object.values(database.courses))
-    course.snapshots.splice(0, Math.max(0, course.snapshots.length - keptSnapshotsPerCourse));
+function save(database: StoredDatabase) {
   const operationKeys = Object.keys(database.operations);
   for (const key of operationKeys.slice(0, Math.max(0, operationKeys.length - keptOperations)))
     delete database.operations[key];
-}
-function save(database: StoredDatabase) {
-  pruneHistory(database);
   try {
     localStorage.setItem(storageKey, JSON.stringify(database));
   } catch {
     throw new ApiError(
       413,
-      'Хранилище браузера заполнено. Экспортируйте данные и удалите ненужные демокурсы.',
+      'Хранилище браузера заполнено. Прежние данные сохранены. Скачайте архив в разделе «Хранилище» и явно сократите историю.',
     );
   }
 }
@@ -184,10 +219,7 @@ async function newSnapshot(
 function finalize(snapshot: Snapshot): Snapshot {
   const s = snapshot.skeleton;
   snapshot.material_links = s.assessments.flatMap((a) => {
-    const candidates = snapshot.materials.filter(
-      (m) => m.type === a.type && a.outcome_ids.every((id) => m.outcome_ids.includes(id)),
-    );
-    const m = candidates.find((m) => m.topic_id === a.topic_id) || candidates[0];
+    const m = assessmentMaterial(snapshot, a);
     return m ? [{ assessment_id: a.id, material_id: m.id }] : [];
   });
   snapshot.edges = [
@@ -344,11 +376,30 @@ async function resolveCalendar(
 ) {
   const skeleton = structuredClone(base.skeleton);
   const before = canonicalJson(skeleton.requirements.calendar);
+  calendar = requirementsSchema.shape.calendar.parse(calendar);
+  const oldLimit = base.skeleton.requirements.calendar.daily_limit;
+  if (
+    option !== 'raise' &&
+    oldLimit &&
+    calendar.daily_limit &&
+    new Decimal(calendar.daily_limit).gt(oldLimit)
+  )
+    throw new ApiError(
+      422,
+      `Исходный лимит ${oldLimit} ч/день нельзя повысить подтверждением. Выберите явное изменение дневной нагрузки.`,
+    );
+  if (option === 'raise' && oldLimit) calendar = { ...calendar, daily_limit: oldLimit };
   skeleton.requirements.calendar = calendar;
   let calc = calendarCalculation(skeleton.requirements);
   if (option !== 'confirm' && new Decimal(calc.deficit).eq(0))
     throw new ApiError(422, 'Часов достаточно: изменение для устранения нехватки не требуется.');
   if (option === 'extend') {
+    const maximum = { ...skeleton.requirements, calendar: { ...calendar, calendar_days: 3650 } };
+    if (new Decimal(calendarCalculation(maximum).deficit).gt(0))
+      throw new ApiError(
+        422,
+        'При этой нагрузке срок превысит 3650 дней. Согласуйте другой лимит или объём.',
+      );
     while (calc.needed !== null && calc.days < calc.needed) {
       skeleton.requirements.calendar.calendar_days++;
       calc = calendarCalculation(skeleton.requirements);
@@ -362,6 +413,11 @@ async function resolveCalendar(
   if (option === 'reduce') {
     if (new Decimal(calc.capacity).lt(16))
       throw new ApiError(422, 'Вместимость меньше минимальных 16 часов.');
+    if (!courseHoursSchema.safeParse(calc.capacity).success)
+      throw new ApiError(
+        422,
+        'Полученная вместимость должна быть от 16 до 500 ч с шагом 0,5. Уточните календарь.',
+      );
     skeleton.requirements.total_hours = calc.capacity;
     skeleton.requirements.constraints += `\nРешение методиста: вместо исходного объёма принят ${calc.capacity} ч; глубина результатов пересматривается до базовых действий по образцу.`;
   }
@@ -475,7 +531,7 @@ export class DemoCourseApi implements CourseApi {
       return courseViewSchema.parse({
         course_id: id,
         snapshot: current,
-        requirements: course.requirements,
+        requirements: current?.skeleton.requirements ?? course.requirements,
         latest_version: latest(course)?.course_version || 0,
         versions: course.snapshots.map((s) => s.course_version),
         questions: missingQuestions(course.requirements),
@@ -554,6 +610,16 @@ export class DemoCourseApi implements CourseApi {
             if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
             const skeleton = refreshExplanations(skeletonSchema.parse(envelope.payload));
             skeleton.requirements.goal = skeleton.goal;
+            const oldLimit = base.skeleton.requirements.calendar.daily_limit;
+            if (
+              oldLimit &&
+              new Decimal(skeleton.requirements.calendar.daily_limit || 0).gt(oldLimit)
+            )
+              throw new ApiError(
+                422,
+                'Для повышения дневного лимита используйте явное решение в календаре.',
+              );
+            skeleton.requirements.original_limits = base.skeleton.requirements.original_limits;
             const previousStandards = base.skeleton.requirements.references.filter(
               isProfessionalStandardReference,
             );
@@ -644,7 +710,7 @@ export class DemoCourseApi implements CourseApi {
             const issue = auditSnapshot(base).issues.find(
               (i) => i.id === envelope.payload.issue_id,
             );
-            if (!issue?.dismissible)
+            if (!issue || !canAcceptException(issue))
               throw new ApiError(422, 'Эту проблему нельзя оставить как есть: её нужно исправить.');
             const snapshot = await newSnapshot(
               id,
@@ -655,7 +721,17 @@ export class DemoCourseApi implements CourseApi {
             );
             snapshot.decisions = [
               ...snapshot.decisions.filter((d) => d.issue_id !== issue.id),
-              { issue_id: issue.id, reason, actor: 'demo-methodist', at: now() },
+              {
+                issue_id: issue.id,
+                reason,
+                actor: 'demo-methodist',
+                at: now(),
+                scope_hash: base.skeleton_hash,
+                scope: `Ревизия ${base.skeleton_version}; элемент ${issue.element_id}`,
+                finding: [issue.message, issue.expected, issue.actual, issue.evidence]
+                  .filter(Boolean)
+                  .join('\n'),
+              },
             ];
             course.snapshots.push(finalize(snapshot));
             break;
@@ -694,24 +770,24 @@ export class DemoCourseApi implements CourseApi {
           case 'change_preview': {
             if (!base?.materials.length || !base.approval_applicable)
               throw new ApiError(409, 'Сначала утвердите каркас и подготовьте материалы.');
-            const input = envelope.payload;
-            const requires = input.type !== 'question';
+            const input = changeInputSchema.parse(envelope.payload);
+            const elementEdit = isElementEdit(input) ? previewElementEdit(base, input) : null;
+            const requires = elementEdit ? elementEdit.requiresApproval : true;
             const project =
               input.type === 'project' ? projectMaterial(base, input.target_id) : null;
-            const affected =
-              input.type === 'question'
-                ? base.materials.filter((m) => m.questions.some((q) => q.id === input.target_id))
-                : input.type === 'project'
-                  ? base.materials.filter(
-                      (m) =>
-                        m.id === project!.id ||
-                        m.topic_id === project!.topic_id ||
-                        (project!.assessment_id !== null &&
-                          m.assessment_id === project!.assessment_id),
-                    )
-                  : input.type === 'topic'
-                    ? affectedTopicMaterials(base, input.target_id)
-                    : base.materials;
+            const affected = elementEdit
+              ? base.materials.filter((m) => m.id === elementEdit.material.id)
+              : input.type === 'project'
+                ? base.materials.filter(
+                    (m) =>
+                      m.id === project!.id ||
+                      m.topic_id === project!.topic_id ||
+                      (project!.assessment_id !== null &&
+                        m.assessment_id === project!.assessment_id),
+                  )
+                : input.type === 'topic'
+                  ? affectedTopicMaterials(base, input.target_id)
+                  : base.materials;
             if (!affected.length) throw new ApiError(422, 'Выберите существующий элемент.');
             plan = {
               id: crypto.randomUUID(),
@@ -722,15 +798,11 @@ export class DemoCourseApi implements CourseApi {
               affected: affected.map((m) => ({
                 id: m.id,
                 title: m.title,
-                reason:
-                  input.type === 'question'
-                    ? 'Вопрос → ключ → объяснение → аудит → JSON и банк тестов; соседние темы сохраняются'
-                    : 'Материал зависит от изменяемого требования или темы',
-                before:
-                  input.type === 'question'
-                    ? m.questions.find((q) => q.id === input.target_id)!.text
-                    : m.content,
-                after: input.replacement,
+                reason: elementEdit
+                  ? 'Выбранный элемент → проверка → разделы программы → JSON и Markdown. Другие материалы сохраняются.'
+                  : 'Материал зависит от изменяемого требования или темы',
+                before: elementEdit ? elementEdit.before : m.content,
+                after: elementEdit ? elementEdit.after : input.replacement,
                 manual: m.manual,
               })),
               preserved_ids: base.materials.filter((m) => !affected.includes(m)).map((m) => m.id),
@@ -751,17 +823,38 @@ export class DemoCourseApi implements CourseApi {
               );
             const skeleton = structuredClone(base.skeleton);
             const materials = structuredClone(base.materials);
-            if (plan.input.type === 'question') {
-              const material = materials.find((m) =>
-                m.questions.some((q) => q.id === plan!.input.target_id),
-              )!;
-              const question = material.questions.find((q) => q.id === plan!.input.target_id)!;
-              question.text = plan.input.replacement;
-              question.correct_index = plan.input.correct_index ?? question.correct_index;
-              question.explanation = plan.input.explanation || question.explanation;
-              if (question.correct_index < 0 || question.correct_index >= question.options.length)
-                throw new ApiError(422, 'Ключ выходит за пределы вариантов.');
-              material.hash = await materialHash(material);
+            if (isElementEdit(plan.input)) {
+              const edit = previewElementEdit(base, plan.input);
+              edit.material.hash = await materialHash(edit.material);
+              materials.splice(
+                materials.findIndex((m) => m.id === edit.material.id),
+                1,
+                edit.material,
+              );
+              if (edit.requiresApproval) {
+                skeleton.content_review = {
+                  reason: plan.input.request,
+                  affected_ids: [edit.material.id],
+                  change_id: plan.id,
+                };
+                if (plan.input.type === 'assignment') {
+                  const linked = new Set(
+                    base.material_links
+                      .filter((link) => link.material_id === edit.material.id)
+                      .map((link) => link.assessment_id),
+                  );
+                  skeleton.assessments
+                    .filter((a) => linked.has(a.id))
+                    .forEach((a) => {
+                      a.action = edit.material.expected;
+                      a.criterion = edit.material.criteria.join('; ');
+                    });
+                  if (edit.material.topic_id === 'topic-final') {
+                    const topic = skeleton.topics.find((t) => t.id === 'topic-final')!;
+                    topic.content = `${edit.material.content}\nОжидаемый результат: ${edit.material.expected}\nКритерии: ${edit.material.criteria.join('; ')}`;
+                  }
+                }
+              }
             } else {
               if (plan.input.type === 'hours') {
                 const total = new Decimal(plan.input.replacement);
@@ -894,6 +987,20 @@ export class DemoCourseApi implements CourseApi {
             course.requirements = skeleton.requirements;
             course.job.status = 'awaiting_approval';
             course.job.next_action = 'Основание исправлено. Утвердите новую ревизию.';
+            break;
+          }
+          case 'prune_history': {
+            if (!base || !envelope.payload.archive_saved)
+              throw new ApiError(422, 'Сначала скачайте архив истории.');
+            const keep = new Set(envelope.payload.keep_versions);
+            course.snapshots = course.snapshots.filter(
+              (snapshot) =>
+                snapshot.course_version === base.course_version ||
+                keep.has(snapshot.course_version) ||
+                course.approvals.some(
+                  (approval) => approval.skeleton_hash === snapshot.skeleton_hash,
+                ),
+            );
             break;
           }
           case 'audit': {

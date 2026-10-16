@@ -1,3 +1,6 @@
+import { sectionCompleteness } from './sections';
+import { materialReadiness, questionProblems } from './material-readiness';
+import { scheduleProblems } from './schedule';
 import Decimal from 'decimal.js';
 import {
   skeletonElements,
@@ -74,6 +77,8 @@ export function calendarExplanation(requirements: Requirements) {
         ? `Без этого нельзя проверить, уложатся ли ${total} ч в ${weeks} нед. (${calc.days} учебных дней) — для этого нужно заниматься не меньше ${formatHours(calc.minimumLimit)} ч в день.`
         : `Без этого нельзя проверить, уложатся ли ${total} ч в срок.`,
     ].join(' ');
+  if (new Decimal(calc.deficit).gt(0))
+    return `При лимите ${formatHours(calendar.daily_limit)} ч в день нужно минимум ${calc.needed} учебных дней. Доступно ${calc.days}; не хватает ${formatHours(calc.deficit)} ч. Подтверждение календаря не устраняет дефицит.`;
   return `Календарь заполнен (${calc.days} учебных дней, до ${formatHours(calendar.daily_limit)} ч в день — всего ${formatHours(calc.capacity)} ч), но ещё не подтверждён. Проверьте параметры и подтвердите.`;
 }
 export function hourTotals(skeleton: Skeleton) {
@@ -192,14 +197,23 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
       }),
     );
   issues.push(...agentFindings(skeleton));
-  const materialComplete =
-    snapshot.materials.length > 0 &&
-    snapshot.materials.every(
-      (material) =>
-        !material.stale &&
-        material.content.trim() &&
-        (material.type === 'lecture' ? material.slides.length > 0 : true),
-    );
+  const readiness = materialReadiness(snapshot);
+  const materialComplete = readiness.complete;
+  const sections = sectionCompleteness(snapshot);
+  const sectionsComplete = sections.every((section) => section.complete);
+  const scheduleErrors = scheduleProblems(skeleton);
+  if (scheduleErrors.length)
+    issues.push({
+      id: 'schedule-hours',
+      severity: 'error',
+      check_type: 'rule',
+      element_id: 'calendar',
+      message: 'Расписание расходится с учебным планом',
+      expected: 'Часы и виды работы совпадают с планом',
+      actual: scheduleErrors.join('; '),
+      suggested_fix: 'Уточните дни и длительность занятий в календаре.',
+      blocking: true,
+    });
   const ids = [
     ...skeleton.topics.map((t) => t.id),
     ...skeleton.outcomes.map((o) => o.id),
@@ -408,16 +422,31 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
     {
       id: 'sections',
       title: 'Полнота разделов и материалов',
-      status: materialComplete && snapshot.sections.length > 0 ? 'passed' : 'not_run',
+      status: !snapshot.sections.length
+        ? 'not_run'
+        : sectionsComplete && materialComplete
+          ? 'passed'
+          : 'failed',
       expected: 'Все применимые разделы выбранного образца',
-      actual: materialComplete
-        ? `${snapshot.sections.length} разделов, ${snapshot.materials.length} материалов`
-        : 'Содержание ещё не создано или ожидает обновления',
+      actual: `Структурно заполнено ${sections.filter((s) => s.complete).length} из ${sections.length} разделов. Несозданных оценочных средств: ${readiness.missingAssessments.length}; незавершённых материалов: ${readiness.incomplete.length}. Содержательную экспертизу проводит методист.`,
     },
     {
       id: 'keys',
       title: 'Ключи и критерии',
-      status: !snapshot.materials.length ? 'not_run' : badKeys.length ? 'failed' : 'passed',
+      status: !snapshot.materials.length
+        ? 'not_run'
+        : snapshot.materials.some(
+              (m) =>
+                m.type === 'test' &&
+                (!m.questions.length ||
+                  questionProblems(m, new Set(skeleton.outcomes.map((o) => o.id))).length ||
+                  !m.test_policy ||
+                  m.test_policy.pass_count > m.questions.length),
+            )
+          ? 'failed'
+          : badKeys.length
+            ? 'failed'
+            : 'passed',
       expected: 'Ключи в пределах вариантов; критерии заполнены',
       actual: `${badKeys.length} ошибок ключей`,
     },
@@ -431,7 +460,8 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
   ];
   // Решение «оставить как есть» снимает блокировку, но находка остаётся в отчёте с причиной.
   for (const decision of snapshot.decisions || []) {
-    const issue = issues.find((item) => item.id === decision.issue_id && item.dismissible);
+    const issue = issues.find((item) => item.id === decision.issue_id && canAcceptException(item));
+    if (decision.scope_hash !== snapshot.skeleton_hash) continue;
     if (!issue) continue;
     issue.decision = { reason: decision.reason, actor: decision.actor, at: decision.at };
     issue.blocking = false;
@@ -441,7 +471,8 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
     at: new Date().toISOString(),
     checks,
     issues: decisionQueue(issues),
-    technical_ready: materialComplete && !issues.some((issue) => issue.blocking),
+    technical_ready:
+      materialComplete && sectionsComplete && !issues.some((issue) => issue.blocking),
     expert_status: 'not_reviewed',
   };
 }
@@ -515,4 +546,8 @@ export function approvalMatches(snapshot: Snapshot): boolean {
         a.skeleton_hash === snapshot.skeleton_hash,
     ) && !snapshot.audit.issues.some((issue) => issue.blocking)
   );
+}
+
+export function canAcceptException(issue: Audit['issues'][number]) {
+  return !!issue.dismissible && issue.check_type !== 'rule' && issue.severity !== 'error';
 }

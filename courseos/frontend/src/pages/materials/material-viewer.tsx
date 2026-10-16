@@ -1,12 +1,9 @@
-import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
-import { Pencil, LockKeyhole } from 'lucide-react';
+import { LockKeyhole } from 'lucide-react';
 import type { Material, Snapshot } from '../../entities/course/model/schema';
-import { useCommand } from '../../entities/course/api/provider';
 import { materialLabels } from '../../entities/course/model/presets';
-import { Form, Badge, ErrorMessage, Field, Notice } from '../../shared/ui/ui';
-import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
+import { Badge, Notice } from '../../shared/ui/ui';
+import { ElementEditor } from './element-editor';
 export function MaterialViewer({
   material,
   snapshot,
@@ -16,21 +13,6 @@ export function MaterialViewer({
   snapshot: Snapshot;
   readonly: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [editVersion, setEditVersion] = useState(snapshot.course_version);
-  const command = useCommand();
-  const key = `courseos-material-draft-${snapshot.mode}-${snapshot.course_id}-${editVersion}-${material.id}`;
-  const form = useForm<{ content: string }>({
-    mode: 'onChange',
-    defaultValues: { content: localStorage.getItem(key) || material.content },
-  });
-  useUnsavedChanges(editing && form.formState.isDirty && !command.isSuccess);
-  useEffect(() => {
-    const subscription = form.watch((values) => {
-      if (editing) localStorage.setItem(key, values.content || '');
-    });
-    return () => subscription.unsubscribe();
-  }, [form, editing, key]);
   const versionParam = snapshot.course_version;
   return (
     <article className="material-viewer">
@@ -44,24 +26,18 @@ export function MaterialViewer({
         )}
         <small>{material.id}</small>
         {!readonly && !material.stale && (
-          <button
-            className="link-button"
-            onClick={() => {
-              if (!editing) {
-                setEditVersion(snapshot.course_version);
-                form.reset({
-                  content:
-                    localStorage.getItem(
-                      `courseos-material-draft-${snapshot.mode}-${snapshot.course_id}-${snapshot.course_version}-${material.id}`,
-                    ) || material.content,
-                });
-              }
-              setEditing(!editing);
-            }}
-          >
-            <Pencil size={14} />
-            Ручная правка
-          </button>
+          <ElementEditor
+            material={material}
+            snapshot={snapshot}
+            type={
+              ['seminar', 'project', 'portfolio', 'exam', 'mentor_interview'].includes(
+                material.type,
+              )
+                ? 'assignment'
+                : 'material'
+            }
+            targetId={material.id}
+          />
         )}
       </div>
       <h2>{material.title}</h2>
@@ -70,41 +46,41 @@ export function MaterialViewer({
           Ожидает обновления после нового утверждения. Содержание относится к прежнему каркасу.
         </Notice>
       )}
-      {editing && editVersion !== snapshot.course_version && (
-        <Notice tone="warning">
-          Версия изменилась в фоне. Ваш текст сохранён; применение к устаревшей версии будет
-          отклонено.
-        </Notice>
+      <pre className="material-content">{material.content}</pre>
+      {material.test_policy && (
+        <p>
+          Вопросов: {material.questions.length}; порог: {material.test_policy.pass_count} верных
+          ответов.
+        </p>
       )}
-      {editing ? (
-        <Form
-          errors={form.formState.errors}
-          submitCount={form.formState.submitCount}
-          onSubmit={form.handleSubmit(async (values) => {
-            try {
-              await command.mutateAsync({
-                action: 'manual_material',
-                expected_version: editVersion,
-                payload: { material_id: material.id, content: values.content },
-              });
-              localStorage.removeItem(key);
-              setEditing(false);
-            } catch {
-              /* Ручная правка остаётся в черновике до успешного сохранения. */
-            }
-          })}
-        >
-          <Field label="Содержание материала">
-            <textarea {...form.register('content')} rows={8} required />
-          </Field>
-          <button className="primary" disabled={command.isPending}>
-            Сохранить и защитить ручную правку
-          </button>
-          <ErrorMessage error={command.error} />
-        </Form>
-      ) : (
-        <pre className="material-content">{material.content}</pre>
-      )}
+      {material.datasets?.map((dataset) => (
+        <details key={dataset.name}>
+          <summary>
+            Учебные данные: {dataset.name} ({dataset.rows.length} строк)
+          </summary>
+          <p>{dataset.description}</p>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  {dataset.columns.map((column) => (
+                    <th key={column}>{column}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {dataset.rows.map((row, index) => (
+                  <tr key={index}>
+                    {row.map((value, cell) => (
+                      <td key={cell}>{value ?? 'NULL'}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ))}
       <div className="material-context">
         <div>
           <h4>Результаты обучения</h4>
@@ -133,6 +109,14 @@ export function MaterialViewer({
               <div className="question-number">{String(index + 1).padStart(2, '0')}</div>
               <div>
                 <h3>{question.text}</h3>
+                {!readonly && !material.stale && (
+                  <ElementEditor
+                    material={material}
+                    snapshot={snapshot}
+                    type="question"
+                    targetId={question.id}
+                  />
+                )}
                 <ol type="A">
                   {question.options.map((option, i) => (
                     <li className={i === question.correct_index ? 'correct-option' : ''} key={i}>
@@ -161,6 +145,14 @@ export function MaterialViewer({
                 СЛАЙД {index + 1} · {slide.id}
               </span>
               <h3>{slide.title}</h3>
+              {!readonly && !material.stale && (
+                <ElementEditor
+                  material={material}
+                  snapshot={snapshot}
+                  type="slide"
+                  targetId={slide.id}
+                />
+              )}
               <ul>
                 {slide.bullets.map((bullet, i) => (
                   <li key={i}>{bullet}</li>

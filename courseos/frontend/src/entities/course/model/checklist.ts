@@ -1,3 +1,5 @@
+import { sectionCompleteness } from './sections';
+import { materialReadiness } from './material-readiness';
 import { professionalStandardEvidence } from './professional-standards';
 import Decimal from 'decimal.js';
 import { outcomeAssessmentCount } from './findings';
@@ -8,12 +10,18 @@ import { contactAndRemoteHours, isOnHourStep, weeklyLoad } from './hours-plan';
 import { generalSections, professionalSections, scenarioKind } from './factory';
 import { formatHours, sumHours } from '../../../shared/lib/decimal';
 
-export type ChecklistStatus = 'passed' | 'problem' | 'not_checked' | 'manual_review';
+export type ChecklistStatus =
+  | 'passed'
+  | 'problem'
+  | 'not_checked'
+  | 'manual_review'
+  | 'exception_accepted';
 export type ChecklistItem = {
   id: string;
   title: string;
   status: ChecklistStatus;
   evidence: string;
+  factual_status?: ChecklistStatus;
   // Куда ведёт ссылка: экран программы и якорь на нём.
   target: { screen: 'plan' | 'map' | 'materials' | 'audit'; hash: string };
 };
@@ -47,7 +55,8 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
   const underAssessed = skeleton.outcomes.filter((o) => outcomeAssessmentCount(skeleton, o.id) < 2);
   const templateSections =
     requirements.template_id === 'acr_general' ? generalSections : professionalSections;
-  const emptySections = snapshot.sections.filter((section) => !section.content.trim());
+  const sections = sectionCompleteness(snapshot);
+  const readiness = materialReadiness(snapshot);
   const professional = requirements.template_id === 'acr_professional';
   const standardConfirmed = skeleton.outcomes.some((o) => o.professional_standard_code);
   const unmarked = snapshot.sources.filter((source) => !source.status);
@@ -58,7 +67,6 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
   );
   const docx = snapshot.export_manifest.find((file) => file.format === 'docx');
   const json = snapshot.export_manifest.find((file) => file.format === 'json');
-  const demoDocxUnavailable = snapshot.mode === 'demo' && docx?.status === 'unavailable';
   return withFindingStatus(snapshot, [
     {
       id: 'hours-kinds-row',
@@ -88,12 +96,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
     {
       id: 'hours-daily',
       title: 'Нагрузка в день в пределах ограничения',
-      status:
-        !limit || !requirements.calendar.confirmed
-          ? 'not_checked'
-          : new Decimal(calendar.deficit).gt(0)
-            ? 'problem'
-            : 'passed',
+      status: !limit ? 'not_checked' : new Decimal(calendar.deficit).gt(0) ? 'problem' : 'passed',
       evidence: !limit
         ? 'Дневная нагрузка не задана — проверить нельзя.'
         : `${calendar.days} учебных дней × ${hours(limit)} = ${hours(calendar.capacity)}${new Decimal(calendar.deficit).gt(0) ? `; не хватает ${hours(calendar.deficit)}` : ''}${requirements.calendar.confirmed ? '' : '; календарь не подтверждён'}.`,
@@ -108,13 +111,18 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
       title: 'Обязательные разделы шаблона заполнены',
       status: !snapshot.sections.length
         ? 'not_checked'
-        : snapshot.sections.length === templateSections.length && !emptySections.length
+        : sections.every((section) => section.complete) && readiness.complete
           ? 'passed'
           : 'problem',
       evidence: !snapshot.sections.length
         ? `Разделы (${templateSections.length} по шаблону) создаются после утверждения программы.`
-        : `${snapshot.sections.length - emptySections.length} из ${templateSections.length} разделов заполнены.`,
-      target: { screen: 'materials', hash: '' },
+        : `Структурно заполнено ${sections.filter((section) => section.complete).length} из ${templateSections.length}. Не хватает полей: ${sections
+            .filter((section) => !section.complete)
+            .map((section) => `${section.title}: ${section.missing.join(', ')}`)
+            .join(
+              '; ',
+            )}. Несозданных оценочных средств: ${readiness.missingAssessments.length}. Содержательная экспертиза не выполнена.`,
+      target: { screen: 'materials', hash: 'sections' },
     },
     {
       id: 'outcomes-topics',
@@ -188,14 +196,41 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
     },
     {
       id: 'exports',
-      title: 'Выгрузка в .docx и JSON',
-      status:
-        json?.status === 'ready' && (docx?.status === 'ready' || demoDocxUnavailable)
-          ? 'passed'
-          : 'problem',
-      evidence: `JSON — ${json?.status === 'ready' ? 'готов' : 'нет'}; .docx — ${docx?.status === 'ready' ? 'готов' : demoDocxUnavailable ? 'не входит в проверку демо' : 'не готов'}.`,
-      target: { screen: 'materials', hash: '' },
+      title: 'Выгрузка в .docx',
+      status: docx?.status === 'ready' && !!docx.file_id ? 'passed' : 'not_checked',
+      evidence:
+        docx?.status === 'ready' && docx.file_id
+          ? 'DOCX создан для выбранной версии.'
+          : snapshot.mode === 'demo'
+            ? 'Недоступно в демо: экспортёр DOCX не подключён, файл не создан.'
+            : 'DOCX не создан.',
+      target: { screen: 'materials', hash: 'exports' },
     },
+    {
+      id: 'export-json',
+      title: 'Выгрузка в JSON',
+      status: json?.status === 'ready' ? 'passed' : 'not_checked',
+      evidence:
+        json?.status === 'ready'
+          ? `JSON версии ${snapshot.course_version} готов.`
+          : 'JSON не создан.',
+      target: { screen: 'materials', hash: 'exports' },
+    },
+    ...(['pptx', 'lms'] as const).map((format): ChecklistItem => {
+      const file = snapshot.export_manifest.find((entry) => entry.format === format);
+      return {
+        id: `export-${format}`,
+        title: `Выгрузка в ${format.toUpperCase()}`,
+        status: file?.status === 'ready' && !!file.file_id ? 'passed' : 'not_checked',
+        evidence:
+          file?.status === 'ready' && file.file_id
+            ? 'Файл создан.'
+            : snapshot.mode === 'demo'
+              ? 'Недоступно в демо; файл не создан.'
+              : 'Не создано.',
+        target: { screen: 'materials', hash: 'exports' },
+      };
+    }),
     {
       id: 'russian',
       title: 'Все материалы на русском языке',
@@ -242,9 +277,13 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
     kind === 'bank'
       ? [
           [
-            'Объём ровно 72 ч, календарь на 4 недели',
-            exact('72') && weeks.length === 4 && !open('calendar-unknown') ? 'passed' : 'problem',
-            `${hours(total)}; ${weeks.length} нед. по ${weeks.map((w) => formatHours(w.total.toString())).join(' / ')} ч${open('calendar-unknown') ? '; учебные дни и нагрузка не подтверждены' : ''}.`,
+            `Подтверждённый объём ${requirements.total_hours} ч, календарь на ${Math.ceil(requirements.calendar.calendar_days / 7)} недели`,
+            exact(requirements.total_hours) &&
+            requirements.calendar.calendar_days > 0 &&
+            !open('calendar-unknown')
+              ? 'passed'
+              : 'problem',
+            `${hours(total)}; ${Math.ceil(requirements.calendar.calendar_days / 7)} нед. ${weeks.length ? `Нагрузка по расписанию: ${weeks.map((w) => formatHours(w.total.toString())).join(' / ')} ч.` : 'Расписание не составлено; недельная нагрузка не назначена.'}${open('calendar-unknown') ? ' Учебные дни и нагрузка не подтверждены.' : ''}`,
             toIssue('calendar-unknown', { screen: 'plan', hash: 'calendar' }),
           ],
           [
@@ -309,7 +348,8 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
               '8 занятий по 2 ч, укладываются в 4 недели',
               skeleton.topics.length === 8 &&
               skeleton.topics.every((t) => new Decimal(t.planned_total).eq(2)) &&
-              weeks.length <= 4
+              skeleton.sessions?.length === 8 &&
+              weeks.length === 4
                 ? 'passed'
                 : 'problem',
               `${skeleton.topics.length} занятий по 2 ч за ${weeks.length} нед.`,
@@ -334,7 +374,7 @@ export function requestChecklist(snapshot: Snapshot): ChecklistItem[] {
                   ? 'passed'
                   : 'problem',
               materials
-                ? '10 вопросов, у каждого ключ и результат.'
+                ? `${snapshot.materials.find((m) => m.id === 'test-final')?.questions.length || 0} вопросов; ключи и связи проверяются отдельно.`
                 : 'Тест создаётся после утверждения программы.',
               { screen: 'materials', hash: '' },
             ],
@@ -591,11 +631,18 @@ function withFindingStatus(snapshot: Snapshot, items: ChecklistItem[]): Checklis
     const decisions = findings.filter((issue) => issue.decision);
     return {
       ...item,
-      status: blocking.length ? 'problem' : decisions.length ? 'passed' : item.status,
+      status: blocking.length ? 'problem' : decisions.length ? 'exception_accepted' : item.status,
+      factual_status: decisions.length ? item.status : undefined,
       evidence: blocking.length
         ? blocking.map((issue) => issue.evidence || issue.message).join(' ')
         : decisions.length
-          ? decisions.map((issue) => `Оставлено как есть: ${issue.decision!.reason}`).join(' ')
+          ? [
+              item.evidence,
+              ...decisions.map(
+                (issue) =>
+                  `${issue.message}. Фактический результат не подтверждён. Принято исключение: ${issue.decision!.reason}. Область: ревизия ${snapshot.skeleton_version}, ${issue.element_id}.`,
+              ),
+            ].join(' ')
           : item.evidence,
     };
   });

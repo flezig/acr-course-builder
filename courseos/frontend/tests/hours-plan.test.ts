@@ -151,12 +151,8 @@ describe('Часы как в образцах АЦР', () => {
       expect(note).not.toContain('не проверено');
       expect(note.length).toBeGreaterThan(40);
     }
-    expect(weeklyLoad(skeleton).map((week) => week.total.toString())).toEqual([
-      '18',
-      '18',
-      '18',
-      '18',
-    ]);
+    expect(weeklyLoad(skeleton)).toEqual([]);
+    expect(skeleton.requirements.calendar.calendar_days).toBe(28);
   });
 
   it('python: 16 ч, практики не меньше 8, восемь занятий по 2 ч за 4 недели', () => {
@@ -297,10 +293,10 @@ describe('Проверка программы — зеркало чек-лист
   });
 
   it.each([
-    ['demo', 'ready', 'unavailable', 'passed'],
-    ['demo', 'unavailable', 'unavailable', 'problem'],
-    ['demo', 'ready', 'failed', 'problem'],
-    ['live', 'ready', 'unavailable', 'problem'],
+    ['demo', 'ready', 'unavailable', 'not_checked'],
+    ['demo', 'unavailable', 'unavailable', 'not_checked'],
+    ['demo', 'ready', 'failed', 'not_checked'],
+    ['live', 'ready', 'unavailable', 'not_checked'],
     ['live', 'ready', 'ready', 'passed'],
   ] as const)(
     'экспорт: %s, JSON %s, DOCX %s → %s',
@@ -315,10 +311,16 @@ describe('Проверка программы — зеркало чек-лист
       snapshot.mode = mode;
       snapshot.export_manifest.find((file) => file.format === 'json')!.status = jsonStatus;
       snapshot.export_manifest.find((file) => file.format === 'docx')!.status = docxStatus;
+      snapshot.export_manifest.find((file) => file.format === 'docx')!.file_id =
+        docxStatus === 'ready' ? 'real-docx-v1' : null;
       const exportCheck = generalRequirements(snapshot).find((item) => item.id === 'exports')!;
       expect(exportCheck.status).toBe(status);
+      expect(generalRequirements(snapshot).find((item) => item.id === 'export-json')!.status).toBe(
+        jsonStatus === 'ready' ? 'passed' : 'not_checked',
+      );
       if (mode === 'demo' && docxStatus === 'unavailable') {
-        expect(exportCheck.evidence).toContain('.docx — не входит в проверку демо');
+        expect(exportCheck.evidence).toContain('Недоступно в демо');
+        expect(exportCheck.status).not.toBe('passed');
       }
     },
   );
@@ -343,7 +345,10 @@ describe('Проверка программы — зеркало чек-лист
       'Решения опираются на достоверные источники',
       'Профстандарт и его код существуют',
       'Реквизиты приказа, ФИО и подписи пустые',
-      'Выгрузка в .docx и JSON',
+      'Выгрузка в .docx',
+      'Выгрузка в JSON',
+      'Выгрузка в PPTX',
+      'Выгрузка в LMS',
       'Все материалы на русском языке',
     ]);
     const request = requestChecklist(snapshot);
@@ -351,7 +356,7 @@ describe('Проверка программы — зеркало чек-лист
     const byTitle = Object.fromEntries(request.map((item) => [item.title, item]));
     expect(byTitle['В начале — вводный блок по основам Python'].status).toBe('passed');
     expect(request.some((item) => /профстандарт/i.test(item.title))).toBe(false);
-    expect(byTitle['Объём ровно 72 ч, календарь на 4 недели']).toMatchObject({
+    expect(byTitle['Подтверждённый объём 72 ч, календарь на 4 недели']).toMatchObject({
       status: 'problem',
       target: { screen: 'plan', hash: 'issue-calendar-unknown' },
     });
