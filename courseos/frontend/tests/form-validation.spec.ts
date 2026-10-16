@@ -120,14 +120,8 @@ test('Source actions validate complete HTTP URLs inline, before adding a source'
 
 test('Material editing validates before saving', async ({ page }) => {
   await pythonCourse(page);
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page
-    .getByRole('checkbox', {
-      name: 'Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту версию.',
-    })
-    .check();
-  await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
+  await page.getByRole('button', { name: 'Утвердить', exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить утверждение', exact: true }).click();
   await page
     .locator('.verdict')
     .getByRole('link', { name: 'Перейти к материалам', exact: true })

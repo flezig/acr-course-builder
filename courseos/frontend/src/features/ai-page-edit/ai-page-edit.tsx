@@ -26,7 +26,7 @@ function editScope(pathname: string, hash: string): EditScope | null {
   if (pathname.endsWith('/materials')) return 'materials';
   if (!pathname.endsWith('/plan')) return null;
   const target = decodeURIComponent(hash.slice(1)).replace(/^fix-/, '').split('~')[0];
-  if (target === 'review' || target === 'approve' || target.startsWith('issue-')) return null;
+  if (target === 'review' || target.startsWith('issue-')) return null;
   if (target === 'calendar') return 'calendar';
   if (
     !target ||

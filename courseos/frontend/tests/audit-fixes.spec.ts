@@ -13,12 +13,10 @@ async function create(page: Page, example: string) {
 }
 async function pythonMaterials(page: Page) {
   const id = await create(page, '^Первые шаги в Python');
-  await page.goto(`/courses/${id}/plan#approve`);
-  await page
-    .getByLabel('Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту версию.')
-    .check();
-  await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
-  await expect(page.locator('.approval-panel')).toContainText('Программа утверждена');
+  await page.goto(`/courses/${id}/plan`);
+  await page.getByRole('button', { name: 'Утвердить', exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить утверждение', exact: true }).click();
+  await expect(page.locator('.approval-action')).toContainText('Программа утверждена');
   await page.goto(`/courses/${id}/materials?material=test-final`);
   await expect(page.locator('#question-1')).toBeVisible({ timeout: 15000 });
   return id;

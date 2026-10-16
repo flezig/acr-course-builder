@@ -21,11 +21,10 @@ test('Course OS: замечания, версии и адаптивность 14
   const planUrl = page.url();
   const status = page.locator('.verdict');
   await expect(status.locator('h2')).toHaveText('Блокируют утверждение: 2');
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeDisabled();
+  await expect(page.locator('.approval-action')).toContainText(
+    'Сначала закройте 2 блокирующих вопроса',
+  );
   await page.getByRole('link', { name: 'О программе', exact: true }).click();
   const measurements = [];
   for (const width of [1440, 1280, 768, 390]) {
@@ -68,9 +67,7 @@ test('Course OS: замечания, версии и адаптивность 14
   await expect(page.locator(`[id="${issueId}"]`)).toBeVisible();
   await expect(page.locator(`[id="${issueId}"]`)).toBeFocused();
   await page.goto(planUrl);
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  // Операция создания уже завершена, поэтому журнал операций в утверждении не показывается.
+  // Операция создания уже завершена, поэтому журнал операций не показывается.
   await expect(page.getByText('Журнал операций', { exact: true })).toHaveCount(0);
   await page.getByRole('link', { name: 'О программе', exact: true }).click();
   await page.locator('.explanation summary').first().click();

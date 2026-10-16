@@ -52,9 +52,8 @@ test('Основания в интерфейсе, JSON и MD относятся 
   await page.getByRole('button', { name: 'Скачать пояснения · MD', exact: true }).click();
   const old = await contents(await oldDownload);
   expect(old).toContain(stored.skeleton_hash);
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page.getByRole('checkbox', { name: /Цель, результаты, часы/ }).check();
-  await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
+  await page.getByRole('button', { name: 'Утвердить', exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить утверждение', exact: true }).click();
   await expect(
     page.locator('.verdict').getByRole('link', { name: 'Перейти к материалам', exact: true }),
   ).toBeVisible({
@@ -78,9 +77,7 @@ test('Основания в интерфейсе, JSON и MD относятся 
   await page.getByRole('button', { name: 'Сохранить изменения', exact: true }).click();
   await expect(page.locator('.save-feedback')).toBeVisible();
   await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await page.getByRole('button', { name: /^Цель и участники/ }).click();
   await page.locator('.rationale-decision-list button').filter({ hasText: /^Цель/ }).click();

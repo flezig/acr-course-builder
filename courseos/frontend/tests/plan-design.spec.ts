@@ -72,11 +72,10 @@ test('Overview, real tabs, contextual correction and responsive layout preserve 
   await expect(page.locator('.calendar-summary')).toContainText('Календарь подтверждён');
   await expect(page.locator('.verdict')).toContainText('Блокирует утверждение: 1');
   await page.screenshot({ path: '../reports/calendar-workspace-1440.png' });
-  await tab(page, 'Решения и утверждение');
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeDisabled();
+  await expect(page.locator('.approval-action')).toContainText(
+    'Сначала закройте 1 блокирующий вопрос',
+  );
   for (const width of [1440, 1280, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     for (const name of ['О программе', 'Учебный план', 'Календарь', 'Решения и утверждение']) {
@@ -119,14 +118,10 @@ test('Block editing restores a draft, saves only the selected block and requires
   await expect(page.locator('.goal-statement')).toContainText(
     'Создать программу с условием и циклом',
   );
-  await tab(page, 'Решения и утверждение');
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
-  ).toBeDisabled();
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page.getByRole('checkbox', { name: /Цель, результаты, часы/ }).check();
-  await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
+  // Сохранённое изменение не утверждает программу: это отдельное действие методиста.
+  await expect(page.locator('.verdict')).toContainText('Можно утверждать');
+  await page.getByRole('button', { name: 'Утвердить', exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить утверждение', exact: true }).click();
   await expect(page.locator('.verdict')).toContainText('Программа утверждена');
   await tab(page, 'О программе');
   await page.getByRole('button', { name: 'Изменить аудиторию и входной уровень' }).click();
@@ -182,24 +177,20 @@ test('Programme states preserve approval, archive restrictions and materials acc
   await expect(page.locator('.verdict')).toContainText('Можно утверждать');
   await capture('no-remarks');
   await page.getByRole('button', { name: 'Редактировать программу', exact: true }).click();
-  await tab(page, 'Решения и утверждение');
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page.getByRole('checkbox', { name: /Цель, результаты, часы/ }).check();
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeDisabled();
+  await expect(page.locator('.approval-action')).toContainText(
+    'Сначала сохраните или закройте редактор',
+  );
   await capture('editing');
   await page.getByRole('button', { name: 'Закрыть редактор', exact: true }).click();
-  await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
+  await page.getByRole('button', { name: 'Утвердить', exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить утверждение', exact: true }).click();
   await expect(page.locator('.verdict')).toContainText('Программа утверждена');
   await expect(
     page.locator('.verdict').getByRole('link', { name: 'Перейти к материалам', exact: true }),
   ).toBeVisible();
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toHaveCount(0);
+  await expect(page.locator('.approval-action')).toContainText('Программа утверждена');
   await capture('approved');
   const planUrl = page.url();
   await page
@@ -223,11 +214,9 @@ test('Programme states preserve approval, archive restrictions and materials acc
   await expect(
     page.getByRole('button', { name: 'Изменить цель обучения', exact: true }),
   ).toBeDisabled();
-  await tab(page, 'Решения и утверждение');
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
-  ).toBeDisabled();
+  // Архивная версия 1 уже утверждена: шапка показывает статус, а не кнопку.
+  await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toHaveCount(0);
+  await expect(page.locator('.approval-action')).toContainText('Программа утверждена');
   await capture('archived');
 });
 

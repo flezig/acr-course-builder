@@ -1227,29 +1227,86 @@ a.text-link,
 .review-issue .button {
   margin-top: 8px;
 }
-.approval-panel .checkbox {
-  margin: 18px 0;
-  max-width: 750px;
+.plan-workspace .heading-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 27px;
+  flex-shrink: 0;
+}
+.plan-workspace .heading-actions .edit-skeleton {
+  margin-top: 0;
+}
+/* Причина неактивности и подтверждение раскрываются под кнопкой и не сдвигают шапку. */
+.approval-action {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 260px;
+}
+.plan-workspace .approval-action > button.primary {
+  min-height: 36px;
+  padding: 8px 16px;
+  font-size: 12px;
 }
 .approval-hint {
   display: block;
-  width: fit-content;
-  margin: 8px 0 0;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--muted);
+  text-align: right;
 }
 a.approval-hint {
   color: var(--theme-amber-ink, #8c661f);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.approval-panel .approval-report {
+.approval-action.approved {
+  min-height: 36px;
+  justify-content: center;
+}
+.approval-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-green-ink, #23744a);
+}
+.approval-action.approved small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.approval-confirm {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(340px, calc(100vw - 32px));
+  padding: 16px;
+  background: var(--theme-paper, #fff);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(25, 35, 50, 0.16);
+}
+.approval-confirm p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.approval-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.approval-records .approval-report {
   display: flex;
   width: fit-content;
-  margin-top: 24px;
 }
 .approval-history {
-  margin: 20px 0 0;
+  margin: 16px 0 0;
   padding: 0;
   list-style: none;
   font-size: 12px;
@@ -1259,6 +1316,7 @@ a.approval-hint {
   font-size: 12px;
   color: var(--muted);
   padding: 0 2px;
+  margin: 0 0 16px;
 }
 .calendar-load {
   margin: 20px 0;
@@ -1405,6 +1463,27 @@ a.approval-hint {
   }
 }
 @media (max-width: 800px) {
+  /* Кнопка утверждения здесь может оказаться посередине строки, поэтому подтверждение
+     привязано ко всему ряду кнопок и занимает его ширину, не выходя за экран. */
+  .plan-workspace .heading-actions {
+    position: relative;
+    margin-top: 0;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .approval-action {
+    position: static;
+    align-items: flex-start;
+    max-width: none;
+  }
+  .approval-hint {
+    text-align: left;
+  }
+  .approval-confirm {
+    left: 0;
+    right: 0;
+    width: auto;
+  }
   .sidebar-collapse {
     display: none;
   }

@@ -39,14 +39,8 @@ async function keepFindings(page: Page) {
   }
 }
 async function approveAndWait(page: Page) {
-  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page
-    .getByRole('checkbox', {
-      name: 'Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту версию.',
-    })
-    .check();
-  await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
+  await page.getByRole('button', { name: 'Утвердить', exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить утверждение', exact: true }).click();
   await expect(
     page.locator('.verdict').getByRole('link', { name: 'Перейти к материалам', exact: true }),
   ).toBeVisible({
@@ -77,7 +71,9 @@ test('Полный путь: уточнения, правка структуры
   await expect(page.locator('.verdict')).toBeVisible();
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await expect(page.locator('.explanation')).toHaveCount(5);
-  await expect(page.locator('.approval-panel > button.primary')).toBeDisabled();
+  // Блокирующих вопросов нет, но программа не утверждена, пока методист не подтвердит это сам.
+  await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeEnabled();
+  await expect(page.locator('.verdict')).toContainText('Можно утверждать');
   await page.getByRole('button', { name: 'Редактировать программу' }).click();
   await page
     .getByRole('textbox', { name: 'Цель', exact: true })
@@ -149,7 +145,7 @@ test('DevOps: подтвердить56дней, увидеть64/32, решит�
   await expect(page.locator('.calendar-problem')).toContainText(
     'Нужно 256 уч. ч., доступно 224 уч. ч. Не хватает 32 уч. ч.',
   );
-  await expect(page.locator('.approval-panel > button.primary')).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeDisabled();
   await page.screenshot({ path: path.join(reports, 'devops-conflict-1440.png') });
   await page.getByRole('radio', { name: 'Продлить календарь', exact: false }).check();
   await page
@@ -157,7 +153,7 @@ test('DevOps: подтвердить56дней, увидеть64/32, решит�
     .check();
   await page.getByRole('button', { name: 'Применить и пересчитать' }).click();
   await expect(page.getByRole('heading', { name: 'Календарь и учебная нагрузка' })).toBeVisible();
-  await expect(page.locator('.approval-panel > button.primary')).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeDisabled();
   await keepFindings(page);
   await approveAndWait(page);
   await page.getByRole('tab', { name: 'Выгрузки', exact: true }).click();

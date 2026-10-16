@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, Pencil, ChevronDown, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Pencil, ChevronDown, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useCommand, useCourse } from '../../entities/course/api/provider';
 import { programVerdict, questionCount } from '../../entities/course/model/rules';
 import { kindLabels } from '../../entities/course/model/presets';
@@ -28,6 +28,7 @@ import {
   Panel,
 } from '../../shared/ui/ui';
 import { ReviewWorkspace } from './review-workspace';
+import { ApprovalAction } from './approval-action';
 import { CalendarPanel } from './calendar-panel';
 import { SkeletonEditor } from './skeleton-editor';
 import { IntentBlockEditor, type IntentBlock } from './intent-block-editor';
@@ -54,13 +55,12 @@ export function PlanPage() {
   const [blockEditing, setBlockEditing] = useState<IntentBlock | null>(null);
   const [saved, setSaved] = useState('');
   const [correction, setCorrection] = useState('');
-  const [approveConfirmed, setApproveConfirmed] = useState(false);
   const hash = decodeURIComponent(location.hash.slice(1));
   const snapshot = query.data?.snapshot;
   const [target, selectedIssueId] = hash.replace(/^fix-/, '').split('~');
   // Учебный план открывается первым: после вердикта методист смотрит часы и покрытие.
   const tab =
-    target === 'review' || target === 'approve' || target.startsWith('issue-')
+    target === 'review' || target.startsWith('issue-')
       ? 'review'
       : target === 'calendar'
         ? 'calendar'
@@ -80,7 +80,6 @@ export function PlanPage() {
       setBlockEditing(null);
     }
   }, [query.data?.is_latest]);
-  useEffect(() => setApproveConfirmed(false), [snapshot?.course_version]);
   useEffect(() => {
     if (
       !snapshot ||
@@ -98,7 +97,7 @@ export function PlanPage() {
         parent.open = true;
         parent = parent.parentElement?.closest('details') || null;
       }
-      const section = ['intent', 'curriculum', 'calendar', 'review', 'approve'].includes(hash);
+      const section = ['intent', 'curriculum', 'calendar', 'review'].includes(hash);
       if (section) return;
       element.scrollIntoView({ block: 'center' });
       if (target.startsWith('issue-')) {
@@ -214,18 +213,26 @@ export function PlanPage() {
             <span>{skeleton.requirements.delivery}</span>
           </div>
         </div>
-        <button
-          className="secondary edit-skeleton"
-          onClick={() => {
-            setCoverageEditTarget(undefined);
-            setEditing(!editing);
-            setSaved('');
-          }}
-          disabled={readonly || !!blockEditing}
-        >
-          <Pencil size={15} />
-          {editing ? 'Редактор открыт' : 'Редактировать программу'}
-        </button>
+        <div className="heading-actions">
+          <button
+            className="secondary edit-skeleton"
+            onClick={() => {
+              setCoverageEditTarget(undefined);
+              setEditing(!editing);
+              setSaved('');
+            }}
+            disabled={readonly || !!blockEditing}
+          >
+            <Pencil size={15} />
+            {editing ? 'Редактор открыт' : 'Редактировать программу'}
+          </button>
+          <ApprovalAction
+            snapshot={snapshot}
+            isLatest={view.is_latest}
+            active={active}
+            editing={editing || !!blockEditing}
+          />
+        </div>
       </header>
       <VerdictBanner snapshot={snapshot} materialsHref={href('materials')} />
       <nav className="plan-nav" aria-label="Разделы программы">
@@ -265,6 +272,19 @@ export function PlanPage() {
           Архив версии {snapshot.course_version}. Доступен просмотр и скачивание; редактирование
           выполняется в актуальной версии.
         </Notice>
+      )}
+      {/* Журнал нужен, только пока операция идёт или упала: тогда он объясняет
+          ожидание и даёт повторить. Завершённая операция методисту ничего не говорит. */}
+      {['queued', 'running', 'failed'].includes(view.job.status) && (
+        <details className="operation-log">
+          <summary>Журнал операций</summary>
+          <JobPanel
+            job={view.job}
+            version={view.latest_version}
+            readonly={!view.is_latest}
+            compact
+          />
+        </details>
       )}
       {saved && (
         <div className="save-feedback" role="status">
@@ -547,7 +567,6 @@ export function PlanPage() {
               isLatest={view.is_latest}
               active={active}
               editing={editing || !!blockEditing}
-              confirmed={approveConfirmed}
               openEditor={() => {
                 if (blockEditing) navigate(`${location.pathname}${location.search}#intent`);
                 requestAnimationFrame(() => {
@@ -561,101 +580,7 @@ export function PlanPage() {
               issuePlace={issuePlace}
               issueHref={issueHref}
               onDecided={setSaved}
-              approval={
-                <>
-                  <Panel
-                    title={`Утверждение версии ${snapshot.skeleton_version}`}
-                    className="approval-panel"
-                  >
-                    {!snapshot.approval_applicable ? (
-                      <label className="checkbox">
-                        <input
-                          type="checkbox"
-                          checked={approveConfirmed}
-                          disabled={verdict.open > 0}
-                          onChange={(event) => setApproveConfirmed(event.target.checked)}
-                        />
-                        Цель, результаты, часы, оценивание и основания проверены. Утверждаю эту
-                        версию.
-                      </label>
-                    ) : (
-                      <Notice tone="success">
-                        Программа утверждена. Материалы создаются по этой программе.
-                      </Notice>
-                    )}
-                    <button
-                      className="primary"
-                      disabled={
-                        !view.is_latest ||
-                        active ||
-                        editing ||
-                        !!blockEditing ||
-                        verdict.open > 0 ||
-                        snapshot.approval_applicable ||
-                        !approveConfirmed ||
-                        command.isPending
-                      }
-                      onClick={() =>
-                        command.mutate({
-                          action: 'approve',
-                          expected_version: snapshot.course_version,
-                          payload: {
-                            skeleton_version: snapshot.skeleton_version,
-                            skeleton_hash: snapshot.skeleton_hash,
-                          },
-                        })
-                      }
-                    >
-                      {command.isPending ? 'Сохраняем утверждение…' : 'Утвердить программу'}
-                      <ArrowRight size={17} />
-                    </button>
-                    {verdict.open > 0 && verdict.first ? (
-                      <Link
-                        className="approval-hint"
-                        to={{ search: location.search, hash: `#issue-${verdict.first.id}` }}
-                      >
-                        Сначала закройте {verdict.open}{' '}
-                        {new Intl.PluralRules('ru').select(verdict.open) === 'one'
-                          ? 'блокирующий вопрос'
-                          : new Intl.PluralRules('ru').select(verdict.open) === 'few'
-                            ? 'блокирующих вопроса'
-                            : 'блокирующих вопросов'}
-                      </Link>
-                    ) : !snapshot.approval_applicable && !approveConfirmed ? (
-                      <p className="approval-hint">Отметьте подтверждение проверки</p>
-                    ) : null}
-                    {editing && <small>Сначала сохраните или закройте редактор.</small>}
-                    <ErrorMessage error={command.error} />
-                    <Link className="button secondary approval-report" to={href('audit')}>
-                      <FileText size={16} aria-hidden="true" />
-                      Отчёт проверки программы
-                    </Link>
-                    {snapshot.approvals.length > 0 && (
-                      <ul className="approval-history" aria-label="История утверждений">
-                        {snapshot.approvals.map((a) => (
-                          <li key={a.approved_at}>
-                            Версия {a.skeleton_version} утверждена ·{' '}
-                            {new Date(a.approved_at).toLocaleString('ru-RU')} · {a.actor_id}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </Panel>
-                  {/* Журнал нужен, только пока операция идёт или упала: тогда он объясняет
-                      ожидание и даёт повторить. Завершённая операция методисту ничего не говорит. */}
-                  {['queued', 'running', 'failed'].includes(view.job.status) && (
-                    <details className="operation-log">
-                      <summary>Журнал операций</summary>
-                      <JobPanel
-                        job={view.job}
-                        version={view.latest_version}
-                        readonly={!view.is_latest}
-                        compact
-                      />
-                    </details>
-                  )}
-                </>
-              }
+              auditHref={href('audit')}
             />
           </div>
         </div>

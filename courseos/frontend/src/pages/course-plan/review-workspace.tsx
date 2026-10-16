@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { FileText } from 'lucide-react';
 import type { Snapshot } from '../../entities/course/model/schema';
 import { programVerdict, questionCount } from '../../entities/course/model/rules';
 import { Panel } from '../../shared/ui/ui';
@@ -7,19 +8,18 @@ import { RationalePanel } from './rationale-panel';
 import { DecisionQueue } from './decision-queue';
 import './review-workspace.css';
 
-type Section = 'issues' | 'rationale' | 'approval';
+type Section = 'issues' | 'rationale';
 type Context = { section: Section };
-const sections: Section[] = ['issues', 'rationale', 'approval'];
+const sections: Section[] = ['issues', 'rationale'];
 
 export function ReviewWorkspace({
   snapshot,
   target,
   visible,
-  approval,
+  auditHref,
   isLatest,
   active,
   editing,
-  confirmed,
   openEditor,
   issuePlace,
   issueHref,
@@ -28,11 +28,10 @@ export function ReviewWorkspace({
   snapshot: Snapshot;
   target: string;
   visible: boolean;
-  approval: ReactNode;
+  auditHref: string;
   isLatest: boolean;
   active: boolean;
   editing: boolean;
-  confirmed: boolean;
   openEditor: () => void;
   issuePlace: (id: string) => string;
   issueHref: (id: string, issueId: string) => string;
@@ -49,7 +48,7 @@ export function ReviewWorkspace({
     } catch {
       /* A storage restriction must not prevent review. */
     }
-    return { section: verdict.open ? 'issues' : 'approval' };
+    return { section: 'issues' };
   });
   const section = context.section;
   const selectSection = (section: Section) => setContext((previous) => ({ ...previous, section }));
@@ -62,22 +61,10 @@ export function ReviewWorkspace({
   }, [storageKey, context]);
   useEffect(() => {
     if (!visible) return;
-    if (target === 'approve') setContext({ section: 'approval' });
-    // Пока есть нерешённые вопросы, вкладка открывается на очереди, а не на утверждении.
-    else if (target === 'review' && verdict.open && section === 'approval')
+    if (target.startsWith('issue-') && issues.some((issue) => `issue-${issue.id}` === target))
       setContext({ section: 'issues' });
-    else if (target.startsWith('issue-') && issues.some((issue) => `issue-${issue.id}` === target))
-      setContext({ section: 'issues' });
-  }, [target, visible, verdict.open]);
-  const openSection = (section: Section) => {
-    selectSection(section);
-    requestAnimationFrame(() => {
-      const panel = document.getElementById(`review-${section}`);
-      panel?.scrollIntoView({ block: 'start' });
-      panel?.focus({ preventScroll: true });
-    });
-  };
-  // Главное действие (к вопросу, утверждению или материалам) живёт в баннере над вкладками.
+  }, [target, visible]);
+  // Утверждение — в шапке страницы, переход к вопросу или материалам — в баннере над вкладками.
   // Здесь только то, что мешает работать с проверкой прямо сейчас.
   const reason = !isLatest
     ? 'Архивная версия: утверждение доступно в актуальной версии.'
@@ -86,7 +73,7 @@ export function ReviewWorkspace({
       : editing
         ? 'Сначала сохраните или закройте редактор.'
         : '';
-  const labels = [`Решения · ${verdict.open}`, 'Обоснования', 'Утверждение'];
+  const labels = [`Решения · ${verdict.open}`, 'Обоснования'];
   return (
     <div className="review-workspace">
       <section className="review-summary" aria-label="Состояние программы">
@@ -115,14 +102,11 @@ export function ReviewWorkspace({
                 <button
                   className="link-button"
                   onClick={() => {
-                    openSection('approval');
-                    requestAnimationFrame(() => {
-                      const log = document.querySelector<HTMLDetailsElement>('.operation-log');
-                      if (log) {
-                        log.open = true;
-                        log.querySelector('summary')?.focus();
-                      }
-                    });
+                    const log = document.querySelector<HTMLDetailsElement>('.operation-log');
+                    if (!log) return;
+                    log.open = true;
+                    log.scrollIntoView({ block: 'start' });
+                    log.querySelector('summary')?.focus({ preventScroll: true });
                   }}
                 >
                   К текущей операции
@@ -144,13 +128,13 @@ export function ReviewWorkspace({
             const current = sections.indexOf(section);
             const next =
               event.key === 'ArrowRight'
-                ? (current + 1) % 3
+                ? (current + 1) % sections.length
                 : event.key === 'ArrowLeft'
-                  ? (current + 2) % 3
+                  ? (current + sections.length - 1) % sections.length
                   : event.key === 'Home'
                     ? 0
                     : event.key === 'End'
-                      ? 2
+                      ? sections.length - 1
                       : -1;
             if (next < 0) return;
             event.preventDefault();
@@ -203,15 +187,24 @@ export function ReviewWorkspace({
         hidden={section !== 'rationale'}
       >
         <RationalePanel snapshot={snapshot} />
-      </section>
-      <section
-        id="review-approval"
-        role="tabpanel"
-        aria-labelledby="review-tab-approval"
-        tabIndex={0}
-        hidden={section !== 'approval'}
-      >
-        {approval}
+        <Panel title="Проверка и утверждения" className="approval-records">
+          <Link className="button secondary approval-report" to={auditHref}>
+            <FileText size={16} aria-hidden="true" />
+            Отчёт проверки программы
+          </Link>
+          {snapshot.approvals.length > 0 ? (
+            <ul className="approval-history" aria-label="История утверждений">
+              {snapshot.approvals.map((approval) => (
+                <li key={approval.approved_at}>
+                  Версия {approval.skeleton_version} утверждена ·{' '}
+                  {new Date(approval.approved_at).toLocaleString('ru-RU')} · {approval.actor_id}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="approval-history">Программа ещё не утверждалась.</p>
+          )}
+        </Panel>
       </section>
     </div>
   );

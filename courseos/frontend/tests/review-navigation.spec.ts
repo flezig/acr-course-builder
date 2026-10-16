@@ -49,11 +49,11 @@ test('Decision queue: verdict counts, keyboard tabs, open place and keep with re
   await expect(page.getByRole('tab', { name: 'Обоснования', exact: true })).toBeFocused();
   await expect(page.locator('.rationale-decision-list')).toBeVisible();
   await expect(page.locator('.review-panel')).toBeHidden();
+  await page.keyboard.press('Home');
+  await expect(page.getByRole('tab', { name: /^Решения/ })).toBeFocused();
   await page.keyboard.press('End');
-  await expect(page.getByRole('tab', { name: 'Утверждение', exact: true })).toBeFocused();
-  await expect(
-    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('tab', { name: 'Обоснования', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeDisabled();
   await page.keyboard.press('Home');
   const first = page.locator('.decision-item').first();
   await expect(first).toContainText('Доказательство');
@@ -96,26 +96,33 @@ test('No remarks, explicit approval, rationale filters and archived restrictions
   });
   await page.reload();
   await expect(page.locator('.verdict')).toContainText('Можно утверждать');
-  await expect(page.getByRole('tab', { name: 'Утверждение', exact: true })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
-  await expect(
-    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
-  ).toBeDisabled();
+  const approve = page.getByRole('button', { name: 'Утвердить', exact: true });
+  await expect(approve).toBeEnabled();
+  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await page.getByLabel('Найти пояснение').fill('План');
   await expect(page.locator('.rationale-decision-list button').first()).toBeVisible();
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await page.getByRole('checkbox', { name: /Цель, результаты, часы/ }).check();
+  await expect(page.locator('.approval-records')).toContainText('Программа ещё не утверждалась.');
+  // Первое нажатие только раскрывает подтверждение; Escape закрывает его без утверждения.
+  await approve.click();
+  const confirm = page.getByRole('button', { name: 'Подтвердить утверждение', exact: true });
+  await expect(confirm).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(confirm).toHaveCount(0);
+  await expect(approve).toBeFocused();
   await expect(page.locator('.verdict')).toContainText('Можно утверждать');
-  await page.getByRole('button', { name: 'Утвердить программу', exact: true }).click();
+  await approve.click();
+  await confirm.click();
   await expect(page.locator('.verdict')).toContainText('Программа утверждена');
   await expect(
     page.locator('.verdict').getByRole('link', { name: 'Перейти к материалам', exact: true }),
   ).toBeVisible();
+  await expect(page.locator('.approval-action')).toContainText('Программа утверждена');
   await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
   await expect(page.getByLabel('Найти пояснение')).toHaveValue('План');
+  await expect(page.getByRole('list', { name: 'История утверждений' })).toContainText(
+    'Версия 1 утверждена',
+  );
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Скачать пояснения · MD', exact: true }).click();
   expect((await download).suggestedFilename()).toMatch(/rationale.md$/);
@@ -127,10 +134,9 @@ test('No remarks, explicit approval, rationale filters and archived restrictions
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await page.goto(`/courses/${id}/plan?version=1#review`);
   await expect(page.getByRole('link', { name: 'К актуальной версии', exact: true })).toBeVisible();
-  await page.getByRole('tab', { name: 'Утверждение', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Утвердить программу', exact: true }),
-  ).toBeDisabled();
+  // Архивная версия 1 уже утверждена: шапка показывает статус, а не кнопку.
+  await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toHaveCount(0);
+  await expect(page.locator('.approval-action')).toContainText('Программа утверждена');
 });
 
 test('Mobile queue, return focus, sticky actions and no horizontal overflow', async ({ page }) => {

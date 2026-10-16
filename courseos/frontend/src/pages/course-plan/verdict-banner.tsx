@@ -4,7 +4,8 @@ import type { Snapshot } from '../../entities/course/model/schema';
 import { programVerdict, questionCount } from '../../entities/course/model/rules';
 
 // Вердикт наверху карточки программы. Отвечает на вопрос «можно ли утверждать сейчас»
-// и ведёт к первому нерешённому вопросу очереди.
+// и ведёт к первому нерешённому вопросу очереди. Саму кнопку утверждения баннер
+// не дублирует: она в шапке страницы.
 export function VerdictBanner({
   snapshot,
   materialsHref,
@@ -19,7 +20,7 @@ export function VerdictBanner({
     verdict.kind === 'approved'
       ? { label: 'Перейти к материалам', to: materialsHref }
       : verdict.kind === 'ready'
-        ? { label: 'Перейти к утверждению', to: { search, hash: '#approve' } }
+        ? null
         : { label: 'К первому вопросу', to: { search, hash: `#issue-${verdict.first!.id}` } };
   return (
     <section className={`verdict verdict-${verdict.kind}`} aria-label="Решение по программе">
@@ -33,7 +34,7 @@ export function VerdictBanner({
         </h2>
         {verdict.kind === 'ready' && (
           <p className="verdict-evidence">
-            Блокирующих вопросов нет. Утверждение остаётся решением методиста.
+            Блокирующих вопросов нет. Утвердите программу кнопкой «Утвердить» вверху страницы.
           </p>
         )}
         {open.length > 0 && (
@@ -61,10 +62,12 @@ export function VerdictBanner({
           </ol>
         )}
       </div>
-      <Link className="button primary" to={action.to}>
-        {action.label}
-        <ArrowRight size={16} />
-      </Link>
+      {action && (
+        <Link className="button primary" to={action.to}>
+          {action.label}
+          <ArrowRight size={16} />
+        </Link>
+      )}
     </section>
   );
 }
