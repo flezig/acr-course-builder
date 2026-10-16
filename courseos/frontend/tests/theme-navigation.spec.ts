@@ -1,6 +1,35 @@
 import { test, expect } from '@playwright/test';
 import { editDraft } from './create-draft';
 
+test('шапка проверки помещается в окно с обеими темами', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Первые шаги в Python/ }).click();
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await expect(page.locator('.verdict')).toBeVisible();
+  await page.getByRole('link', { name: 'Проверка программы', exact: true }).click();
+  const heading = page.locator('.heading-action');
+  await expect(heading.getByRole('heading', { name: 'Проверка программы' })).toBeVisible();
+  for (const theme of ['light', 'dark']) {
+    if (theme === 'dark') await page.getByRole('button', { name: 'Включить тёмную тему' }).click();
+    for (const width of [1920, 1440, 1280, 1024, 820, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+        `${theme}, ${width} px: страница не должна расширять окно`,
+      ).toBeLessThanOrEqual(width);
+      for (const action of [
+        heading.getByRole('button', { name: 'Повторить проверку' }),
+        heading.getByRole('link', { name: 'Материалы и выгрузки' }),
+      ]) {
+        await expect(action).toBeVisible();
+        const bounds = await action.boundingBox();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+      }
+    }
+  }
+});
+
 test('navigation fits laptop and phone heights; theme survives reload and navigation', async ({
   page,
 }) => {
@@ -56,7 +85,7 @@ test('navigation fits laptop and phone heights; theme survives reload and naviga
     const background = await page
       .locator('.sidebar')
       .evaluate((element) => getComputedStyle(element).backgroundColor);
-    expect(background).toBe('rgb(16, 16, 16)');
+    expect(background).toBe('rgb(16, 22, 34)');
   }
   await page.getByRole('button', { name: 'Включить светлую тему' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');

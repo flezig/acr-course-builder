@@ -86,8 +86,8 @@
   font-size: 17px;
 }
 :root[data-theme='dark'] .sign-in-submit {
-  background: #ededed;
-  color: #101010;
+  background: var(--theme-control);
+  color: var(--theme-control-ink);
 }
 .sign-in-status {
   margin: 0;

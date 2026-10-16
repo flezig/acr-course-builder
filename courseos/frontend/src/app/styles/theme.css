@@ -1,28 +1,123 @@
-/* Legacy colours keep their light fallback; these shared tones cover every screen. */
 :root {
   color-scheme: light;
+  --theme-control: #283b60;
+  --theme-control-ink: #ffffff;
+  --theme-control-border: #7c8aa3;
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --theme-paper: #101010;
-  --theme-subtle: #181818;
-  --theme-raised: #222222;
-  --theme-line: #383838;
-  --theme-dim: #919191;
-  --theme-muted: #b0b0b0;
-  --theme-foreground: #ededed;
-  --theme-border: #303030;
-  --theme-border-strong: #777777;
-  --theme-blue-surface: #192333;
-  --theme-blue-ink: #a8c7fa;
-  --theme-green-surface: #182a22;
-  --theme-green-ink: #9fd3b4;
-  --theme-amber-surface: #302619;
-  --theme-amber-ink: #e6bf84;
-  --theme-red-surface: #321f20;
-  --theme-red-ink: #efaaaa;
-  --theme-purple-surface: #2a2034;
-  --theme-purple-ink: #cfb3ef;
+  --theme-paper: #171e2c;
+  --theme-subtle: #111722;
+  --theme-raised: #232e40;
+  --theme-line: #3b485f;
+  --theme-dim: #8795ae;
+  --theme-muted: #a4b0c4;
+  --theme-foreground: #e9eef9;
+  --theme-border: rgba(161, 180, 217, 0.16);
+  --theme-border-strong: #8fa9e7;
+  --theme-blue-surface: #1d304e;
+  --theme-blue-ink: #b4cdff;
+  --theme-green-surface: #172f2b;
+  --theme-green-ink: #94d5b5;
+  --theme-amber-surface: #342b1d;
+  --theme-amber-ink: #ebc58d;
+  --theme-red-surface: #362329;
+  --theme-red-ink: #f2adb2;
+  --theme-purple-surface: #2c263f;
+  --theme-purple-ink: #cdbbf2;
+  --theme-control: #bbcdff;
+  --theme-control-ink: #131b2e;
+  --theme-control-border: #71819e;
+  --page-gradient:
+    radial-gradient(ellipse at 85% 0%, #1b2c49 0%, transparent 55%),
+    linear-gradient(155deg, #111722, #0e1420);
+  --glass-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+}
+:root[data-theme='dark'] .app-shell,
+:root[data-theme='dark'] .main-shell {
+  background: var(--page-gradient) fixed;
+}
+:root[data-theme='dark'] .plan-shell {
+  --page-gradient: inherit;
+}
+:root[data-theme='dark'] .app-shell .sidebar {
+  background: #101622;
+}
+:root[data-theme='dark'] .topbar {
+  background: #111827;
+}
+:root[data-theme='dark'] .panel,
+:root[data-theme='dark'] .verdict {
+  background: linear-gradient(145deg, #1b2535, var(--theme-paper) 65%);
+  border-radius: 24px;
+  box-shadow: var(--glass-shadow);
+}
+:root[data-theme='dark'] .plan-workspace .panel {
+  border-radius: 20px;
+  box-shadow: var(--glass-shadow);
+}
+:root[data-theme='dark'] :is(button, .button) {
+  border-radius: 12px;
+}
+:root[data-theme='dark'] :is(button.primary, .button.primary) {
+  background: var(--theme-control);
+  border-color: var(--theme-control);
+  color: var(--theme-control-ink);
+}
+:root[data-theme='dark'] :is(button.primary, .button.primary):hover:not(:disabled) {
+  background: #d0ddff;
+  border-color: #d0ddff;
+}
+:root[data-theme='dark'] .sidebar .nav-item.active {
+  background: var(--theme-blue-surface);
+  color: var(--theme-blue-ink);
+}
+:root[data-theme='dark'] .sidebar .nav-item.active::before {
+  background: var(--theme-blue-ink);
+}
+:root[data-theme='dark'] .theme-toggle {
+  background: var(--theme-raised);
+  color: var(--theme-amber-ink);
+}
+:root[data-theme='dark'] .example-grid .example {
+  border-radius: 16px;
+}
+:root[data-theme='dark'] .example-grid .example.selected {
+  background: var(--theme-blue-surface);
+  border-color: var(--theme-control-border);
+}
+:root[data-theme='dark'] .create-heading::after {
+  border-color: var(--theme-control-border);
+  opacity: 0.35;
+}
+:root[data-theme='dark'] :is(input:not([type='checkbox']):not([type='radio']), textarea, select) {
+  background-color: var(--theme-subtle);
+}
+:root[data-theme='dark'] :is(.badge.green, .notice.success) {
+  background: var(--theme-green-surface);
+  color: var(--theme-green-ink);
+}
+:root[data-theme='dark'] .badge.amber {
+  background: var(--theme-amber-surface);
+  color: var(--theme-amber-ink);
+}
+:root[data-theme='dark'] .badge.red {
+  background: var(--theme-red-surface);
+  color: var(--theme-red-ink);
+}
+:root[data-theme='dark'] .results-workspace .map-card {
+  border-radius: 16px;
+}
+:root[data-theme='dark'] .results-workspace .map-card.selected {
+  background: var(--theme-blue-surface);
+  border-color: var(--theme-blue-ink);
+}
+:root[data-theme='dark'] .tabs button {
+  border-radius: 999px;
+}
+:root[data-theme='dark'] .tabs button.active {
+  background: var(--theme-raised);
+  color: var(--theme-blue-ink);
 }
 .theme-toggle {
   width: 34px;
@@ -38,9 +133,9 @@
   mix-blend-mode: screen;
 }
 :root[data-theme='dark'] .results-workspace {
-  --map-selection: #a8c7fa;
-  --map-selection-bg: #192333;
-  --map-warning: #e6bf84;
+  --map-selection: var(--theme-blue-ink);
+  --map-selection-bg: var(--theme-blue-surface);
+  --map-warning: var(--theme-amber-ink);
 }
 :root[data-theme='dark'] .value-strip {
   background: var(--theme-subtle);
@@ -110,6 +205,71 @@
 }
 :root:not([data-theme='dark']) :is(textarea, input, select) {
   border-radius: 20px;
+}
+
+/* Сохраняем нативный input: клавиатура, label и отправка формы работают как раньше. */
+:root input[type='checkbox'] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1.5px solid var(--theme-control-border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--theme-control-ink);
+  vertical-align: text-top;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+:root input[type='checkbox']::before {
+  content: '';
+  width: 5px;
+  height: 9px;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg);
+  opacity: 0;
+}
+:root input[type='checkbox']:hover:not(:disabled) {
+  border-color: var(--theme-control);
+}
+:root input[type='checkbox']:is(:checked, :indeterminate) {
+  background: var(--theme-control);
+  border-color: var(--theme-control);
+}
+:root input[type='checkbox']:is(:checked, :indeterminate)::before {
+  opacity: 1;
+}
+:root input[type='checkbox']:indeterminate::before {
+  width: 8px;
+  height: 0;
+  border-width: 2px 0 0;
+  transform: none;
+}
+:root input[type='checkbox']:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.checkbox {
+  gap: 10px;
+  line-height: 1.6;
+  cursor: pointer;
+}
+.checkbox input {
+  margin: 2px 0 0;
+}
+@media (forced-colors: active) {
+  :root input[type='checkbox'] {
+    appearance: auto;
+  }
+  :root input[type='checkbox']::before {
+    content: none;
+  }
 }
 /* Карточки примеров тоже кнопки, но многострочные: капсула для них ломает форму. */
 :root:not([data-theme='dark']) .example-grid .example {

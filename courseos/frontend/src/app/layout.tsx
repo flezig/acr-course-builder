@@ -62,7 +62,7 @@ function LayoutContent() {
     document.documentElement.dataset.theme = theme;
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'dark' ? '#101010' : '#ffffff');
+      ?.setAttribute('content', theme === 'dark' ? '#111827' : '#ffffff');
     try {
       localStorage.setItem('courseos-theme', theme);
     } catch {
