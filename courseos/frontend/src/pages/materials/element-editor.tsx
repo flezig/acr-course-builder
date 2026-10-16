@@ -7,7 +7,7 @@ import type {
 } from '../../entities/course/model/schema';
 import { changeInputSchema } from '../../entities/course/model/schema';
 import { useCommand } from '../../entities/course/api/provider';
-import { ErrorMessage, Field, Notice } from '../../shared/ui/ui';
+import { ErrorMessage, Field, Form, Notice } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 
 function readable(value: string): string {
@@ -120,7 +120,7 @@ export function ElementEditor({
           Версия изменилась. Черновик сохранён; применение к старой версии будет отклонено.
         </Notice>
       )}
-      <form
+      <Form
         onSubmit={async (event) => {
           event.preventDefault();
           setError(null);
@@ -261,7 +261,7 @@ export function ElementEditor({
         <button type="button" onClick={() => setOpen(false)}>
           Закрыть редактор
         </button>
-      </form>
+      </Form>
       {plan && (
         <section className="edit-preview" aria-label="Предпросмотр правки">
           <h4>Что изменится</h4>
@@ -280,8 +280,8 @@ export function ElementEditor({
           ))}
           <Notice>
             {plan.requires_approval
-              ? 'Меняются требования оценивания или связи с результатами. Потребуется повторное утверждение каркаса.'
-              : 'Основа программы сохраняется. Повторное утверждение каркаса не требуется; правка записывается в новую версию.'}{' '}
+              ? 'Меняются требования оценивания или связи с результатами. Потребуется повторное утверждение структуры программы.'
+              : 'Основа программы сохраняется. Повторное утверждение структуры программы не требуется; правка записывается в новую версию.'}{' '}
             Другие материалы и их ручные правки сохраняются. Этот элемент будет защищён как ручная
             правка.
           </Notice>

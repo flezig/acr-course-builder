@@ -202,7 +202,7 @@ export function MapLinkEditor({
             ))}
             {!options.length && (
               <p className="map-link-empty">
-                В каркасе пока нет объектов этого типа. Добавьте их в редакторе каркаса.
+                В программе пока нет объектов этого типа. Добавьте их в редакторе программы.
               </p>
             )}
           </div>
@@ -244,7 +244,7 @@ export function MapLinkEditor({
           </button>
           {!options.length && edit && (
             <button type="button" onClick={edit}>
-              Открыть редактор каркаса
+              Открыть редактор программы
             </button>
           )}
           <button className="primary" type="submit" disabled={command.isPending || !changes.length}>

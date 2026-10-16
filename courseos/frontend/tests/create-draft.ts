@@ -1,7 +1,6 @@
 import type { Page } from '@playwright/test';
 
-// В форме создания осталось только поле запроса. Остальные параметры тесты
-// задают через сохранённый черновик, который форма читает при загрузке.
+// Готовим черновик до загрузки формы, затем явно подтверждаем его параметры в деморежиме.
 export async function editDraft(page: Page, patch: (draft: Record<string, any>) => void) {
   const request = page.getByLabel('Запрос методиста');
   await request.fill(await request.inputValue());
@@ -12,4 +11,7 @@ export async function editDraft(page: Page, patch: (draft: Record<string, any>) 
   patch(draft);
   await page.evaluate(([k, v]) => localStorage.setItem(k!, v!), [key, JSON.stringify(draft)]);
   await page.reload();
+  await page
+    .getByRole('checkbox', { name: 'Подтверждаю параметры изменённого запроса вручную' })
+    .check();
 }

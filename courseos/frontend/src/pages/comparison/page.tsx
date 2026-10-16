@@ -120,7 +120,7 @@ export function ComparisonPage() {
     ? 'Утверждение применимо'
     : after.approvals.length
       ? 'Нужно новое утверждение'
-      : 'Каркас ещё не утверждён';
+      : 'Структура программы ещё не утверждена';
   const skeletonFields = [
     ['requirements', 'Требования'],
     ['goal', 'Цель'],
@@ -369,7 +369,7 @@ export function ComparisonPage() {
 
         <details open={skeletonChanged}>
           <summary>
-            Каркас и основания
+            Структура программы и основания
             <span className={`compare-count ${skeletonChanged ? 'warn' : 'ok'}`}>
               {skeletonChanged
                 ? `${skeletonChanges.length} ${plural(skeletonChanges.length, ['раздел', 'раздела', 'разделов'])}`
@@ -403,7 +403,7 @@ export function ComparisonPage() {
               утверждения; обновление материалов выполняется после него.
             </Notice>
           ) : (
-            <p className="compare-empty">Каркас и требования не изменились.</p>
+            <p className="compare-empty">Структура программы и требования не изменились.</p>
           )}
         </details>
 

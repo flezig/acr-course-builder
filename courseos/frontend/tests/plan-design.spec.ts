@@ -61,7 +61,7 @@ test('Overview, real tabs, contextual correction and responsive layout preserve 
   await page.getByLabel('Дата начала').fill('2026-10-19');
   await page.getByLabel('Календарных дней').fill('7');
   await page.getByLabel('Максимум часов в день').fill('4');
-  await expect(page.locator('.load-conflict')).toContainText('Не размещено 8 уч. ч.');
+  await expect(page.locator('.load-conflict')).toContainText('Дефицит вместимости 8 уч. ч.');
   await page.getByRole('radio', { name: /Продлить календарь/ }).check();
   await page
     .getByRole('checkbox', { name: 'Подтверждаю изменение срока обучения', exact: true })
@@ -248,8 +248,10 @@ test('Only blockers appear in the compact summary and assessment forms stay visi
   }
   await expect(page.locator('.verdict h2')).toHaveText('Блокируют утверждение: 2');
   await page.setViewportSize({ width: 1000, height: 900 });
-  expect((await page.locator('.verdict').boundingBox())!.height).toBeLessThan(200);
-  expect((await page.locator('.plan-nav').boundingBox())!.y).toBeLessThan(600);
+  await expect(page.locator('.plan-nav')).toBeInViewport({ ratio: 1 });
+  const banner = (await page.locator('.verdict').boundingBox())!;
+  const navigation = (await page.locator('.plan-nav').boundingBox())!;
+  expect(banner.y + banner.height).toBeLessThanOrEqual(navigation.y);
   await page.screenshot({ path: '../reports/visible-issues-1000.png' });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

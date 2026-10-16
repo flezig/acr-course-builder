@@ -23,7 +23,11 @@ export function MaterialsPage() {
       }
     : null;
   if (!snapshot)
-    return <Empty title="Материалы пока недоступны">Завершите уточнения и утвердите каркас.</Empty>;
+    return (
+      <Empty title="Материалы пока недоступны">
+        Завершите уточнения и утвердите структуру программы.
+      </Empty>
+    );
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(search);
     next.set(key, value);
@@ -118,8 +122,12 @@ export function MaterialsPage() {
           <StoragePanel snapshot={snapshot} versions={view.versions} />
         </>
       ) : !snapshot.materials.length ? (
-        <Empty title={active ? 'Создаются материалы по модулям' : 'Сначала утвердите каркас'}>
-          <Link to={`/courses/${snapshot.course_id}/plan`}>Перейти к каркасу →</Link>
+        <Empty
+          title={
+            active ? 'Создаются материалы по модулям' : 'Сначала утвердите структуру программы'
+          }
+        >
+          <Link to={`/courses/${snapshot.course_id}/plan`}>Перейти к программе →</Link>
         </Empty>
       ) : (
         <div className="materials-layout">

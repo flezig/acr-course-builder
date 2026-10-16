@@ -124,8 +124,8 @@ export function PlanPage() {
         {view.questions.length > 0 ? (
           <Clarifications view={view} />
         ) : (
-          <Empty title="Готовим каркас">
-            Параметры сохранены. Содержание появится после построения каркаса.
+          <Empty title="Готовим программу">
+            Параметры сохранены. Содержание появится после построения программы.
           </Empty>
         )}
       </>
@@ -842,7 +842,7 @@ function Clarifications({ view }: { view: CourseView }) {
   return (
     <Panel
       title={`Уточните ${view.questions.length} параметров`}
-      subtitle="Уже известные сведения сохраняются. До ответов каркас и материалы не создаются."
+      subtitle="Уже известные сведения сохраняются. До ответов структура программы и материалы не создаются."
     >
       <Form
         errors={form.formState.errors}
@@ -885,7 +885,7 @@ function Clarifications({ view }: { view: CourseView }) {
         </Notice>
         <ErrorMessage error={command.error} />
         <button className="primary" type="submit" disabled={command.isPending}>
-          Сохранить ответы и построить каркас
+          Сохранить ответы и построить программу
           <ArrowRight size={17} />
         </button>
       </Form>

@@ -4,7 +4,7 @@ import type { Requirements } from '../../entities/course/model/schema';
 import { useApi } from '../../entities/course/api/provider';
 import { referenceUrlError, userReference } from '../../entities/course/model/user-reference';
 import { contentHash } from '../../shared/lib/decimal';
-import { Badge, ErrorMessage, Field, Notice, statuses } from '../../shared/ui/ui';
+import { Badge, ErrorMessage, Field, statuses } from '../../shared/ui/ui';
 export function ReferenceEditor({
   references,
   onChange,
@@ -28,10 +28,7 @@ export function ReferenceEditor({
   const textError =
     attempted && !text.trim() && !url.trim() ? 'Вставьте текст или ссылку.' : undefined;
   const [pending, setPending] = useState(false);
-  const [coordinate, setCoordinate] = useState('');
-  const [claim, setClaim] = useState('');
-  const [read, setRead] = useState(false);
-  const [contentConfirmed, setContentConfirmed] = useState(false);
+  const [textVerified, setTextVerified] = useState(false);
   const add = async () => {
     setError(null);
     setAttempted(true);
@@ -48,23 +45,18 @@ export function ReferenceEditor({
       text,
       url: url.trim(),
     });
-    source.coordinate = coordinate || source.coordinate;
-    source.claim = claim || source.claim;
-    source.checked_at = read && text ? new Date().toISOString() : '';
+    source.checked_at = textVerified && text.trim() ? new Date().toISOString() : '';
     source.hash = await contentHash({ text, url: source.url });
-    if (source.provenance) {
-      if (text && read) source.provenance.access = 'read';
-      if (text && read && contentConfirmed) source.provenance.content = 'confirmed';
+    if (source.provenance && text.trim() && textVerified) {
+      source.provenance.access = 'read';
+      source.provenance.content = 'confirmed';
     }
     onChange([...references, source]);
     setAttempted(false);
     setText('');
     setUrl('');
     setName('');
-    setCoordinate('');
-    setClaim('');
-    setRead(false);
-    setContentConfirmed(false);
+    setTextVerified(false);
   };
   const retrieve = async () => {
     if (!courseId || !url) return;
@@ -144,46 +136,23 @@ export function ReferenceEditor({
         <textarea
           ref={textRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            setTextVerified(false);
+          }}
           rows={3}
           placeholder="Вставьте фрагмент, на который должна опираться программа"
         />
       </Field>
-      <details>
-        <summary>Происхождение и проверка фрагмента</summary>
-        <Field label="Координаты в оригинале">
-          <input
-            value={coordinate}
-            onChange={(e) => setCoordinate(e.target.value)}
-            placeholder="Страница, раздел, абзац"
-          />
-        </Field>
-        <Field label="Какое утверждение поддерживает фрагмент">
-          <textarea value={claim} onChange={(e) => setClaim(e.target.value)} />
-        </Field>
-        <label>
-          <input
-            type="checkbox"
-            checked={read}
-            disabled={!text.trim()}
-            onChange={(e) => setRead(e.target.checked)}
-          />
-          Я прочитал сохранённый фрагмент
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={contentConfirmed}
-            disabled={!text.trim() || !read}
-            onChange={(e) => setContentConfirmed(e.target.checked)}
-          />
-          Содержание фрагмента подтверждено мной
-        </label>
-        <p>
-          Эти отметки не подтверждают применимость к конкретному решению. Она сохраняется отдельно в
-          основаниях программы.
-        </p>
-      </details>
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={textVerified}
+          disabled={!text.trim()}
+          onChange={(e) => setTextVerified(e.target.checked)}
+        />
+        Текст сверен с оригиналом
+      </label>
       <div className="actions">
         <button type="button" onClick={() => void add()}>
           <FileText size={16} /> Добавить источник
@@ -207,10 +176,11 @@ export function ReferenceEditor({
             {source.coordinate} · {source.scope}
           </p>
           <p>
-            Происхождение: {source.provenance?.origin || 'не установлено (старая запись)'}. Доступ:{' '}
-            {source.provenance?.access || 'не установлен'}. Содержание:{' '}
-            {source.provenance?.content || 'не проверено'}. Объём:{' '}
-            {source.provenance?.extent || 'не установлен'}.
+            {!source.text.trim()
+              ? 'Текст источника не получен.'
+              : source.provenance?.access === 'read' && source.provenance.content === 'confirmed'
+                ? 'Текст сверен с оригиналом.'
+                : 'Текст ещё не сверен с оригиналом.'}
           </p>
           <pre>
             {source.text || 'Текст не получен. Регистрация ссылки не подтверждает её содержание.'}
@@ -229,10 +199,6 @@ export function ReferenceEditor({
           </button>
         </details>
       ))}
-      <Notice>
-        Текст референса используется как данные. Он не может утвердить программу или разрешить вызов
-        внешнего сервиса.
-      </Notice>
     </div>
   );
 }

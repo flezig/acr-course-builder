@@ -10,7 +10,6 @@ for (const scenario of [
     await page.getByRole('button', { name: new RegExp(scenario) }).click();
     await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
     await expect(page.locator('.course-heading h1')).toBeVisible();
-    const planUrl = page.url().split('#')[0];
     const banner = page.getByRole('region', { name: 'Решение по программе' });
     const heading = await banner.locator('h2').innerText();
     const firstLink = banner.locator('.verdict-issue-link').first();
@@ -18,17 +17,16 @@ for (const scenario of [
     await firstLink.click();
     const issueId = issueHash!.split('#')[1];
     await expect(page.locator(`[id="${issueId}"]`)).toBeInViewport();
-    await page.goto(planUrl.replace(/\/plan.*$/, `/audit#${issueId}`));
-    await expect(page.getByRole('link', { name: 'Находки аудита', exact: true })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-    await expect(page.locator(`[id="${issueId}"]`)).toBeInViewport();
+    await page.reload();
+    await expect(page.locator(`[id="${issueId}"]`)).toBeFocused();
     const blockers = heading.match(/\d+/)?.[0];
+    await page.getByRole('link', { name: 'Проверка программы', exact: true }).click();
     await expect(
-      page.getByText(`Блокируют утверждение: ${blockers}`, { exact: true }),
+      page.getByRole('heading', { name: 'Проверка программы', exact: true }),
     ).toBeVisible();
-    await page.getByRole('link', { name: 'Чек-лист', exact: true }).click();
+    await expect(
+      page.locator('.notice').filter({ hasText: `Блокируют утверждение: ${blockers}` }),
+    ).toBeVisible();
     await expect(page.getByText('Профстандарт и его код существуют', { exact: true })).toHaveCount(
       1,
     );
@@ -38,18 +36,38 @@ for (const scenario of [
   });
 }
 
-test('ссылка очереди на неизвестный элемент открывает точную находку в отчёте', async ({
-  page,
-}) => {
+test('ссылка очереди на основание оставляет доступ к пояснениям программы', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Анализ данных на Python/ }).click();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
   await expect(page.locator('.course-heading h1')).toBeVisible();
-  await page.goto(`${page.url().split('#')[0]}#review`);
-  // Проверка оснований адресуется элементу goal, для которого очередь использует переход в отчёт.
-  const reportLink = page.locator('.decision-queue a[href*="/audit#issue-"]').first();
-  await expect(reportLink).toBeVisible();
-  const href = await reportLink.getAttribute('href');
-  await reportLink.click();
-  await expect(page.locator(`[id="${href!.split('#')[1]}"]`)).toBeInViewport();
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('courseos-demo-v1')!);
+    const course = Object.values(stored.courses)[0] as {
+      snapshots: { audit: { issues: Record<string, unknown>[] } }[];
+    };
+    const issues = course.snapshots.at(-1)!.audit.issues;
+    issues.push({
+      ...issues[0],
+      id: 'goal-basis',
+      element_id: 'goal',
+      message: 'Основание цели требует проверки',
+      blocking: false,
+      fix: undefined,
+    });
+    localStorage.setItem('courseos-demo-v1', JSON.stringify(stored));
+  });
+  await page.reload();
+  await page.getByRole('link', { name: 'Решения и утверждение', exact: true }).click();
+  const basisLink = page
+    .locator('#issue-goal-basis')
+    .getByRole('link', { name: 'Открыть место в программе' });
+  await expect(basisLink).toBeVisible();
+  await basisLink.click();
+  await expect(page).toHaveURL(/\/plan#review$/);
+  await page.getByRole('tab', { name: 'Обоснования', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Почему курс устроен так', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.rationale-decision-list button').first()).toBeVisible();
 });

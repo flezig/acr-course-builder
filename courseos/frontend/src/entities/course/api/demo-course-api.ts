@@ -303,11 +303,11 @@ async function advance(courseId: string, course: StoredCourse) {
     if (elapsed < 400) return;
     const snapshot = await newSnapshot(courseId, course, makeSkeleton(course.requirements));
     course.snapshots.push(snapshot);
-    course.job.steps = ['Параметры сохранены', 'Каркас и пять объяснений рассчитаны'];
+    course.job.steps = ['Параметры сохранены', 'Программа и пять объяснений подготовлены'];
     course.job.status = 'awaiting_approval';
     course.job.next_action = snapshot.skeleton.conflicts.some((c) => c.status === 'open')
-      ? 'Разрешите конфликт, затем отдельно утвердите каркас'
-      : 'Проверьте и утвердите каркас';
+      ? 'Разрешите конфликт, затем отдельно утвердите структуру программы'
+      : 'Проверьте и утвердите структуру программы';
   } else {
     const base = latest(course)!;
     if (elapsed < 400) return;
@@ -455,7 +455,8 @@ async function resolveCalendar(
     ),
   );
   course.job.status = 'awaiting_approval';
-  course.job.next_action = 'Решение сохранено. Отдельно утвердите каркас после повторного расчёта.';
+  course.job.next_action =
+    'Решение сохранено. Отдельно утвердите структуру программы после повторного расчёта.';
 }
 const demoOutcomeExample = (draft: Skeleton) => {
   const outcome = draft.outcomes[0];
@@ -607,7 +608,7 @@ export class DemoCourseApi implements CourseApi {
             break;
           }
           case 'save_skeleton': {
-            if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
+            if (!base) throw new ApiError(409, 'Программа ещё не создана.');
             const skeleton = refreshExplanations(skeletonSchema.parse(envelope.payload));
             skeleton.requirements.goal = skeleton.goal;
             const oldLimit = base.skeleton.requirements.calendar.daily_limit;
@@ -650,7 +651,7 @@ export class DemoCourseApi implements CourseApi {
             break;
           }
           case 'resolve_calendar': {
-            if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
+            if (!base) throw new ApiError(409, 'Программа ещё не создана.');
             await resolveCalendar(
               id,
               course,
@@ -661,7 +662,7 @@ export class DemoCourseApi implements CourseApi {
             break;
           }
           case 'apply_finding': {
-            if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
+            if (!base) throw new ApiError(409, 'Программа ещё не создана.');
             const issue = auditSnapshot(base).issues.find(
               (i) => i.id === envelope.payload.issue_id,
             );
@@ -703,7 +704,7 @@ export class DemoCourseApi implements CourseApi {
             break;
           }
           case 'dismiss_finding': {
-            if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
+            if (!base) throw new ApiError(409, 'Программа ещё не создана.');
             const reason = envelope.payload.reason.trim();
             if (reason.length < 3)
               throw new ApiError(422, 'Укажите причину, по которой находка остаётся как есть.');
@@ -747,7 +748,7 @@ export class DemoCourseApi implements CourseApi {
             if (base.audit.issues.some((i) => i.blocking))
               throw new ApiError(
                 409,
-                'Каркас содержит блокирующие замечания. Утверждение запрещено.',
+                'Программа содержит блокирующие замечания. Утверждение запрещено.',
               );
             const priorApproval = course.approvals.find(
               (a) =>
@@ -769,7 +770,10 @@ export class DemoCourseApi implements CourseApi {
           }
           case 'change_preview': {
             if (!base?.materials.length || !base.approval_applicable)
-              throw new ApiError(409, 'Сначала утвердите каркас и подготовьте материалы.');
+              throw new ApiError(
+                409,
+                'Сначала утвердите структуру программы и подготовьте материалы.',
+              );
             const input = changeInputSchema.parse(envelope.payload);
             const elementEdit = isElementEdit(input) ? previewElementEdit(base, input) : null;
             const requires = elementEdit ? elementEdit.requiresApproval : true;
@@ -936,7 +940,7 @@ export class DemoCourseApi implements CourseApi {
             break;
           }
           case 'record_observation': {
-            if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
+            if (!base) throw new ApiError(409, 'Программа ещё не создана.');
             if (!envelope.payload.message.trim()) throw new ApiError(422, 'Укажите замечание.');
             const observation = {
               id: crypto.randomUUID(),
@@ -967,7 +971,7 @@ export class DemoCourseApi implements CourseApi {
             break;
           }
           case 'resolve_observation': {
-            if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
+            if (!base) throw new ApiError(409, 'Программа ещё не создана.');
             const issue = base.observations.find((i) => i.id === envelope.payload.issue_id);
             if (!issue || !envelope.payload.correction.trim())
               throw new ApiError(422, 'Укажите конкретное исправление основания.');
@@ -1004,7 +1008,7 @@ export class DemoCourseApi implements CourseApi {
             break;
           }
           case 'audit': {
-            if (!base) throw new ApiError(409, 'Каркас ещё не создан.');
+            if (!base) throw new ApiError(409, 'Программа ещё не создана.');
             course.snapshots.push(
               await newSnapshot(
                 id,

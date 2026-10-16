@@ -25,7 +25,7 @@ export function MapPage() {
   const snapshot = query.data.snapshot;
   if (!snapshot)
     return (
-      <Empty title="Карта появится вместе с каркасом">
+      <Empty title="Карта появится вместе с программой">
         Сначала завершите уточнение параметров.
       </Empty>
     );
@@ -144,8 +144,8 @@ function CourseReferences({ snapshot }: { snapshot: Snapshot }) {
             }
           />
           <Notice>
-            Изменение общих оснований создаёт новую версию каркаса. Материалы потребуют обновления
-            после отдельного утверждения.
+            Изменение общих оснований создаёт новую версию структуры программы. Материалы потребуют
+            обновления после отдельного утверждения.
           </Notice>
           <button type="submit" className="primary" disabled={command.isPending}>
             Сохранить основания в новой версии

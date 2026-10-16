@@ -75,6 +75,10 @@
   }
 }
 @media (max-height: 600px) {
+  /* Режим уже указан в шапке; здесь важнее оставить место для навигации и профиля. */
+  .sidebar .sidebar-note {
+    display: none;
+  }
   .sidebar .workspace small {
     display: none;
   }
