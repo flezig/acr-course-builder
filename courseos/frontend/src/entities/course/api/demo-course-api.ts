@@ -408,6 +408,8 @@ async function advance(courseId: string, course: StoredCourse, steps: ContentSte
         ]),
       ];
       if (!run.settled) {
+        const total = base.skeleton.topics.length + 1;
+        course.job.next_action = `Модель пишет материалы: готово ${run.progress.done.length} из ${total} частей (темы, тест, итоговая аттестация), затем самопроверка`;
         course.job.partial_materials = applyGeneratedContent(
           base.skeleton,
           generated,

@@ -11,6 +11,7 @@ import { sectionCompleteness } from '../../entities/course/model/sections';
 import { StoragePanel } from '../../features/export-course/storage-panel';
 import { ExportPanel } from '../../features/export-course/export-panel';
 import { MaterialViewer } from './material-viewer';
+import { GenerationSummary } from './generation-summary';
 // Один статус вместо отдельных плашек задачи, технической полноты и выпуска:
 // методисту важно, на каком шаге пути сейчас программа.
 function programStatus(view: CourseView, snapshot: Snapshot | null) {
@@ -99,6 +100,9 @@ export function MaterialsPage() {
           редактирование доступно после завершения.
         </Notice>
       )}
+      {tab === 'content' && snapshot.generation && (
+        <GenerationSummary generation={snapshot.generation} />
+      )}
       <div className="tabs" role="tablist" aria-label="Разделы материалов">
         {[
           { id: 'content', label: 'Содержание' },
@@ -170,7 +174,14 @@ export function MaterialsPage() {
                     <option key={id} value={id}>
                       {id === 'module-final'
                         ? 'Итоговая аттестация'
-                        : `Модуль ${id.replace('module-', '')}`}
+                        : [
+                            `Модуль ${id.replace('module-', '')}`,
+                            snapshot.skeleton.requirements.model_design?.module_titles[
+                              Number(id.replace('module-', '')) - 1
+                            ],
+                          ]
+                            .filter(Boolean)
+                            .join('. ')}
                     </option>
                   ))}
                 </select>
@@ -220,12 +231,13 @@ export function MaterialsPage() {
             </Panel>
           </aside>
           <div>
-            {snapshot.skeleton.requirements.delivery.includes('Стажировка') && (
-              <Notice tone="warning">
-                Контактных часов нет. Лекции и слайды не добавлены: применимость этих материалов
-                требует решения кейсодателя. Нули в учебном плане сохранены.
-              </Notice>
-            )}
+            {snapshot.skeleton.requirements.delivery.includes('Стажировка') &&
+              !snapshot.materials.some((m) => m.type === 'lecture') && (
+                <Notice tone="warning">
+                  Контактных часов нет. Лекции и слайды не добавлены: применимость этих материалов
+                  требует решения кейсодателя. Нули в учебном плане сохранены.
+                </Notice>
+              )}
             {(selected && materials.some((m) => m.id === selected)
               ? materials.filter((m) => m.id === selected)
               : materials
