@@ -230,6 +230,36 @@ it('LMS-выгрузка — Moodle XML с ключами и кодами рез
   expect(xml).toContain('<tag><text>');
   expect(xml).not.toMatch(/<text>[^<]*[<>][^<]*<\/text>/);
 });
+it('MD и JSON начинаются со сводки для методиста с кодами результатов', async () => {
+  const snapshot = await fullPython();
+  const md = await (await api.exportMarkdown(snapshot.course_id, snapshot.course_version)).text();
+  const body = md.split('## Подробные пояснения к решениям')[0];
+  expect(body.indexOf('## Перед утверждением: что проверить')).toBeLessThan(
+    body.indexOf('## Как будет проходить обучение'),
+  );
+  expect(body).toContain('| 1.1 | Знакомство с Python | 2 |');
+  expect(body).toContain('### Оценочные материалы');
+  expect(body).not.toMatch(/outcome-\d|topic-\d/);
+  const json = JSON.parse(
+    await (await api.exportJson(snapshot.course_id, snapshot.course_version)).text(),
+  );
+  expect(json.program.outcomes.map((o: { code: string }) => o.code)).toEqual([
+    'РО 1',
+    'РО 2',
+    'РО 3',
+  ]);
+  const curriculum = json.program.curriculum;
+  expect(
+    sumHours([
+      ...curriculum.modules.map((m: { total_hours: string }) => m.total_hours),
+      ...curriculum.final_attestation.map((t: { total_hours: string }) => t.total_hours),
+    ]),
+  ).toBe(snapshot.skeleton.requirements.total_hours);
+  expect(json.skeleton_hash).toBe(snapshot.skeleton_hash);
+  expect(snapshot.export_manifest.find((f) => f.format === 'docx')!.filename).toBe(
+    'Первые шаги в Python — v2 — программа АЦР.docx',
+  );
+});
 it('DOCX и PPTX собираются из выбранной версии без технических идентификаторов', async () => {
   const snapshot = await fullPython();
   // Упаковка ZIP в библиотеках выгрузки ждёт настоящих таймеров.
@@ -242,6 +272,7 @@ it('DOCX и PPTX собираются из выбранной версии бе�
   expect(documentXml).toContain(snapshot.skeleton.requirements.title);
   expect(documentXml).toContain('Приказом № ____-ОБР');
   expect(documentXml).toContain('Ключ: ');
+  expect(documentXml).toContain('Лист проверки методистом');
   expect(documentXml).not.toMatch(/outcome-\d|topic-\d/);
   const pptx = await unzip(await file('pptx'));
   const lecture = snapshot.materials.find((m) => m.type === 'lecture' && m.slides.length)!;

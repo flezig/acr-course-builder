@@ -15,6 +15,7 @@ import type {
   FeedbackPatch,
   ResponseFeedback,
 } from '../model/feedback';
+import { exportFileName } from '../export/file-names';
 export type CourseCommand =
   | { action: 'start'; payload: Requirements }
   | { action: 'clarify'; payload: Requirements }
@@ -90,25 +91,33 @@ export interface CourseApi {
   recordAiEditOutcome(input: AiEditOutcomeInput): Promise<AiEditOutcome>;
   listAiEditOutcomes(): Promise<AiEditOutcome[]>;
 }
-// В демо DOCX и PPTX собираются в браузере из снимка версии, поэтому файл
-// есть всегда, когда в версии есть что выгружать. Для LMS формат не согласован.
+// В демо файлы собираются в браузере из снимка версии, поэтому файл
+// есть всегда, когда в версии есть что выгружать.
 export function withManifest(snapshot: Snapshot): Snapshot {
   const hasLectures = snapshot.materials.some((m) => m.type === 'lecture' && m.slides.length);
   const hasQuestions = snapshot.materials.some((m) => m.type === 'test' && m.questions.length);
+  const hasMaterials = snapshot.materials.length > 0;
+  const notGenerated = 'Файл появится после утверждения плана и создания материалов.';
   const reasons = {
-    json: 'Полный демонстрационный snapshot; черновик для проверки',
-    docx: 'Программа по шаблону АЦР с учебным планом, рабочими программами, тестами и заданиями. Реквизиты приказа, ФИО и подписи оставлены пустыми.',
-    pptx: hasLectures
-      ? 'Слайды лекций по темам; пояснения преподавателя — в заметках докладчика.'
-      : 'В этой версии нет лекций со слайдами.',
-    lms: hasQuestions
-      ? 'Тесты с ключами в формате Moodle XML: импорт в банк вопросов Moodle и совместимых LMS. Каждый вопрос помечен кодом результата обучения.'
-      : 'В этой версии нет тестов с вопросами.',
+    json: 'В начале файла — сводка программы (результаты с кодами РО, учебный план по модулям, расписание, список материалов) и перечень того, что проверить. Дальше — полная сохранённая версия курса со всеми материалами и результатами проверок.',
+    docx: hasMaterials
+      ? 'Титульный лист, пояснительная записка, учебный план, рабочие программы тем и оценочные материалы с ключами. Реквизиты приказа, ФИО и подписи оставлены пустыми; в конце — лист проверки методистом, его удаляют перед утверждением.'
+      : notGenerated,
+    pptx: !hasMaterials
+      ? notGenerated
+      : hasLectures
+        ? 'Обложка, список тем, титульный слайд каждой темы с результатами обучения и слайды лекций. Пояснения для преподавателя — в заметках докладчика.'
+        : 'В этой версии нет лекций со слайдами.',
+    lms: !hasMaterials
+      ? notGenerated
+      : hasQuestions
+        ? 'Импорт: Курс → Банк вопросов → Импорт → «Moodle XML». Каждый тест — отдельная категория, у вопросов есть ключ, пояснение и тег с кодом результата обучения.'
+        : 'В этой версии нет тестов с вопросами.',
   };
   snapshot.export_manifest = (['json', 'docx', 'pptx', 'lms'] as const).map((format) => {
     const ready =
       format === 'json' ||
-      (snapshot.materials.length > 0 &&
+      (hasMaterials &&
         (format === 'docx' ||
           (format === 'pptx' && hasLectures) ||
           (format === 'lms' && hasQuestions)));
@@ -117,7 +126,7 @@ export function withManifest(snapshot: Snapshot): Snapshot {
       status: ready ? 'ready' : 'unavailable',
       course_version: snapshot.course_version,
       file_id: ready ? `${format}:${snapshot.course_id}:${snapshot.course_version}` : null,
-      filename: `${snapshot.course_id}-v${snapshot.course_version}${format === 'lms' ? '-moodle.xml' : `.${format}`}`,
+      filename: exportFileName(snapshot, format),
       reason: reasons[format],
       hash: null,
     };

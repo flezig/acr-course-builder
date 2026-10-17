@@ -1,18 +1,22 @@
 import type { Snapshot } from '../model/schema';
+import { plural } from '../../../shared/lib/plural';
 import { outcomeCodes } from './outcome-codes';
 
 // Moodle XML выбран как формат LMS: его импортирует банк вопросов Moodle,
 // а также большинство российских LMS на его основе. Каждый тест — своя категория,
 // вопрос с одним верным ответом, тег с кодом результата обучения.
-function escape(text: string) {
+function escapeXml(text: string) {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-
-const textTag = (text: string) => `<text>${escape(text)}</text>`;
+// Поля с format="html" Moodle показывает как HTML, поэтому текст сначала
+// экранируется для HTML (иначе «a < b» в коде съест браузер), затем для XML.
+const html = (text: string) => escapeXml(escapeXml(text).replace(/\n/g, '<br>'));
+const htmlText = (text: string) => `<text>${html(text)}</text>`;
+const plainText = (text: string) => `<text>${escapeXml(text)}</text>`;
 
 export function lmsQuestionCount(snapshot: Snapshot) {
   return snapshot.materials
@@ -25,41 +29,48 @@ export function buildMoodleXml(snapshot: Snapshot): string {
   const title = snapshot.skeleton.requirements.title;
   const tests = snapshot.materials.filter((m) => m.type === 'test' && m.questions.length);
   if (!tests.length) throw new Error('В этой версии нет тестов с вопросами — выгружать нечего.');
-  const blocks = tests.flatMap((test) => [
+  const blocks = tests.flatMap((test, testIndex) => [
     `  <question type="category">
-    <category>${textTag(`$course$/top/${title}/${test.title}`)}</category>
-    <info format="html">${textTag(
+    <category>${plainText(`$course$/top/${title}/${test.title}`)}</category>
+    <info format="html">${htmlText(
       test.test_policy
         ? `Тест сдан при ${test.test_policy.pass_count} верных ответах из ${test.questions.length}.`
-        : '',
+        : `Вопросов: ${test.questions.length}.`,
     )}</info>
   </question>`,
     ...test.questions.map((question, index) => {
+      const correct = question.options[question.correct_index];
       const answers = question.options
-        .map(
-          (
-            option,
-            optionIndex,
-          ) => `    <answer fraction="${optionIndex === question.correct_index ? 100 : 0}" format="html">
-      ${textTag(option)}
-      <feedback format="html">${textTag(optionIndex === question.correct_index ? question.explanation : '')}</feedback>
-    </answer>`,
-        )
+        .map((option, optionIndex) => {
+          const right = optionIndex === question.correct_index;
+          const feedback = right
+            ? `Верно. ${question.explanation}`
+            : `Неверно. Правильный ответ: «${correct}».`;
+          return `    <answer fraction="${right ? 100 : 0}" format="html">
+      ${htmlText(option)}
+      <feedback format="html">${htmlText(feedback)}</feedback>
+    </answer>`;
+        })
         .join('\n');
-      const tags = question.outcome_ids
-        .map((id) => `      <tag>${textTag(codes[id] ?? id)}</tag>`)
+      const tags = [...new Set(question.outcome_ids.map((id) => codes[id] ?? id))]
+        .map((code) => `      <tag>${plainText(code)}</tag>`)
         .join('\n');
+      const number = `${testIndex + 1}.${String(index + 1).padStart(2, '0')}`;
       return `  <question type="multichoice">
-    <name>${textTag(`${String(index + 1).padStart(2, '0')}. ${question.text.slice(0, 80)}`)}</name>
-    <questiontext format="html">${textTag(question.text)}</questiontext>
-    <generalfeedback format="html">${textTag(question.explanation)}</generalfeedback>
+    <name>${plainText(`${number} ${question.text.replace(/\s+/g, ' ').slice(0, 80)}`)}</name>
+    <questiontext format="html">${htmlText(question.text)}</questiontext>
+    <generalfeedback format="html">${htmlText(question.explanation)}</generalfeedback>
     <defaultgrade>1</defaultgrade>
     <penalty>0</penalty>
     <hidden>0</hidden>
-    <idnumber>${escape(`${snapshot.course_id}-${test.id}-${question.id}`)}</idnumber>
+    <idnumber>${escapeXml(`${snapshot.course_id}-${test.id}-${question.id}`)}</idnumber>
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <showstandardinstruction>0</showstandardinstruction>
+    <correctfeedback format="html">${htmlText('Ответ верный.')}</correctfeedback>
+    <partiallycorrectfeedback format="html">${htmlText('Ответ частично верный.')}</partiallycorrectfeedback>
+    <incorrectfeedback format="html">${htmlText('Ответ неверный.')}</incorrectfeedback>
 ${answers}
     <tags>
 ${tags}
@@ -67,8 +78,14 @@ ${tags}
   </question>`;
     }),
   ]);
+  const questionCount = tests.reduce((count, test) => count + test.questions.length, 0);
   return `<?xml version="1.0" encoding="UTF-8"?>
-<!-- ${escape(title)}, версия ${snapshot.course_version}. Черновик: ключи проверяет методист перед импортом. -->
+<!--
+  ${escapeXml(title).replace(/-{2,}/g, '—')}, версия ${snapshot.course_version}: ${tests.length} ${plural(tests.length, ['тест', 'теста', 'тестов'])}, ${questionCount} ${plural(questionCount, ['вопрос', 'вопроса', 'вопросов'])}.
+  Черновик: верные ответы и пояснения проверяет методист перед импортом.
+  Импорт в Moodle: Курс → Банк вопросов → Импорт → формат «Moodle XML».
+  Каждый тест попадает в свою категорию; теги «РО N» — коды результатов обучения из программы.
+-->
 <quiz>
 ${blocks.join('\n')}
 </quiz>

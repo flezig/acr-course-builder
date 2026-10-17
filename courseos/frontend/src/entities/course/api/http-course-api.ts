@@ -1,4 +1,4 @@
-import { skeletonRationaleMarkdown } from '../model/rationale';
+import { courseMarkdown } from '../export/course-markdown';
 import { z } from 'zod';
 import {
   courseSummarySchema,
@@ -89,7 +89,7 @@ export class HttpCourseApi implements CourseApi {
       view.snapshot.course_version !== version
     )
       throw new ApiError(409, 'Сервер не вернул выбранную сохранённую версию.');
-    return new Blob([skeletonRationaleMarkdown(view.snapshot)], {
+    return new Blob([courseMarkdown(view.snapshot)], {
       type: 'text/markdown;charset=utf-8',
     });
   }

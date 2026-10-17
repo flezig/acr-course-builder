@@ -3,7 +3,8 @@ import { contentQuestions, unansweredContentQuestions } from '../model/demo-clar
 import { isProfessionalStandardReference } from '../model/professional-standards';
 import { isElementEdit, previewElementEdit } from '../model/material-edit';
 import { assessmentMaterial } from '../model/material-readiness';
-import { skeletonRationaleMarkdown } from '../model/rationale';
+import { courseMarkdown } from '../export/course-markdown';
+import { courseJson } from '../export/course-json';
 import Decimal from 'decimal.js';
 import { invalidateRationales } from '../model/rationale';
 import { z } from 'zod';
@@ -1210,13 +1211,7 @@ export class DemoCourseApi implements CourseApi {
   async exportJson(id: string, version: number) {
     const view = await this.get(id, version);
     if (!view.snapshot) throw new ApiError(404, 'Snapshot ещё не создан.');
-    const full = {
-      ...view.snapshot,
-      exported_at: now(),
-      notice: 'Демонстрационные данные. Черновик — требует проверки методистом.',
-      job: view.job,
-      known_issues: view.snapshot.audit.issues,
-    };
+    const full = { ...courseJson(view.snapshot, now()), job: view.job };
     return new Blob([JSON.stringify(full, null, 2)], { type: 'application/json;charset=utf-8' });
   }
   async exportMarkdown(id: string, version: number): Promise<Blob> {
@@ -1227,12 +1222,13 @@ export class DemoCourseApi implements CourseApi {
       view.snapshot.course_version !== version
     )
       throw new ApiError(409, 'Сервер не вернул выбранную сохранённую версию.');
-    return new Blob([skeletonRationaleMarkdown(view.snapshot)], {
+    return new Blob([courseMarkdown(view.snapshot)], {
       type: 'text/markdown;charset=utf-8',
     });
   }
   async downloadFile(fileId: string): Promise<Blob> {
     const [format, courseId, version] = fileId.split(':');
+    if (format === 'json') return this.exportJson(courseId, Number(version));
     if (format !== 'docx' && format !== 'pptx' && format !== 'lms')
       throw new ApiError(404, 'Файл этой версии не создан.');
     const view = await this.get(courseId, Number(version));

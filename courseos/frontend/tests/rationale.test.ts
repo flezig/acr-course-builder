@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { courseMarkdown } from '../src/entities/course/export/course-markdown';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { DemoCourseApi } from '../src/entities/course/api/demo-course-api';
 import { HttpCourseApi } from '../src/entities/course/api/http-course-api';
@@ -10,7 +11,6 @@ import {
   rationaleCoverage,
   rationaleSignature,
   skeletonElements,
-  skeletonRationaleMarkdown,
   rationaleIsSupported,
 } from '../src/entities/course/model/rationale';
 import { contentHash, sumHours } from '../src/shared/lib/decimal';
@@ -116,7 +116,7 @@ describe('Основания и границы подтверждения', () =
       snap.skeleton = makeSkeleton(requirements);
       snap.skeleton_hash = await contentHash(snap.skeleton);
       const before = JSON.stringify(snap);
-      const report = skeletonRationaleMarkdown(snap);
+      const report = courseMarkdown(snap);
       const introduction = report.split('## Подробные пояснения к решениям')[0];
       expect(report.startsWith(`# ${requirements.title}\n`)).toBe(true);
       expect(introduction).toContain('## Для кого и зачем этот курс');
@@ -167,7 +167,7 @@ describe('Основания и границы подтверждения', () =
     expect(research.status).toBe('partial');
     const target = s.outcomes[0].id;
     s.rationales = s.rationales!.filter((r) => r.element_id !== target);
-    const report = skeletonRationaleMarkdown(snap);
+    const report = courseMarkdown(snap);
     expect(report).toContain(
       `Пункт ${skeletonElements(s).findIndex((e) => e.id === target) + 1}: ${target}`,
     );
@@ -231,7 +231,7 @@ describe('Основания и границы подтверждения', () =
     const before = await contentHash(legacy.skeleton);
     expect(await contentHash(skeletonSchema.parse(legacy.skeleton))).toBe(before);
     expect(snapshotSchema.parse(legacy).skeleton.rationales).toBeUndefined();
-    expect(skeletonRationaleMarkdown(legacy)).toContain('Основание не найдено; требуется проверка');
+    expect(courseMarkdown(legacy)).toContain('Основание не найдено; требуется проверка');
   });
   it('общий сценарий не получает выдуманную цепочку, а оценка часов помечена непроверенной', () => {
     const r = preset('bank');
@@ -290,7 +290,7 @@ it('полный Python и DevOps; отчёт, JSON, сохранённая ве
     await (await api.exportJson(python.course_id, python.course_version)).text(),
   );
   const md = await (await api.exportMarkdown(python.course_id, python.course_version)).text();
-  expect(md).toBe(skeletonRationaleMarkdown(python));
+  expect(md).toBe(courseMarkdown(python));
   expect(md).toContain(json.skeleton_hash);
   expect(md).toContain(`Версия курса: ${json.course_version}`);
   const devops = await start('devops');
@@ -325,7 +325,7 @@ it('полный Python и DevOps; отчёт, JSON, сохранённая ве
     const dir = '../reports';
     mkdirSync(dir, { recursive: true });
     const write = (name: string, s: Snapshot) => {
-      writeFileSync(`${dir}/${name}.md`, skeletonRationaleMarkdown(s));
+      writeFileSync(`${dir}/${name}.md`, courseMarkdown(s));
       writeFileSync(`${dir}/${name}.snapshot.json`, JSON.stringify(s, null, 2) + '\n');
     };
     write('skeleton-rationale', python);

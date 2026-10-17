@@ -3,7 +3,7 @@ import { makeSkeleton } from '../src/entities/course/model/factory';
 import { DemoCourseApi } from '../src/entities/course/api/demo-course-api';
 import { presets } from '../src/entities/course/model/presets';
 import { demoClarifications } from '../src/entities/course/model/demo-clarifications';
-import { skeletonRationaleMarkdown } from '../src/entities/course/model/rationale';
+import { courseMarkdown } from '../src/entities/course/export/course-markdown';
 import type { Requirements } from '../src/entities/course/model/schema';
 
 let api: DemoCourseApi;
@@ -95,7 +95,7 @@ it.each(presets.map((preset) => preset.id))(
         snapshot.skeleton.rationales?.find((rationale) => rationale.element_id === topic.id)
           ?.purpose,
       ).toContain(question.label);
-      const report = skeletonRationaleMarkdown(snapshot);
+      const report = courseMarkdown(snapshot);
       expect(report).toContain(question.label);
       expect(report).toContain(answers[question.id]);
     }

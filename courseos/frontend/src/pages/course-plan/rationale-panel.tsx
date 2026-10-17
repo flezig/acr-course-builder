@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { courseMarkdown } from '../../entities/course/export/course-markdown';
+import { exportFileName } from '../../entities/course/export/file-names';
 import { ArrowLeft, Copy, Download, Search, X } from 'lucide-react';
 import type { Snapshot } from '../../entities/course/model/schema';
 import {
@@ -6,7 +8,6 @@ import {
   rationaleCoverage,
   rationaleSignature,
   skeletonElements,
-  skeletonRationaleMarkdown,
 } from '../../entities/course/model/rationale';
 import { saveFile } from '../../shared/lib/use-unsaved';
 import { Badge, Panel } from '../../shared/ui/ui';
@@ -138,10 +139,10 @@ function RationaleBrowser({ snapshot }: { snapshot: Snapshot }) {
             className="rationale-download"
             onClick={() =>
               saveFile(
-                new Blob([skeletonRationaleMarkdown(snapshot)], {
+                new Blob([courseMarkdown(snapshot)], {
                   type: 'text/markdown;charset=utf-8',
                 }),
-                `${snapshot.course_id}-v${snapshot.course_version}-rationale.md`,
+                exportFileName(snapshot, 'md'),
               )
             }
           >
