@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import type { Skeleton, Snapshot } from '../../entities/course/model/schema';
 import { useCommand } from '../../entities/course/api/provider';
 import { Form, ErrorMessage, Field } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
+import { OutcomeEditorCard } from './outcome-editor-card';
 
 export type IntentBlock = 'goal' | 'audience' | 'outcomes' | 'tasks';
 type Values = {
@@ -184,21 +185,31 @@ export function IntentBlockEditor({
       {block === 'outcomes' && (
         <>
           {outcomes.fields.map((outcome, index) => (
-            <div key={outcome.form_key}>
-              <Field key={outcome.id} label={`Результат ${index + 1}`}>
-                <textarea
-                  className={outcome.id === focusOutcome ? 'field-highlight' : ''}
-                  {...form.register(`outcomes.${index}.description`, {
-                    validate: (value) => !!value.trim() || 'Заполните это поле.',
-                  })}
-                  required
-                  rows={2}
-                />
-              </Field>
-              <button type="button" className="link-button" onClick={() => outcomes.remove(index)}>
-                Удалить результат {index + 1}
-              </button>
-            </div>
+            <Controller
+              key={outcome.form_key}
+              control={form.control}
+              name={`outcomes.${index}.kind`}
+              render={({ field }) => (
+                <OutcomeEditorCard
+                  number={index + 1}
+                  kind={field.value}
+                  categoryName={field.name}
+                  onKindChange={field.onChange}
+                  onRemove={() => outcomes.remove(index)}
+                >
+                  <Field label={`Результат ${index + 1}`}>
+                    <textarea
+                      className={outcome.id === focusOutcome ? 'field-highlight' : ''}
+                      {...form.register(`outcomes.${index}.description`, {
+                        validate: (value) => !!value.trim() || 'Заполните это поле.',
+                      })}
+                      required
+                      rows={2}
+                    />
+                  </Field>
+                </OutcomeEditorCard>
+              )}
+            />
           ))}
           <button
             type="button"

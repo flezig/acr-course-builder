@@ -24,10 +24,21 @@ test('Editable programme lists support additions, removals and saving', async ({
   await editor
     .getByRole('textbox', { name: `Результат ${count}`, exact: true })
     .fill('Объясняет алгоритм на примере');
+  const category = editor.getByRole('group', {
+    name: `Категория результата ${count}`,
+    exact: true,
+  });
+  await category.getByRole('radio', { name: 'Знания', exact: true }).check();
+  await editor.getByRole('button', { name: 'Закрыть', exact: true }).click();
+  await page.getByRole('button', { name: 'Изменить результаты обучения', exact: true }).click();
+  await expect(category.getByRole('radio', { name: 'Знания', exact: true })).toBeChecked();
   await editor.getByRole('button', { name: 'Сохранить изменения', exact: true }).click();
   await expect(editor).toHaveCount(0);
   await page.reload();
   await expect(page.locator('.outcomes')).toContainText('Объясняет алгоритм на примере');
+  await page.getByRole('button', { name: 'Изменить результаты обучения', exact: true }).click();
+  await expect(category.getByRole('radio', { name: 'Знания', exact: true })).toBeChecked();
+  await editor.getByRole('button', { name: 'Закрыть', exact: true }).click();
   await page.getByRole('button', { name: 'Изменить задачи программы', exact: true }).click();
   const taskCount = await editor.getByRole('textbox').count();
   await editor.getByRole('button', { name: 'Удалить задачу 1', exact: true }).click();

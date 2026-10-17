@@ -82,6 +82,14 @@ test('Plan editor keeps content readable and outcome links consistent after addi
   await page
     .getByRole('textbox', { name: `Результат ${count + 1}`, exact: true })
     .fill('Находить ошибку в учебной программе');
+  const category = editor.getByRole('group', {
+    name: `Категория результата ${count + 1}`,
+    exact: true,
+  });
+  await category.getByRole('radio', { name: 'Знания', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(category.getByRole('radio', { name: 'Навыки', exact: true })).toBeChecked();
   await page.getByRole('button', { name: 'Сохранить новую версию', exact: true }).click();
   await expect(editor).toHaveCount(0);
   await page.reload();
@@ -93,4 +101,5 @@ test('Plan editor keeps content readable and outcome links consistent after addi
   await expect(
     page.getByRole('textbox', { name: `Результат ${count + 1}`, exact: true }),
   ).toHaveValue('Находить ошибку в учебной программе');
+  await expect(category.getByRole('radio', { name: 'Навыки', exact: true })).toBeChecked();
 });

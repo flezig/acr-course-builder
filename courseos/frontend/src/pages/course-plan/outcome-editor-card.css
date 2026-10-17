@@ -1,0 +1,185 @@
+.outcome-editor-card {
+  --outcome-accent: var(--theme-blue-ink, #34599b);
+  --outcome-tint: var(--theme-blue-surface, #eef3ff);
+  position: relative;
+  min-width: 0;
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--outcome-accent) 18%, var(--border));
+  border-left: 3px solid color-mix(in srgb, var(--outcome-accent) 60%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--outcome-tint) 55%, var(--surface));
+}
+
+.outcome-editor-skill {
+  --outcome-accent: var(--theme-green-ink, #327052);
+  --outcome-tint: var(--theme-green-surface, #edf7f0);
+}
+
+.outcome-editor-proficiency {
+  --outcome-accent: var(--theme-purple-ink, #725299);
+  --outcome-tint: var(--theme-purple-surface, #f3eefb);
+}
+
+:root .outcome-editor-card > .field {
+  margin: 0;
+  gap: 12px;
+}
+
+:root .outcome-editor-card .field-label {
+  padding-right: 38px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+:root .outcome-editor-card .field textarea {
+  field-sizing: content;
+  min-height: 84px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  resize: vertical;
+}
+
+:root .outcome-editor-card .outcome-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  min-height: 36px;
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+}
+
+:root .outcome-editor-card .outcome-remove:hover {
+  background: var(--theme-red-surface, #fbe9e8);
+  color: var(--theme-red-ink, #b4413c);
+}
+
+.outcome-editor-card .outcome-kind-picker {
+  min-width: 0;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.outcome-editor-card .outcome-kind-picker legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.outcome-kind-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.outcome-kind-options label {
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+}
+
+.outcome-kind-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.outcome-kind-options label > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 6px 11px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.outcome-kind-options label > span:hover {
+  background: var(--surface);
+}
+
+.outcome-kind-check {
+  display: none;
+}
+
+.outcome-kind-options input:checked + span {
+  border-color: color-mix(in srgb, var(--outcome-accent) 25%, var(--border));
+  background: var(--surface);
+  color: var(--outcome-accent);
+}
+
+.outcome-kind-options input:checked + span .outcome-kind-check {
+  display: block;
+}
+
+.outcome-kind-options input:focus-visible + span {
+  outline: 2px solid var(--outcome-accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .outcome-editor-card {
+    padding: 14px;
+  }
+
+  :root .outcome-editor-card .field textarea {
+    font-size: 16px;
+  }
+
+  :root .outcome-editor-card .outcome-remove {
+    top: 4px;
+    right: 4px;
+    width: 44px;
+    min-height: 44px;
+  }
+
+  .outcome-kind-options label > span {
+    min-height: 44px;
+    padding-inline: 8px;
+  }
+}
+
+@media (max-width: 400px) {
+  .outcome-kind-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+  }
+
+  .outcome-kind-options label > span {
+    width: 100%;
+    gap: 3px;
+    padding-inline: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .outcome-kind-check {
+    width: 12px;
+    height: 12px;
+  }
+}

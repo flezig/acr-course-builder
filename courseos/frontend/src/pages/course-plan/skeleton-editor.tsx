@@ -12,7 +12,8 @@ import { useCommand } from '../../entities/course/api/provider';
 import { Form, Field, Panel, ErrorMessage, Notice } from '../../shared/ui/ui';
 import { useUnsavedChanges } from '../../shared/lib/use-unsaved';
 import './skeleton-editor.css';
-import { kindLabels, assessmentLabels } from '../../entities/course/model/presets';
+import { assessmentLabels } from '../../entities/course/model/presets';
+import { OutcomeEditorCard } from './outcome-editor-card';
 export function SkeletonEditor({
   snapshot: currentSnapshot,
   close,
@@ -157,23 +158,24 @@ export function SkeletonEditor({
         </div>
         <h3>Результаты обучения</h3>
         {outcomes.fields.map((outcome, index) => (
-          <div className="outcome-editor" key={outcome.form_key}>
-            <Field label={`Результат ${index + 1}`}>
-              <textarea {...form.register(`outcomes.${index}.description`)} rows={2} required />
-            </Field>
-            <Field label={`Категория результата ${index + 1}`}>
-              <select {...form.register(`outcomes.${index}.kind`)}>
-                {Object.entries(kindLabels).map(([kind, label]) => (
-                  <option key={kind} value={kind}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <button type="button" className="link-button" onClick={() => removeOutcome(index)}>
-              Удалить результат {index + 1}
-            </button>
-          </div>
+          <Controller
+            key={outcome.form_key}
+            control={form.control}
+            name={`outcomes.${index}.kind`}
+            render={({ field }) => (
+              <OutcomeEditorCard
+                number={index + 1}
+                kind={field.value}
+                categoryName={field.name}
+                onKindChange={field.onChange}
+                onRemove={() => removeOutcome(index)}
+              >
+                <Field label={`Результат ${index + 1}`}>
+                  <textarea {...form.register(`outcomes.${index}.description`)} rows={2} required />
+                </Field>
+              </OutcomeEditorCard>
+            )}
+          />
         ))}
         <button
           type="button"
