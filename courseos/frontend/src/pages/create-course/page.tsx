@@ -9,7 +9,11 @@ import {
   useCourses,
   useDeleteCourse,
 } from '../../entities/course/api/provider';
-import { inputSchema, type Requirements } from '../../entities/course/model/schema';
+import {
+  inputSchema,
+  type ModelDesign,
+  type Requirements,
+} from '../../entities/course/model/schema';
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
 import { parameterDiscrepancies } from '../../entities/course/model/request-parameters';
 import { CreateReferences } from './create-references';
@@ -19,8 +23,9 @@ import {
   describeUsage,
   useModelAvailability,
   useRequestAnalysis,
+  useSkeletonDraft,
   type RequestAnalysis,
-} from '../../features/request-analysis/request-analysis';
+} from '../../features/model-steps/model-steps';
 import { ProfessionalStandardFields } from '../../features/professional-standard/professional-standard-fields';
 import { isProfessionalStandardReference } from '../../entities/course/model/professional-standards';
 import { contentHash } from '../../shared/lib/decimal';
@@ -38,6 +43,10 @@ export function CreateCoursePage() {
   const [confirmationError, setConfirmationError] = useState('');
   const modelAvailable = useModelAvailability().data === true;
   const analysis = useRequestAnalysis();
+  const skeletonDraft = useSkeletonDraft();
+  // После сбоя модели методист может осознанно построить каркас по шаблону.
+  // Ref, а не состояние: повторная отправка идёт сразу, до следующего рендера.
+  const withoutModel = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
   const parametersRef = useRef<HTMLDetailsElement>(null);
   const form = useForm<Requirements>({
@@ -88,6 +97,7 @@ export function CreateCoursePage() {
     .join(' · ');
   useEffect(() => {
     setConfirmed(false);
+    withoutModel.current = false;
   }, [values.request]);
   // Модель только предлагает значения сводки: методист сверяет их и подтверждает сам.
   const analyzeRequest = async () => {
@@ -134,8 +144,26 @@ export function CreateCoursePage() {
       );
       return;
     }
+    const title = values.title.trim() || values.request.trim().split('\n')[0].slice(0, 80);
+    // Свой запрос модель проектирует, когда объём уже известен; примеры остаются
+    // детерминированными, а без объёма агент сначала задаст уточняющие вопросы.
+    const hours = Number(values.total_hours);
+    let modelDesign: ModelDesign | undefined;
+    if (
+      modelAvailable &&
+      api.mode === 'demo' &&
+      changedRequest &&
+      !withoutModel.current &&
+      hours >= 16 &&
+      hours <= 500
+    ) {
+      try {
+        modelDesign = await skeletonDraft.mutateAsync({ ...values, title });
+      } catch {
+        return; /* Ошибка и выбор «без модели» показываются под полем запроса. */
+      }
+    }
     try {
-      const title = values.title.trim() || values.request.trim().split('\n')[0].slice(0, 80);
       const confirmation =
         values.parameters_confirmation?.request === values.request
           ? values.parameters_confirmation
@@ -165,6 +193,7 @@ export function CreateCoursePage() {
             }),
           ),
           parameters_confirmation: confirmation,
+          model_design: modelDesign,
           calendar: {
             ...values.calendar,
             description: `${values.calendar.calendar_days} календарных дней (${values.calendar.calendar_days / 7} нед.); ${values.calendar.daily_limit ? `до ${values.calendar.daily_limit} ч/день` : 'дневная нагрузка уточняется'}`,
@@ -183,6 +212,8 @@ export function CreateCoursePage() {
     setPresetId(id);
     setConfirmationError('');
     analysis.reset();
+    skeletonDraft.reset();
+    withoutModel.current = false;
     form.reset({
       ...structuredClone(presets.find((p) => p.id === id)!.requirements),
       demo_example: id as Requirements['demo_example'],
@@ -225,12 +256,18 @@ export function CreateCoursePage() {
                   <DictationButton dictation={dictation} />
                   <button
                     className={`send-request ${values.request.trim() ? 'ready' : ''}`}
-                    disabled={command.isPending}
+                    disabled={command.isPending || skeletonDraft.isPending}
                     type="submit"
                     aria-label="Отправить запрос"
-                    title={command.isPending ? 'Запрос сохраняется…' : 'Отправить запрос'}
+                    title={
+                      skeletonDraft.isPending
+                        ? 'GigaChat проектирует каркас…'
+                        : command.isPending
+                          ? 'Запрос сохраняется…'
+                          : 'Отправить запрос'
+                    }
                   >
-                    {command.isPending ? (
+                    {command.isPending || skeletonDraft.isPending ? (
                       <Loader2 className="spin" size={18} />
                     ) : (
                       <ArrowUp size={18} />
@@ -241,6 +278,28 @@ export function CreateCoursePage() {
             />
           </Field>
           {dictation.error && <Notice tone="error">{dictation.error}</Notice>}
+          {skeletonDraft.isPending && (
+            <Notice>
+              GigaChat проектирует каркас: цель, результаты обучения, модули и темы. Часы
+              распределит программа. Обычно это занимает 10–20 секунд.
+            </Notice>
+          )}
+          {skeletonDraft.isError && (
+            <div className="request-analysis">
+              <ErrorMessage error={skeletonDraft.error} />
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  withoutModel.current = true;
+                  skeletonDraft.reset();
+                  formRef.current?.requestSubmit();
+                }}
+              >
+                Построить каркас по шаблону без модели
+              </button>
+            </div>
+          )}
           {modelAvailable && (
             <div className="request-analysis">
               <button

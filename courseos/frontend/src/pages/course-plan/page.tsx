@@ -38,6 +38,7 @@ import { CoverageMatrix } from '../competencies/coverage-matrix';
 import { VerdictBanner } from './verdict-banner';
 import './decision.css';
 import './clarifications.css';
+import { ModelProvenance } from '../../features/model-steps/model-provenance';
 // Заготовка результата содержит хвост «и объясняет решение» — в таблицах он только удлиняет строку.
 function outcomeText(description: string) {
   return description.replace(/^(Выполняет учебную задачу «.+») и объясняет решение$/, '$1');
@@ -274,6 +275,7 @@ export function PlanPage() {
           выполняется в актуальной версии.
         </Notice>
       )}
+      <ModelProvenance design={skeleton.requirements.model_design} />
       {/* Журнал нужен, только пока операция идёт или упала: тогда он объясняет
           ожидание и даёт повторить. Завершённая операция методисту ничего не говорит. */}
       {['queued', 'running', 'failed'].includes(view.job.status) && (

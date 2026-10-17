@@ -198,6 +198,10 @@ function ModuleRows({
   contact: (topics: Topic[]) => string;
 }) {
   const moduleNumber = topics[0].module_id.replace('module-', '');
+  const moduleTitle = skeleton.requirements.model_design?.module_titles[Number(moduleNumber) - 1];
+  const moduleLabel = moduleTitle
+    ? `Модуль ${moduleNumber}. ${moduleTitle}`
+    : `Модуль ${moduleNumber}`;
   const row = (items: Topic[]) => (
     <>
       <td>{hours(sumHours(items.map((t) => t.planned_total)))}</td>
@@ -218,7 +222,7 @@ function ModuleRows({
     return (
       <tr id={topics[0].id} className={focused === topics[0].id ? 'field-highlight' : undefined}>
         <th scope="row">
-          <TopicTitle skeleton={skeleton} topic={topics[0]} label={`Модуль ${moduleNumber}`} />
+          <TopicTitle skeleton={skeleton} topic={topics[0]} label={moduleLabel} />
         </th>
         {row(topics)}
         <td className="control-cell">
@@ -229,7 +233,7 @@ function ModuleRows({
   return (
     <>
       <tr className="module-row">
-        <th scope="row">Модуль {moduleNumber}</th>
+        <th scope="row">{moduleLabel}</th>
         {row(topics)}
         <td />
       </tr>

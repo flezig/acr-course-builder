@@ -30,6 +30,47 @@ const optionalHoursSchema = optionalDecimalSchema
     'Объём — от 16 до 500 часов',
   )
   .refine((value) => !value || onHourStep(value), hourStepMessage);
+// Смысловая структура каркаса от модели: цель, результаты, модули и темы без часов.
+// Часы распределяет makeSkeleton по трудоёмкости тем, поэтому сумма всегда сходится.
+// Структура хранится во вводных: при смене объёма каркас пересобирается из неё же.
+export const modelDesignSchema = z.object({
+  goal: z.string(),
+  tasks: z.array(z.string()),
+  module_titles: z.array(z.string()),
+  outcomes: z.array(
+    z.object({
+      kind: z.enum(['knowledge', 'skill', 'proficiency']),
+      title: z.string(),
+      description: z.string(),
+      criteria: z.array(z.string()),
+    }),
+  ),
+  topics: z
+    .array(
+      z.object({
+        module: z.number().int().min(1),
+        title: z.string(),
+        content: z.string(),
+        profile: z.enum(['intro', 'tool', 'project']),
+        weight: z.number().int().min(1).max(5),
+        weight_reason: z.string(),
+        outcomes: z.array(z.number().int().min(1)),
+        prerequisites: z.array(z.number().int().min(1)),
+        control: z.string(),
+      }),
+    )
+    .min(1),
+  issues: z.array(z.string()),
+  generated_by: z.object({
+    model: z.string(),
+    prompt_tokens: z.number(),
+    completion_tokens: z.number(),
+    cost_rub: z.number(),
+    duration_ms: z.number(),
+    cached: z.boolean(),
+  }),
+});
+export type ModelDesign = z.infer<typeof modelDesignSchema>;
 export const requirementsSchema = z.object({
   demo_example: z.enum(['python', 'teachers', 'bank', 'security', 'devops']).optional(),
   clarification_answers: z.record(z.string(), z.string()).optional(),
@@ -53,6 +94,7 @@ export const requirementsSchema = z.object({
   parameters_confirmation: z
     .object({ request: z.string(), actor: z.string(), at: z.string() })
     .optional(),
+  model_design: modelDesignSchema.optional(),
   calendar: z.object({
     schedule: z
       .object({

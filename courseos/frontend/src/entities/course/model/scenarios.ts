@@ -1,6 +1,6 @@
 import type { ModuleDesign } from './hours-plan';
 import { moduleProfiles } from './hours-plan';
-import type { Requirements } from './schema';
+import type { ModelDesign, Requirements } from './schema';
 
 export type ScenarioKind = 'devops' | 'bank' | 'teachers' | 'security' | 'python' | 'generic';
 
@@ -291,6 +291,22 @@ export function genericTopics(requirements: Requirements): ScenarioTopic[] {
       prerequisites: [],
     };
   });
+}
+
+// Темы, предложенные моделью. Трудоёмкость и тип темы задаёт модель, а часы из них
+// считает distributeModuleHours — так же, как для заготовленных сценариев.
+export function modelTopics(design: ModelDesign): ScenarioTopic[] {
+  return design.topics.map((topic) => ({
+    title: topic.title,
+    module: topic.module,
+    weight: topic.weight,
+    split: moduleProfiles[topic.profile],
+    reason: `Оценка модели, не проверено: трудоёмкость ${topic.weight} из 5 — ${topic.weight_reason}`,
+    content: topic.content,
+    control: topic.control,
+    outcomes: topic.outcomes,
+    prerequisites: topic.prerequisites,
+  }));
 }
 
 export const finalHoursReason: Record<ScenarioKind, string> = {

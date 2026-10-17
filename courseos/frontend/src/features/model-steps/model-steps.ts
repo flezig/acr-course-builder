@@ -1,9 +1,14 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { ApiError } from '../../shared/api/http';
+import {
+  modelDesignSchema,
+  type ModelDesign,
+  type Requirements,
+} from '../../entities/course/model/schema';
 
-// Разбор запроса моделью живёт на сервере CourseOS отдельно от CourseApi:
-// он только предлагает значения сводки, а курс по-прежнему создаёт выбранный адаптер.
+// Шаги с моделью живут на сервере CourseOS отдельно от CourseApi: они только предлагают
+// значения сводки и структуру каркаса, а курс по-прежнему создаёт выбранный адаптер.
 const statusSchema = z.object({ available: z.boolean() });
 
 export const callUsageSchema = z.object({
@@ -48,16 +53,46 @@ async function postJson<T>(path: string, body: unknown, schema: z.ZodType<T>) {
       signal: AbortSignal.timeout(150_000),
     });
   } catch {
-    throw new ApiError(0, 'Сервер CourseOS недоступен. Заполните сводку вручную.');
+    throw new ApiError(0, 'Сервер CourseOS недоступен или модель не ответила вовремя.');
   }
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok)
     throw new ApiError(
       response.status,
       z.object({ detail: z.string() }).safeParse(payload).data?.detail ??
-        'Не удалось разобрать запрос. Заполните сводку вручную.',
+        'Модель не справилась с запросом. Повторите или продолжите без неё.',
     );
   return schema.parse(payload);
+}
+
+const skeletonDraftSchema = z.object({
+  design: modelDesignSchema.omit({ issues: true }),
+  issues: z.array(z.string()),
+});
+
+export function useSkeletonDraft() {
+  return useMutation({
+    mutationFn: async (requirements: Requirements): Promise<ModelDesign> => {
+      const { design, issues } = await postJson(
+        '/api/llm/draft-skeleton',
+        {
+          request: requirements.request,
+          title: requirements.title,
+          template_id: requirements.template_id,
+          audience: requirements.audience,
+          entry_level: requirements.entry_level,
+          goal: requirements.goal,
+          total_hours: requirements.total_hours,
+          delivery: requirements.delivery,
+          assessment: requirements.assessment,
+          constraints: requirements.constraints,
+        },
+        skeletonDraftSchema,
+      );
+      return { ...design, issues };
+    },
+    retry: false,
+  });
 }
 
 export function useModelAvailability() {

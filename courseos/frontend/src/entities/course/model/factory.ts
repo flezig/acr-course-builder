@@ -15,6 +15,7 @@ import {
   devopsTopics,
   finalHoursReason,
   genericTopics,
+  modelTopics,
   pythonTopics,
   securityTopics,
   teacherTopics,
@@ -47,6 +48,8 @@ export function missingQuestions(requirements: Requirements) {
 }
 export function scenarioKind(requirements: Requirements): ScenarioKind {
   if (requirements.demo_example) return requirements.demo_example;
+  // Каркас от модели не должен подменяться заготовкой сценария, найденной по словам в названии.
+  if (requirements.model_design) return 'generic';
   const title = requirements.title.toLowerCase();
   if (title.includes('devops') || isInternship(requirements)) return 'devops';
   if (requirements.audience.toLowerCase().includes('банк')) return 'bank';
@@ -62,7 +65,9 @@ function scenarioTopics(kind: ScenarioKind, requirements: Requirements): Scenari
     teachers: teacherTopics,
     security: securityTopics,
     python: pythonTopics,
-    generic: genericTopics(requirements),
+    generic: requirements.model_design
+      ? modelTopics(requirements.model_design)
+      : genericTopics(requirements),
   }[kind];
 }
 // Итоговая аттестация — 2 ч во всех сценариях: в DevOps это требование запроса, в Python —
@@ -85,8 +90,28 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
     topic.content = `${question.practice} Выбор методиста: ${answer}.`;
   }
   const names = design.map((topic) => topic.title);
-  const outcomes: Skeleton['outcomes'] =
-    kind === 'bank'
+  const modelDesign = requirements.model_design;
+  // Номер темы, где результат проверяется текущим контролем. В заготовках результат i
+  // формирует тема i, у модели результатов и тем разное число — берём первую тему с результатом.
+  const outcomeTopic = (index: number) =>
+    kind === 'python'
+      ? [2, 3, 4][index]
+      : modelDesign
+        ? design.findIndex((topic) => topic.outcomes.includes(index + 1)) + 1 || 1
+        : index + 1;
+  const outcomes: Skeleton['outcomes'] = modelDesign
+    ? modelDesign.outcomes.map((outcome, index) => ({
+        id: `outcome-${index + 1}`,
+        kind: outcome.kind,
+        title: outcome.title,
+        description: outcome.description,
+        criteria: outcome.criteria,
+        prerequisite: requirements.entry_level || 'Входной уровень требует уточнения',
+        depth: 'Предложено моделью; глубину и предметную точность проверяет эксперт',
+        requirement_id: 'request',
+        professional_standard_code: null,
+      }))
+    : kind === 'bank'
       ? structuredClone(bankOutcomes)
       : kind === 'python'
         ? [
@@ -158,7 +183,7 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
       : outcomes.flatMap((outcome, index) => [
           {
             id: `assessment-${index + 1}-a`,
-            topic_id: `topic-${kind === 'python' ? [2, 3, 4][index] : index + 1}`,
+            topic_id: `topic-${outcomeTopic(index)}`,
             outcome_ids: [outcome.id],
             type: kind === 'devops' ? 'mentor_interview' : 'test',
             action:
@@ -168,7 +193,7 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
                     'Указать ветку, которая выполнится при заданном условии',
                     'Определить число повторений цикла и причину его завершения',
                   ][index]
-                : `Объяснить решение учебной задачи по теме «${names[index]}»`,
+                : `Объяснить решение учебной задачи по теме «${names[outcomeTopic(index) - 1]}»`,
             criterion:
               kind === 'python'
                 ? [
@@ -176,7 +201,9 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
                     'Для истинного и ложного условия верно указывает выбранную ветку',
                     'На трассировке указывает число ходов и причину завершения',
                   ][index]
-                : 'Воспроизводит пример и объясняет проверку ошибки; предметный порог требует уточнения',
+                : outcome.criteria?.length
+                  ? outcome.criteria.join('; ')
+                  : 'Воспроизводит пример и объясняет проверку ошибки; предметный порог требует уточнения',
           },
           {
             id: `assessment-${index + 1}-b`,
@@ -291,7 +318,10 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
     normalization_version: 'canonical-decimal-v1',
     requirements,
     template_version: 'acr-2026-v1',
-    goal: requirements.goal || `Освоить базовые действия по теме «${requirements.title}»`,
+    goal:
+      requirements.goal ||
+      modelDesign?.goal ||
+      `Освоить базовые действия по теме «${requirements.title}»`,
     tasks:
       kind === 'bank'
         ? [
@@ -299,11 +329,13 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
             'Научить выгружать и очищать данные по клиентам и кредитам без помощи аналитика',
             'Научить проверять, значимы ли различия показателей, и объяснять вывод руководителю',
           ]
-        : [
-            'Разобрать понятия на примере',
-            'Отработать действия с обратной связью',
-            'Продемонстрировать результат и объяснить решение',
-          ],
+        : modelDesign
+          ? [...modelDesign.tasks]
+          : [
+              'Разобрать понятия на примере',
+              'Отработать действия с обратной связью',
+              'Продемонстрировать результат и объяснить решение',
+            ],
     outcomes,
     topics,
     activities,

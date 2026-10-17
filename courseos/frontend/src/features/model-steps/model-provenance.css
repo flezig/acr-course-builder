@@ -1,0 +1,6 @@
+.model-provenance .notice p {
+  margin: 0 0 4px;
+}
+.model-provenance .notice small {
+  color: var(--muted);
+}
