@@ -1,3 +1,4 @@
+import { fixConsequences } from '../src/entities/course/model/finding-consequences';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import JSZip from 'jszip';
@@ -639,4 +640,20 @@ it('проблемы сводки предлагают исправление в
     { label: 'Взять 72 ч из текста', total_hours: '72' },
     { label: 'Взять 4 нед. из текста', calendar_days: 28 },
   ]);
+});
+it('карточка предложения заранее говорит, что изменится после применения', async () => {
+  const snapshot = await start(preset('devops'));
+  const issue = snapshot.audit.issues.find((i) => i.id === 'calendar-unknown')!;
+  const changes = fixConsequences(snapshot, issue);
+  expect(changes[0]).toMatch(/^Календарь будет подтверждён: .*до 4 ч в день\.$/);
+  expect(changes).toContain('Часы, темы и результаты не изменятся.');
+  expect(changes).toContain(
+    'Нехватка 32 ч останется: следующим решением нужно будет продлить срок, сократить объём или поднять дневной лимит.',
+  );
+  expect(changes).toContain(
+    `Появится версия ${snapshot.course_version + 1}; текущая останется в истории.`,
+  );
+  // Находка без предложения агента не обещает изменений.
+  const manual = snapshot.audit.issues.find((i) => !i.fix);
+  if (manual) expect(fixConsequences(snapshot, manual)).toEqual([]);
 });
