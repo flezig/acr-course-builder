@@ -319,7 +319,7 @@ describe('Проверка программы — зеркало чек-лист
         jsonStatus === 'ready' ? 'passed' : 'not_checked',
       );
       if (mode === 'demo' && docxStatus === 'unavailable') {
-        expect(exportCheck.evidence).toContain('Недоступно в демо');
+        expect(exportCheck.evidence).toContain('после утверждения');
         expect(exportCheck.status).not.toBe('passed');
       }
     },

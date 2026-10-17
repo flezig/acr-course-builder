@@ -214,13 +214,21 @@ it('48 ч / три недели: текст, план, календарь, ау�
     calendar: { calendar_days: 21 },
   });
 });
-it('DOCX и PPTX готовы в демо, LMS не засчитывается, JSON проверяется отдельно', async () => {
+it('DOCX, PPTX, LMS и JSON готовы в демо после генерации материалов', async () => {
   const snapshot = await fullPython();
   const checks = generalRequirements(snapshot);
-  for (const id of ['exports', 'export-pptx'])
+  for (const id of ['exports', 'export-pptx', 'export-lms', 'export-json'])
     expect(checks.find((c) => c.id === id)!.status).toBe('passed');
-  expect(checks.find((c) => c.id === 'export-lms')!.status).toBe('not_checked');
-  expect(checks.find((c) => c.id === 'export-json')!.status).toBe('passed');
+});
+it('LMS-выгрузка — Moodle XML с ключами и кодами результатов', async () => {
+  const snapshot = await fullPython();
+  const file = snapshot.export_manifest.find((f) => f.format === 'lms')!;
+  expect(file.filename).toMatch(/-moodle\.xml$/);
+  const xml = await (await api.downloadFile(file.file_id!)).text();
+  expect(xml.match(/<question type="multichoice">/g)).toHaveLength(10);
+  expect(xml.match(/fraction="100"/g)).toHaveLength(10);
+  expect(xml).toContain('<tag><text>');
+  expect(xml).not.toMatch(/<text>[^<]*[<>][^<]*<\/text>/);
 });
 it('DOCX и PPTX собираются из выбранной версии без технических идентификаторов', async () => {
   const snapshot = await fullPython();

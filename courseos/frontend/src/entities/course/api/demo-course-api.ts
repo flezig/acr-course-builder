@@ -1159,13 +1159,17 @@ export class DemoCourseApi implements CourseApi {
   }
   async downloadFile(fileId: string): Promise<Blob> {
     const [format, courseId, version] = fileId.split(':');
-    if (format !== 'docx' && format !== 'pptx')
+    if (format !== 'docx' && format !== 'pptx' && format !== 'lms')
       throw new ApiError(404, 'Файл этой версии не создан.');
     const view = await this.get(courseId, Number(version));
     if (!view.snapshot) throw new ApiError(404, 'Snapshot ещё не создан.');
     // Библиотеки DOCX и PPTX тяжёлые, поэтому загружаются только при скачивании.
     if (format === 'docx')
       return (await import('../export/program-docx')).buildProgramDocx(view.snapshot);
+    if (format === 'lms')
+      return new Blob([(await import('../export/lms-moodle')).buildMoodleXml(view.snapshot)], {
+        type: 'application/xml;charset=utf-8',
+      });
     return (await import('../export/lecture-pptx')).buildLecturePptx(view.snapshot);
   }
   async retrieveReference(_id: string, _url: string): Promise<Requirements['references'][number]> {

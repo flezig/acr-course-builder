@@ -201,9 +201,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
       evidence:
         docx?.status === 'ready' && docx.file_id
           ? 'DOCX создан для выбранной версии.'
-          : snapshot.mode === 'demo'
-            ? 'Недоступно в демо: экспортёр DOCX не подключён, файл не создан.'
-            : 'DOCX не создан.',
+          : 'DOCX создаётся после утверждения программы и подготовки материалов.',
       target: { screen: 'materials', hash: 'exports' },
     },
     {
@@ -225,9 +223,7 @@ export function generalRequirements(snapshot: Snapshot): ChecklistItem[] {
         evidence:
           file?.status === 'ready' && file.file_id
             ? 'Файл создан.'
-            : snapshot.mode === 'demo'
-              ? 'Недоступно в демо; файл не создан.'
-              : 'Не создано.',
+            : file?.reason || 'Файл создаётся после подготовки материалов.',
         target: { screen: 'materials', hash: 'exports' },
       };
     }),
