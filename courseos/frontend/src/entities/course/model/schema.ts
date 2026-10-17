@@ -461,6 +461,18 @@ export const generationSchema = z.object({
   ),
   issues: z.array(z.string()),
   failed: z.array(z.string()),
+  // Текстовые разделы шаблона от модели; литература в них не подтверждена.
+  program_sections: z
+    .object({
+      relevance: z.string(),
+      methodical: z.string(),
+      organization: z.string(),
+      environment: z.array(z.string()),
+      literature: z.array(
+        z.object({ group: z.enum(['main', 'additional', 'internet']), citation: z.string() }),
+      ),
+    })
+    .optional(),
   review: z
     .object({
       summary: z.string(),

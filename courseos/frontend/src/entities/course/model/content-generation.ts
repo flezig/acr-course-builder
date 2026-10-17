@@ -6,6 +6,7 @@ import {
   type FinalAssessmentResult,
   type GeneratedContent,
   type GenerationUsage,
+  type ProgramSectionsResult,
   type RepairTestResult,
   type ReviewResult,
   type TopicMaterialsResult,
@@ -21,6 +22,7 @@ export interface ContentSteps {
   final(input: Requests['final']): Promise<FinalAssessmentResult>;
   review(input: ReturnType<typeof reviewRequest>): Promise<ReviewResult>;
   repairTest(input: RepairRequest): Promise<RepairTestResult>;
+  sections(input: Requests['sections']): Promise<ProgramSectionsResult>;
 }
 
 export interface RepairRequest {
@@ -120,6 +122,12 @@ export async function generateContent(
         content.final = result;
         generation.issues.push(...result.issues);
         record('final_assessment', 'Итоговая аттестация', result.usage);
+      }),
+    () =>
+      attempt('Разделы программы', async () => {
+        const result = await steps.sections(requests.sections);
+        generation.program_sections = result.sections;
+        record('program_sections', 'Разделы программы', result.usage);
       }),
     ...requests.topics.map(
       (input) => () =>

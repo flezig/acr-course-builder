@@ -63,4 +63,14 @@ describe('срок и расписание для API агента', () => {
       standardScenario({ ...parameters, template_id: 'acr_professional', title: 'Бухучёт' }),
     ).toBeNull();
   });
+
+  it('«около двух месяцев» при 4 ч в день продлевается до 64 дней для 256 ч', () => {
+    const { calendar, assumptions } = calendarFromRequest(
+      'Стажировка на 256 часов. Срок около двух месяцев, не больше 4 часов в день.',
+      { ...parameters, total_hours: '256', daily_limit: '4' },
+      now,
+    );
+    expect(calendar.calendar_days).toBe(64);
+    expect(assumptions[1]).toMatch(/уточнён до 64 дней/);
+  });
 });

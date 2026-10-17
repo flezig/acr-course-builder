@@ -67,6 +67,12 @@ export function makeSections(snapshot: Snapshot): Snapshot['sections'] {
     )
     .join('\n');
   const assessments = s.assessments.map((a) => `${a.action} — ${a.criterion}`).join('\n');
+  const generated = snapshot.generation?.program_sections;
+  const candidates = (group: 'main' | 'additional' | 'internet') =>
+    (generated?.literature ?? [])
+      .filter((item) => item.group === group)
+      .map((item) => `[НЕ ПОДТВЕРЖДЁН] ${item.citation}`)
+      .join('\n');
   const literature = snapshot.sources
     .filter(
       (source) =>
@@ -106,7 +112,10 @@ export function makeSections(snapshot: Snapshot): Snapshot['sections'] {
       fields = [
         field(
           'Потребность аудитории',
-          r.goal && r.audience ? `${r.audience}: ${r.goal}. Входной уровень: ${r.entry_level}` : '',
+          generated?.relevance ||
+            (r.goal && r.audience
+              ? `${r.audience}: ${r.goal}. Входной уровень: ${r.entry_level}`
+              : ''),
         ),
       ];
     else if (/Цель/.test(title))
@@ -191,15 +200,39 @@ export function makeSections(snapshot: Snapshot): Snapshot['sections'] {
             .join('\n'),
         ),
       ];
-    else if (/литератур|Интернет|Информацион|информацион/i.test(title))
+    else if (/литератур|Интернет|Информацион|информацион/i.test(title)) {
       fields = [field('Проверенные источники по теме', literature)];
-    else if (/Техническ|техническ|условия/.test(title))
+      // Источники от модели не засчитываются как проверенные: отдельное поле с пометкой.
+      const group = /Основная/.test(title)
+        ? candidates('main')
+        : /Дополнительная/.test(title)
+          ? candidates('additional')
+          : /Интернет/.test(title)
+            ? candidates('internet')
+            : '';
+      if (group) fields.push(field('Предложено агентом, требует проверки', group));
+    } else if (/Техническ|техническ|условия/.test(title))
       fields = [
         field(
           'Учебная среда',
-          s.tools?.map((tool) => `${tool.name} ${tool.version}`).join('\n') || '',
+          s.tools?.map((tool) => `${tool.name} ${tool.version}`).join('\n') ||
+            generated?.environment.join('\n') ||
+            '',
         ),
         field('Подтверждённые рабочие места и доступы', ''),
+      ];
+    else if (generated && /^2\.4 Методические|^3\.3 Организация/.test(title))
+      fields = [
+        field(
+          /Методические/.test(title) ? 'Методика' : 'Организация',
+          /Методические/.test(title) ? generated.methodical : generated.organization,
+        ),
+        field(
+          'Учебные действия',
+          s.activities
+            .map((a) => `${s.topics.find((t) => t.id === a.topic_id)?.title}: ${a.description}`)
+            .join('\n'),
+        ),
       ];
     else if (/Методическ|Учебно-методическ|Организац/.test(title))
       fields = [

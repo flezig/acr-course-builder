@@ -4,6 +4,7 @@ import type { ContentSteps } from '../model/content-generation';
 import {
   courseTestResultSchema,
   finalAssessmentResultSchema,
+  programSectionsResultSchema,
   repairTestResultSchema,
   reviewResultSchema,
   topicMaterialsResultSchema,
@@ -36,5 +37,6 @@ export const httpContentSteps: ContentSteps = {
   test: (input) => post('/api/llm/course-test', input, courseTestResultSchema),
   final: (input) => post('/api/llm/final-assessment', input, finalAssessmentResultSchema),
   review: (input) => post('/api/llm/review-course', input, reviewResultSchema),
+  sections: (input) => post('/api/llm/program-sections', input, programSectionsResultSchema),
   repairTest: (input) => post('/api/llm/repair-test', input, repairTestResultSchema),
 };

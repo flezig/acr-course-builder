@@ -77,6 +77,13 @@ function nextMonday(from: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+const monthWords: Record<string, number> = {
+  одного: 1,
+  полутора: 1.5,
+  двух: 2,
+  трех: 3,
+  четырех: 4,
+};
 const countWords: Record<string, number> = { один: 1, два: 2, две: 2, три: 3, четыре: 4, пять: 5 };
 // Дни недели занятий по их числу: равномерно, без выходных.
 const weekdayPatterns: Record<number, number[]> = {
@@ -122,6 +129,36 @@ export function calendarFromRequest(
       assumptions: [
         `Дни занятий не указаны: агент поставил ${weekdayPatterns[perWeek].map((d) => ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'][d]).join(' и ')} с ${start}.`,
       ],
+    };
+  }
+  const months = request.match(
+    /(?:(одного|полутора|двух|тр[её]х|четыр[её]х|\d+(?:[.,]\d+)?)\s+)?месяц/i,
+  );
+  if (!parameters.weeks && months) {
+    const count = months[1]
+      ? (monthWords[months[1].toLowerCase().replace('ё', 'е')] ??
+        Number(months[1].replace(',', '.')))
+      : 1;
+    const limit = Number(parameters.daily_limit);
+    const needed = limit ? Math.ceil(total / limit) : 0;
+    let days = Math.round(count * 30);
+    const assumptions = [`Срок «${months[0]}» взят как ${days} календарных дней с ${start}.`];
+    // «Около двух месяцев» допускает небольшой запас: если при дневном лимите объём
+    // не помещается в 60 дней, но помещается в +15 %, срок продлевается до нужного.
+    if (/около|примерно|приблизительно/i.test(request) && needed > days && needed <= days * 1.15) {
+      assumptions.push(
+        `При нагрузке до ${limit} ч в день ${total} ч занимают ${needed} дней: срок «${months[0]}» уточнён до ${needed} дней.`,
+      );
+      days = needed;
+    }
+    return {
+      calendar: {
+        ...base,
+        calendar_days: days,
+        daily_limit: parameters.daily_limit,
+        description: `${months[0]} по запросу: ${days} дней`,
+      },
+      assumptions,
     };
   }
   if (parameters.weeks)

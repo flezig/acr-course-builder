@@ -135,6 +135,22 @@ const steps = (failTopic?: string): ContentSteps => ({
     issues: [],
     usage,
   }),
+  sections: async () => ({
+    sections: {
+      relevance: 'Банкам нужны аналитики',
+      methodical: 'Сначала пример, затем практика',
+      organization: 'Очно-заочно',
+      environment: ['Python 3.12', 'pandas 2.2'],
+      literature: [
+        { group: 'main', citation: 'Маккинни У. Python и анализ данных' },
+        {
+          group: 'internet',
+          citation: 'Документация pandas. — URL: https://pandas.pydata.org/docs/',
+        },
+      ],
+    },
+    usage,
+  }),
   repairTest: async (input) => ({
     questions: [
       ...input.replace.map((q) => ({
@@ -183,6 +199,7 @@ describe('генерация материалов по каркасу от мо�
     expect(generation.calls.map((c) => c.step)).toEqual([
       'course_test',
       'final_assessment',
+      'program_sections',
       'topic_materials',
       'topic_materials',
       'topic_materials',
@@ -193,6 +210,7 @@ describe('генерация материалов по каркасу от мо�
     expect(test.questions[2].text).toBe('Исправленный 3');
     expect(test.questions[3].text).toBe('Вопрос 4');
     expect(generation.review?.issues[0].resolved).toBe(true);
+    expect(generation.program_sections?.environment).toEqual(['Python 3.12', 'pandas 2.2']);
     expect(generation.failed).toEqual([]);
   });
 

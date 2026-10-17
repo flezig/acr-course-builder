@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Material, Skeleton } from './schema';
+import { generationSchema, type Material, type Skeleton } from './schema';
 import { isInternship } from './hours-plan';
 import { outcomeCodes } from '../export/outcome-codes';
 import { formatHours, sumHours } from '../../../shared/lib/decimal';
@@ -85,6 +85,12 @@ export const repairTestResultSchema = z.object({
   usage: usageSchema,
 });
 
+export const programSectionsResultSchema = z.object({
+  sections: generationSchema.shape.program_sections.unwrap(),
+  usage: usageSchema,
+});
+
+export type ProgramSectionsResult = z.infer<typeof programSectionsResultSchema>;
 export type RepairTestResult = z.infer<typeof repairTestResultSchema>;
 export type TopicMaterialsResult = z.infer<typeof topicMaterialsResultSchema>;
 export type CourseTestResult = z.infer<typeof courseTestResultSchema>;
@@ -176,6 +182,7 @@ export function generationRequests(skeleton: Skeleton) {
       topics: topics.map((t) => ({ number: numbers.get(t.id)!, title: t.title })),
       question_count: testQuestionCount(skeleton),
     },
+    sections: { brief, topics: topics.map((t) => t.title) },
     final: {
       brief,
       modules: modules.map((moduleId, index) => ({
