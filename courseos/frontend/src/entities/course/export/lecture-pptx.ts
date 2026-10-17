@@ -1,4 +1,5 @@
 import PptxGenJS from 'pptxgenjs';
+import JSZip from 'jszip';
 import type { Snapshot } from '../model/schema';
 import { formatHours, hourKinds, hourLabels } from '../../../shared/lib/decimal';
 import { plural } from '../../../shared/lib/plural';
@@ -222,9 +223,24 @@ export async function buildLecturePptx(snapshot: Snapshot): Promise<Blob> {
       if (slide.notes) page.addNotes(slide.notes);
     }
   }
-  // pptxgenjs отдаёт архив с типом application/zip; браузеру и почте нужен тип презентации.
   const archive = (await pptx.write({ outputType: 'blob' })) as Blob;
-  return new Blob([archive], {
-    type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  const packageFiles = await JSZip.loadAsync(await archive.arrayBuffer());
+  const contentTypesFile = packageFiles.file('[Content_Types].xml');
+  if (!contentTypesFile) throw new Error('В презентации отсутствует таблица типов файлов.');
+  // PptxGenJS 3 создаёт запись slideMaster для каждого слайда, но сохраняет
+  // только существующие шаблоны. PowerPoint может предлагать восстановление
+  // такого архива; удаляем лишь записи несуществующих шаблонов.
+  const contentTypes = await contentTypesFile.async('string');
+  packageFiles.file(
+    '[Content_Types].xml',
+    contentTypes.replace(
+      /<Override\b[^>]*PartName="(\/ppt\/slideMasters\/slideMaster\d+\.xml)"[^>]*\/>/g,
+      (entry, part: string) => (packageFiles.file(part.slice(1)) ? entry : ''),
+    ),
+  );
+  return packageFiles.generateAsync({
+    type: 'blob',
+    compression: 'DEFLATE',
+    mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   });
 }

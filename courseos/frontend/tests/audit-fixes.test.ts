@@ -275,6 +275,9 @@ it('DOCX и PPTX собираются из выбранной версии бе�
   expect(documentXml).toContain('Лист проверки методистом');
   expect(documentXml).not.toMatch(/outcome-\d|topic-\d/);
   const pptx = await unzip(await file('pptx'));
+  const contentTypes = await pptx.file('[Content_Types].xml')!.async('string');
+  for (const entry of contentTypes.matchAll(/<Override\b[^>]*PartName="([^"]+)"/g))
+    expect(pptx.file(entry[1].slice(1)), entry[1]).not.toBeNull();
   const lecture = snapshot.materials.find((m) => m.type === 'lecture' && m.slides.length)!;
   const slides = await Promise.all(
     Object.keys(pptx.files)
