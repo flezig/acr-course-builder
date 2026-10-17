@@ -5,6 +5,12 @@ import { unconfirmedSources } from './curriculum';
 export type ReviewItem = { title: string; detail: string };
 
 export function approvedAtCreation(snapshot: Snapshot) {
+  const applicable = snapshot.approvals.filter(
+    (a) =>
+      a.skeleton_hash === snapshot.skeleton_hash &&
+      a.skeleton_version === snapshot.skeleton_version,
+  );
+  if (applicable.length && applicable.every((a) => a.kind === 'automatic')) return false;
   return (
     snapshot.approval_at_creation ??
     snapshot.approvals.some(

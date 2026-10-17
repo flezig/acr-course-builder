@@ -2,7 +2,13 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import { z } from 'zod';
-import { AgentRunner, agentRequestSchema } from './agent/run-agent.ts';
+import {
+  AgentRunner,
+  AgentReviewError,
+  agentRequestSchema,
+  skeletonReviewSchema,
+  findingReviewSchema,
+} from './agent/run-agent.ts';
 import { LlmError, LlmGateway, type LlmErrorCode } from './llm/gateway.ts';
 import { routes } from './llm/models.ts';
 import { clarifyQuestions, questionsInputSchema } from './steps/clarify-questions.ts';
@@ -93,7 +99,7 @@ async function handleAgent(request: IncomingMessage, response: ServerResponse, p
   if (request.method === 'GET' && path === '/api/v1/agent')
     return sendJson(response, 200, {
       description:
-        'POST /api/v1/agent {request, clarifications?, answers?, approve?, wait?} собирает программу и комплект материалов.',
+        'POST /api/v1/agent {request, clarifications?, answers?, approve?, wait?} строит каркас и ждёт утверждения методистом. approve: true — явный автоматический прогон.',
       model_available: gateway.available,
     });
   if (request.method === 'POST' && path === '/api/v1/agent') {
@@ -108,7 +114,9 @@ async function handleAgent(request: IncomingMessage, response: ServerResponse, p
     const run = await agent.start(body.data);
     return sendJson(response, body.data.wait ? 200 : 202, agent.view(run));
   }
-  const match = path.match(/^\/api\/v1\/agent\/runs\/([^/]+)(?:\/(approve|files\/([^/]+)))?$/);
+  const match = path.match(
+    /^\/api\/v1\/agent\/runs\/([^/]+)(?:\/(approve|review|files\/([^/]+)))?$/,
+  );
   if (!match) throw new HttpError(404, 'Такого метода API нет.');
   const [, id, action, fileName] = match;
   if (request.method === 'GET' && !action) {
@@ -117,9 +125,27 @@ async function handleAgent(request: IncomingMessage, response: ServerResponse, p
     return sendJson(response, 200, agent.view(run));
   }
   if (request.method === 'POST' && action === 'approve') {
-    const run = await agent.approve(id);
-    if (!run) throw new HttpError(409, 'Сборка не ждёт утверждения.');
+    const body = skeletonReviewSchema.safeParse(await readJson(request));
+    if (!body.success)
+      throw new HttpError(
+        422,
+        'Нужны skeleton_version, skeleton_hash и course_version проверенного каркаса.',
+      );
+    const run = await agent.approve(id, body.data);
+    if (!run)
+      throw new HttpError(409, 'Сборка не ждёт утверждения или проверенная версия устарела.');
     return sendJson(response, run.request.wait ? 200 : 202, agent.view(run));
+  }
+  if (request.method === 'POST' && action === 'review') {
+    const body = findingReviewSchema.safeParse(await readJson(request));
+    if (!body.success)
+      throw new HttpError(
+        422,
+        'Нужны версия каркаса и decision: действие, issue_id и причина отклонения.',
+      );
+    const run = await agent.review(id, body.data);
+    if (!run) throw new HttpError(409, 'Сборка не ждёт решения или проверенная версия устарела.');
+    return sendJson(response, 200, agent.view(run));
   }
   if (request.method === 'GET' && fileName) {
     const file = await agent.file(id, fileName);
@@ -218,7 +244,7 @@ const server = createServer(async (request, response) => {
         detail: error.message,
         code: error.code,
       });
-    if (error instanceof HttpError)
+    if (error instanceof HttpError || error instanceof AgentReviewError)
       return sendJson(response, error.status, { detail: error.message });
     console.error(error);
     sendJson(response, 500, { detail: 'Внутренняя ошибка сервера.' });

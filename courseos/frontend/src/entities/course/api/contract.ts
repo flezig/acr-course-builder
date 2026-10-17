@@ -20,7 +20,15 @@ export type CourseCommand =
   | { action: 'start'; payload: Requirements }
   | { action: 'clarify'; payload: Requirements }
   | { action: 'save_skeleton'; payload: Skeleton }
-  | { action: 'approve'; payload: { skeleton_version: number; skeleton_hash: string } }
+  | {
+      action: 'approve';
+      payload: {
+        skeleton_version: number;
+        skeleton_hash: string;
+        actor_id?: string;
+        kind?: 'human' | 'automatic';
+      };
+    }
   | { action: 'change_preview'; payload: ChangeInput }
   | { action: 'change_apply'; payload: { change_id: string; overwrite_manual: boolean } }
   | {
@@ -33,7 +41,7 @@ export type CourseCommand =
   | { action: 'retry' | 'cancel'; payload: { job_id: string } }
   | { action: 'manual_material'; payload: { material_id: string; content: string } }
   | { action: 'apply_finding'; payload: { issue_id: string } }
-  | { action: 'dismiss_finding'; payload: { issue_id: string; reason: string } }
+  | { action: 'dismiss_finding'; payload: { issue_id: string; reason: string; actor?: string } }
   | {
       action: 'resolve_calendar';
       payload: {

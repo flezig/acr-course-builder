@@ -881,7 +881,7 @@ export class DemoCourseApi implements CourseApi {
               {
                 issue_id: issue.id,
                 reason,
-                actor: 'demo-methodist',
+                actor: envelope.payload.actor ?? 'demo-methodist',
                 at: now(),
                 scope_hash: base.skeleton_hash,
                 scope: `Версия ${base.skeleton_version}; элемент ${issue.element_id}`,
@@ -916,7 +916,8 @@ export class DemoCourseApi implements CourseApi {
               course_id: id,
               skeleton_version: base.skeleton_version,
               skeleton_hash: base.skeleton_hash,
-              actor_id: 'demo-methodist',
+              actor_id: envelope.payload.actor_id ?? 'demo-methodist',
+              kind: envelope.payload.kind ?? 'human',
               approved_at: now(),
             });
             base.approvals = course.approvals;

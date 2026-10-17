@@ -21,8 +21,8 @@ import {
 import { parseRequest, type ParsedRequest } from '../steps/parse-request.ts';
 import { reviewCourse, reviewInputSchema } from '../steps/review-course.ts';
 
-// Единый эндпоинт агента: один вызов проводит запрос методиста через все шаги —
-// разбор → уточнения → каркас → утверждение → материалы → самопроверка → выгрузки.
+// Единый эндпоинт агента: разбор → уточнения → каркас; после утверждения
+// методистом — материалы → самопроверка → выгрузки.
 // Сборку курса, часы и проверки выполняет тот же движок, что и интерфейс
 // (frontend/src/agent/headless.ts, собирается командой npm run build:agent).
 
@@ -32,11 +32,33 @@ export const agentRequestSchema = z.object({
   clarifications: z.string().trim().max(4000).default(''),
   // Ответы на содержательные вопросы модели: ключ — id или текст вопроса.
   answers: z.record(z.string(), z.string()).default({}),
-  // false — остановиться после каркаса и ждать POST /api/v1/agent/runs/{id}/approve.
-  approve: z.boolean().default(true),
+  // true — явный автоматический прогон без утверждения человеком.
+  approve: z.boolean().default(false),
   // false — сразу вернуть run_id, ход сборки смотреть в GET /api/v1/agent/runs/{id}.
   wait: z.boolean().default(true),
 });
+
+export const skeletonReviewSchema = z.object({
+  skeleton_version: z.number().int().positive(),
+  skeleton_hash: z.string().min(1),
+  course_version: z.number().int().positive(),
+});
+export const findingReviewSchema = skeletonReviewSchema.extend({
+  decision: z.discriminatedUnion('action', [
+    z.object({ action: z.literal('apply_finding'), issue_id: z.string().min(1) }),
+    z.object({
+      action: z.literal('dismiss_finding'),
+      issue_id: z.string().min(1),
+      reason: z.string().trim().min(3).max(4000),
+    }),
+  ]),
+});
+export class AgentReviewError extends Error {
+  readonly status = 422;
+}
+
+type SkeletonReview = z.infer<typeof skeletonReviewSchema>;
+type FindingReview = z.infer<typeof findingReviewSchema>;
 
 export type AgentRequest = z.infer<typeof agentRequestSchema>;
 
@@ -141,7 +163,16 @@ interface EngineSnapshot extends Omit<SnapshotLike, 'audit'> {
   audit: {
     technical_ready: boolean;
     checks: Array<{ title: string; status: string; actual: string }>;
-    issues: Array<{ message: string; blocking: boolean; severity: string; check_type: string }>;
+    issues: Array<{
+      id: string;
+      message: string;
+      blocking: boolean;
+      severity: string;
+      check_type: string;
+      fix?: string;
+      dismissible?: boolean;
+      suggested_fix: string;
+    }>;
   };
 }
 interface Headless {
@@ -162,11 +193,18 @@ interface Headless {
     snapshot: EngineSnapshot | null;
     job: { status: string; next_action: string };
   }>;
+  reviewFinding(
+    api: unknown,
+    courseId: string,
+    review: SkeletonReview,
+    decision: FindingReview['decision'],
+  ): Promise<EngineSnapshot>;
   approveAndGenerate(
     api: unknown,
     courseId: string,
     actor: string,
     onEvent: (event: { step: string; detail: string }) => void,
+    review?: SkeletonReview,
   ): Promise<{
     decisions: unknown[];
     blocking: Array<{ message: string }>;
@@ -261,12 +299,79 @@ export class AgentRunner {
     return run;
   }
 
-  async approve(id: string) {
+  private async pendingReview(id: string, review: SkeletonReview) {
     const run = await this.get(id);
     const pending = this.pending.get(id);
     if (!run || run.status !== 'awaiting_approval' || !pending) return null;
+    const skeleton = run.result.skeleton as ReturnType<typeof skeletonView>;
+    if (
+      skeleton.version !== review.skeleton_version ||
+      skeleton.hash !== review.skeleton_hash ||
+      skeleton.course_version !== review.course_version
+    )
+      return null;
     run.status = 'queued';
-    const done = (this.queue = this.queue.then(() => this.generate(run, 'methodist-api')));
+    return { run, pending };
+  }
+
+  async review(id: string, input: FindingReview) {
+    const current = await this.pendingReview(id, input);
+    if (!current) return null;
+    const { run, pending } = current;
+    const done = this.queue.then(async () => {
+      try {
+        const engine = await this.engine();
+        const before = run.result.skeleton as ReturnType<typeof skeletonView>;
+        const issue = before.audit_issues.find((i) => i.id === input.decision.issue_id);
+        const snapshot = await engine.reviewFinding(
+          pending.api,
+          pending.courseId,
+          input,
+          input.decision,
+        );
+        run.result.skeleton = skeletonView(
+          snapshot,
+          (run.result.skeleton as ReturnType<typeof skeletonView>).model_issues,
+        );
+        run.result.blocking = snapshot.audit.issues.filter((i) => i.blocking).map((i) => i.message);
+        run.result.next_action =
+          'Проверьте обновлённый каркас; разберите оставшиеся блокировки через /review и вызовите /approve с актуальными версиями.';
+        run.result.decisions = [
+          ...((run.result.decisions as unknown[]) ?? []),
+          {
+            issue_id: input.decision.issue_id,
+            issue: issue?.message,
+            action: input.decision.action === 'apply_finding' ? 'applied' : 'accepted_as_is',
+            reason:
+              input.decision.action === 'dismiss_finding'
+                ? input.decision.reason
+                : issue?.suggested_fix,
+            actor: 'methodist-api',
+          },
+        ];
+        this.event(
+          run,
+          'review',
+          `Решение методиста: ${input.decision.action}, ${input.decision.issue_id}`,
+        );
+      } catch (error) {
+        throw new AgentReviewError(error instanceof Error ? error.message : String(error));
+      } finally {
+        run.status = 'awaiting_approval';
+        await this.save(run);
+      }
+      return run;
+    });
+    // Ошибка решения не должна останавливать очередь следующих сборок.
+    this.queue = done.catch(() => {});
+    return await done;
+  }
+
+  async approve(id: string, review: SkeletonReview) {
+    const current = await this.pendingReview(id, review);
+    if (!current) return null;
+    const { run } = current;
+    const done = (this.queue = this.queue.then(() => this.generate(run, 'methodist-api', review)));
     if (run.request.wait) await done;
     return run;
   }
@@ -326,7 +431,8 @@ export class AgentRunner {
     run.status = 'running';
     try {
       await this.design(run);
-      if (run.status === 'running' && run.request.approve) await this.generate(run, 'api-client');
+      if (run.status === 'running' && run.request.approve)
+        await this.generate(run, 'automatic-api');
     } catch (error) {
       run.status = 'failed';
       run.error = error instanceof Error ? error.message : String(error);
@@ -416,6 +522,10 @@ export class AgentRunner {
       'skeleton',
       `Каркас готов: ${built.snapshot.skeleton.topics.length} строк учебного плана, ${built.snapshot.skeleton.outcomes.length} результатов`,
     );
+    run.result.approval = {
+      mode: run.request.approve ? 'automatic' : 'human',
+      human_approved: false,
+    };
     run.result.skeleton_ms = Date.now() - Date.parse(run.created_at);
     if (!run.request.approve) {
       run.status = 'awaiting_approval';
@@ -423,7 +533,7 @@ export class AgentRunner {
     }
   }
 
-  private async generate(run: Run, actor: string) {
+  private async generate(run: Run, actor: string, review?: SkeletonReview) {
     run.status = 'running';
     const pending = this.pending.get(run.run_id)!;
     const engine = await this.engine();
@@ -433,14 +543,30 @@ export class AgentRunner {
         pending.courseId,
         actor,
         (event) => this.event(run, event.step, event.detail),
+        review,
       );
-      run.result.decisions = result.decisions;
+      run.result.decisions = [...((run.result.decisions as unknown[]) ?? []), ...result.decisions];
+      run.result.skeleton = skeletonView(
+        result.snapshot,
+        (run.result.skeleton as ReturnType<typeof skeletonView>).model_issues,
+      );
       if (!result.files) {
-        run.status = 'blocked';
+        run.status = actor === 'automatic-api' ? 'blocked' : 'awaiting_approval';
         run.result.blocking = result.blocking.map((issue) => issue.message);
-        run.result.next_action = 'Есть блокирующие замечания, которые агент не может снять сам.';
+        run.result.next_action =
+          'Разберите блокирующие замечания через /review, затем проверьте каркас и вызовите /approve.';
+        await this.save(run);
         return;
       }
+      run.result.approval = {
+        mode: actor === 'automatic-api' ? 'automatic' : 'human',
+        human_approved: actor !== 'automatic-api',
+        actor,
+        skeleton_version: result.snapshot.skeleton_version,
+        skeleton_hash: result.snapshot.skeleton_hash,
+      };
+      delete run.result.blocking;
+      delete run.result.next_action;
       this.pending.delete(run.run_id);
       const dir = this.runDir(run.run_id);
       await mkdir(dir, { recursive: true });
@@ -498,6 +624,7 @@ function describe(usage: CallUsage) {
 
 type SnapshotLike = {
   course_id: string;
+  course_version: number;
   skeleton_version: number;
   skeleton_hash: string;
   skeleton: {
@@ -507,9 +634,19 @@ type SnapshotLike = {
       title: string;
       template_id: string;
       total_hours: string;
+      calendar: unknown;
+      references: unknown;
       model_design?: { module_titles: string[]; design_notes?: unknown };
     };
-    outcomes: Array<{ id: string; kind: string; description: string; criteria?: string[] }>;
+    assessments: unknown[];
+    sessions?: unknown[];
+    outcomes: Array<{
+      id: string;
+      kind: string;
+      description: string;
+      criteria?: string[];
+      professional_standard_code?: string;
+    }>;
     topics: Array<{
       id: string;
       module_id: string;
@@ -520,7 +657,16 @@ type SnapshotLike = {
       control: string;
     }>;
   };
-  audit: { issues: Array<{ message: string; blocking: boolean }> };
+  audit: {
+    issues: Array<{
+      id: string;
+      message: string;
+      blocking: boolean;
+      fix?: string;
+      dismissible?: boolean;
+      suggested_fix: string;
+    }>;
+  };
 };
 
 // Каркас в ответе API — то, что утверждает методист: цель, результаты и учебный план с часами.
@@ -529,6 +675,11 @@ function skeletonView(snapshot: SnapshotLike, issues: string[]) {
   const moduleTitles = s.requirements.model_design?.module_titles ?? [];
   return {
     course_id: snapshot.course_id,
+    course_version: snapshot.course_version,
+    calendar: s.requirements.calendar,
+    references: s.requirements.references,
+    assessments: s.assessments,
+    sessions: s.sessions ?? [],
     version: snapshot.skeleton_version,
     hash: snapshot.skeleton_hash,
     title: s.requirements.title,
@@ -542,6 +693,7 @@ function skeletonView(snapshot: SnapshotLike, issues: string[]) {
       kind: o.kind,
       description: o.description,
       criteria: o.criteria ?? [],
+      professional_standard_code: o.professional_standard_code,
     })),
     curriculum: s.topics.map((t) => ({
       id: t.id,
@@ -556,6 +708,13 @@ function skeletonView(snapshot: SnapshotLike, issues: string[]) {
       control: t.control,
     })),
     model_issues: issues,
-    audit_issues: snapshot.audit.issues.map((i) => ({ blocking: i.blocking, message: i.message })),
+    audit_issues: snapshot.audit.issues.map((i) => ({
+      id: i.id,
+      blocking: i.blocking,
+      message: i.message,
+      can_apply: Boolean(i.fix),
+      dismissible: Boolean(i.dismissible),
+      suggested_fix: i.suggested_fix,
+    })),
   };
 }

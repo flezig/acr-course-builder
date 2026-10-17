@@ -452,6 +452,7 @@ export const approvalSchema = z.object({
   skeleton_version: z.number(),
   skeleton_hash: z.string(),
   actor_id: z.string(),
+  kind: z.enum(['human', 'automatic']).optional(),
   approved_at: z.string(),
 });
 // Как получены материалы курса с каркасом от модели: вызовы, замечания кода к ответам

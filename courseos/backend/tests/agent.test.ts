@@ -4,7 +4,12 @@ import { existsSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { AgentRunner, summaryGaps } from '../src/agent/run-agent.ts';
+import {
+  AgentRunner,
+  agentRequestSchema,
+  findingReviewSchema,
+  summaryGaps,
+} from '../src/agent/run-agent.ts';
 import { LlmGateway } from '../src/llm/gateway.ts';
 
 const bundle = resolve(import.meta.dirname, '../../frontend/dist-agent/headless.js');
@@ -178,13 +183,14 @@ test('один вызов проводит запрос через все шаг
   });
   const view = agent.view(run) as Record<string, any>;
   assert.equal(view.error, null);
+  assert.equal(view.approval.human_approved, false);
   assert.ok(['succeeded', 'needs_review'].includes(view.status), view.status);
   assert.deepEqual([...new Set(view.events.map((e: { step: string }) => e.step))].slice(0, 6), [
     'parse_request',
     'clarify_questions',
     'draft_skeleton',
     'skeleton',
-    'approval',
+    'automatic_approval',
     'content',
   ]);
   const total = view.skeleton.curriculum.reduce(
@@ -202,6 +208,9 @@ test('один вызов проводит запрос через все шаг
     10,
   );
   assert.equal(course.generation.review.issues.length, 1);
+  assert.equal(course.status.approved, false);
+  assert.equal(course.approvals.at(-1).kind, 'automatic');
+  assert.equal(course.approvals.at(-1).actor_id, 'automatic-api');
   const literature = course.sections.find(
     (s: { title: string }) => s.title === '3.2.2 Основная литература',
   );
@@ -224,18 +233,99 @@ test('неполный запрос возвращает вопросы мето
   assert.equal(view.skeleton, undefined);
 });
 
-test('без утверждения сборка останавливается на каркасе', { skip }, async () => {
+function reviewedVersion(view: Record<string, any>) {
+  return {
+    skeleton_version: view.skeleton.version,
+    skeleton_hash: view.skeleton.hash,
+    course_version: view.skeleton.course_version,
+  };
+}
+
+test('по умолчанию ждёт методиста и не снимает замечания при утверждении', { skip }, async () => {
   const agent = await runner();
-  const run = await agent.start({
-    request: 'Программа на 72 часа, очно-заочно',
-    clarifications: '',
-    answers: {},
-    approve: false,
-    wait: true,
-  });
+  const run = await agent.start(
+    agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно' }),
+  );
+  let view = agent.view(run) as Record<string, any>;
   assert.equal(run.status, 'awaiting_approval');
-  const approved = await agent.approve(run.run_id);
+  assert.equal(run.calls.length, 3);
+  assert.equal(view.approval.human_approved, false);
+  assert.equal(view.files, undefined);
+  const initialSkeleton = structuredClone(view.skeleton);
+  await assert.rejects(
+    agent.review(run.run_id, {
+      ...reviewedVersion(view),
+      decision: { action: 'apply_finding', issue_id: 'missing' },
+    }),
+    /нет предложения/,
+  );
+  assert.equal(run.status, 'awaiting_approval');
+  assert.deepEqual((agent.view(run) as any).skeleton, initialSkeleton);
+  assert.ok(initialSkeleton.audit_issues.some((i: any) => i.blocking));
+  assert.equal(
+    await agent.approve(run.run_id, { ...reviewedVersion(view), skeleton_hash: 'stale' }),
+    null,
+  );
+  await agent.approve(run.run_id, reviewedVersion(view));
+  view = agent.view(run) as Record<string, any>;
+  assert.equal(run.status, 'awaiting_approval');
+  assert.deepEqual(view.skeleton, initialSkeleton);
+  assert.deepEqual(view.decisions, []);
+  assert.equal(run.calls.length, 3);
+  assert.ok(!view.events.some((e: any) => e.step === 'approval' || e.step === 'content'));
+
+  // Каждое решение возвращает каркас для проверки, но не запускает материалы.
+  for (let round = 0; round < 20; round++) {
+    const issue = view.skeleton.audit_issues.find((i: any) => i.blocking);
+    if (!issue) break;
+    const review = reviewedVersion(view);
+    const decision = issue.can_apply
+      ? { action: 'apply_finding' as const, issue_id: issue.id }
+      : {
+          action: 'dismiss_finding' as const,
+          issue_id: issue.id,
+          reason: 'Проверено методистом для этой программы',
+        };
+    const [reviewed, duplicate] = await Promise.all([
+      agent.review(run.run_id, { ...review, decision }),
+      agent.review(run.run_id, { ...review, decision }),
+    ]);
+    assert.equal(duplicate, null);
+    assert.ok(reviewed);
+    view = agent.view(run) as Record<string, any>;
+    assert.equal(view.status, 'awaiting_approval');
+    assert.equal(view.files, undefined);
+    assert.equal(run.calls.length, 3);
+    assert.ok(view.skeleton.course_version > review.course_version);
+    assert.equal(await agent.approve(run.run_id, review), null);
+  }
+  assert.ok(!view.skeleton.audit_issues.some((i: any) => i.blocking));
+  const finalSkeleton = structuredClone(view.skeleton);
+  const approved = await agent.approve(run.run_id, reviewedVersion(view));
   assert.ok(['succeeded', 'needs_review'].includes(approved!.status), approved!.status);
+  view = agent.view(run) as Record<string, any>;
+  assert.equal(view.approval.human_approved, true);
+  assert.equal(view.skeleton.hash, finalSkeleton.hash);
+  assert.equal(view.skeleton.version, finalSkeleton.version);
+  assert.ok(view.decisions.length > 0);
+  assert.ok(view.decisions.every((d: any) => d.actor === 'methodist-api'));
+  const course = JSON.parse((await agent.file(run.run_id, 'course.json'))!.body.toString());
+  assert.equal(course.status.approved, true);
+  assert.equal(course.approvals.at(-1).actor_id, 'methodist-api');
+  assert.equal(await agent.approve(run.run_id, reviewedVersion(view)), null);
+});
+
+test('отклонение замечания требует явной причины', () => {
+  assert.equal(agentRequestSchema.parse({ request: 'Курс' }).approve, false);
+  assert.equal(
+    findingReviewSchema.safeParse({
+      skeleton_version: 1,
+      skeleton_hash: 'hash',
+      course_version: 1,
+      decision: { action: 'dismiss_finding', issue_id: 'issue', reason: ' ' },
+    }).success,
+    false,
+  );
 });
 
 test('агент спрашивает тип и объём всегда, а одно второстепенное поле берёт допущением', () => {

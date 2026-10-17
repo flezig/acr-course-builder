@@ -375,8 +375,8 @@ async function waitFor(api: DemoCourseApi, courseId: string, statuses: Set<strin
   }
 }
 
-// Блокирующие находки перед утверждением: предложение агента применяется, остальное
-// допускаемое оставляется как есть с причиной. Каждое решение возвращается в ответе API.
+// Только явный автоматический прогон может сам разбирать замечания.
+// Эти решения не считаются утверждением методиста.
 async function settleBlocking(api: DemoCourseApi, courseId: string, decisions: AgentDecision[]) {
   for (let round = 0; round < 20; round++) {
     const view = await api.get(courseId);
@@ -397,7 +397,7 @@ async function settleBlocking(api: DemoCourseApi, courseId: string, decisions: A
       await api.command({
         ...envelope,
         action: 'dismiss_finding',
-        payload: { issue_id: issue.id, reason },
+        payload: { issue_id: issue.id, reason, actor: 'automatic-api' },
       });
       decisions.push({ issue: issue.message, action: 'accepted_as_is', reason });
     }
@@ -460,14 +460,67 @@ export async function buildSkeleton(requirements: Requirements, contentSteps: Co
   return { api, courseId: started.course_id, snapshot: view.snapshot, job: view.job };
 }
 
+export interface SkeletonReview {
+  skeleton_version: number;
+  skeleton_hash: string;
+  course_version: number;
+}
+
+export type FindingDecision =
+  | { action: 'apply_finding'; issue_id: string }
+  | { action: 'dismiss_finding'; issue_id: string; reason: string };
+
+async function reviewedSnapshot(api: DemoCourseApi, courseId: string, review: SkeletonReview) {
+  const snapshot = (await api.get(courseId)).snapshot!;
+  if (
+    snapshot.skeleton_version !== review.skeleton_version ||
+    snapshot.skeleton_hash !== review.skeleton_hash ||
+    snapshot.course_version !== review.course_version
+  )
+    throw new Error(
+      'Версия каркаса или замечаний изменилась. Получите и проверьте актуальную версию.',
+    );
+  return snapshot;
+}
+
+export async function reviewFinding(
+  api: DemoCourseApi,
+  courseId: string,
+  review: SkeletonReview,
+  decision: FindingDecision,
+) {
+  const snapshot = await reviewedSnapshot(api, courseId, review);
+  await api.command({
+    course_id: courseId,
+    expected_version: snapshot.course_version,
+    request_id: crypto.randomUUID(),
+    ...(decision.action === 'apply_finding'
+      ? { action: 'apply_finding', payload: { issue_id: decision.issue_id } }
+      : {
+          action: 'dismiss_finding',
+          payload: {
+            issue_id: decision.issue_id,
+            reason: decision.reason,
+            actor: 'methodist-api',
+          },
+        }),
+  });
+  return (await api.get(courseId)).snapshot!;
+}
+
 export async function approveAndGenerate(
   api: DemoCourseApi,
   courseId: string,
   actor: string,
   onEvent: (event: AgentEvent) => void = () => {},
+  review?: SkeletonReview,
 ) {
   const decisions: AgentDecision[] = [];
-  const settled = await settleBlocking(api, courseId, decisions);
+  const automatic = actor === 'automatic-api';
+  if (!automatic && !review) throw new Error('Нужна проверенная версия каркаса.');
+  const settled = automatic
+    ? await settleBlocking(api, courseId, decisions)
+    : await reviewedSnapshot(api, courseId, review!);
   const blocking = settled.audit.issues.filter((i) => i.blocking);
   if (blocking.length)
     return {
@@ -482,11 +535,18 @@ export async function approveAndGenerate(
     course_id: courseId,
     expected_version: settled.course_version,
     request_id: crypto.randomUUID(),
-    payload: { skeleton_version: settled.skeleton_version, skeleton_hash: settled.skeleton_hash },
+    payload: {
+      skeleton_version: settled.skeleton_version,
+      skeleton_hash: settled.skeleton_hash,
+      actor_id: actor,
+      kind: automatic ? 'automatic' : 'human',
+    },
   });
   onEvent({
-    step: 'approval',
-    detail: `Каркас версии ${settled.skeleton_version} утверждён: ${actor}`,
+    step: automatic ? 'automatic_approval' : 'approval',
+    detail: automatic
+      ? `Каркас версии ${settled.skeleton_version}: автоматический прогон, методистом не утверждён`
+      : `Каркас версии ${settled.skeleton_version} утверждён: ${actor}`,
   });
   let reported = 0;
   for (;;) {
