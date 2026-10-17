@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Check } from 'lucide-react';
 import type { Snapshot } from '../../entities/course/model/schema';
 import { useCommand } from '../../entities/course/api/provider';
+import { fixConsequences } from '../../entities/course/model/finding-consequences';
 import { Badge, ErrorMessage, Notice } from '../../shared/ui/ui';
 
 type Issue = Snapshot['audit']['issues'][number];
@@ -95,6 +96,7 @@ function DecisionItem({
   const [keeping, setKeeping] = useState(false);
   const [reason, setReason] = useState('');
   const state = issueState(issue);
+  const consequences = issue.decision ? [] : fixConsequences(snapshot, issue);
   const decide = async (action: 'apply_finding' | 'dismiss_finding') => {
     try {
       await command.mutateAsync(
@@ -113,7 +115,7 @@ function DecisionItem({
       setKeeping(false);
       onDecided(
         action === 'apply_finding'
-          ? 'Предложение применено. Создана новая версия, проверки пересчитаны.'
+          ? `Предложение применено: создана версия ${snapshot.course_version + 1}, проверки пересчитаны.`
           : 'Находка оставлена как есть. Причина сохранена в отчёте.',
       );
     } catch {
@@ -135,15 +137,36 @@ function DecisionItem({
         <h4>{issue.message}</h4>
         <dl>
           <div>
-            <dt>Доказательство</dt>
+            <dt>Что найдено</dt>
             <dd>
               {issue.evidence || `Ожидается: ${issue.expected}. Фактически: ${issue.actual}.`}
             </dd>
           </div>
           <div>
-            <dt>{issue.fix ? 'Предложение агента' : 'Что сделать'}</dt>
+            <dt>{issue.fix ? 'Предложение агента' : 'Как исправить'}</dt>
             <dd>{issue.suggested_fix}</dd>
           </div>
+          {!!consequences.length && (
+            <div>
+              <dt>Что изменится после «Применить»</dt>
+              <dd>
+                <ul className="fix-consequences">
+                  {consequences.map((change) => (
+                    <li key={change}>{change}</li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
+          )}
+          {issue.dismissible && !issue.decision && (
+            <div>
+              <dt>Если оставить как есть</dt>
+              <dd>
+                Замечание перестанет блокировать утверждение, а ваша причина попадёт в отчёт о
+                программе.
+              </dd>
+            </div>
+          )}
           {issue.decision && (
             <div>
               <dt>Причина решения</dt>
@@ -160,7 +183,7 @@ function DecisionItem({
                 onClick={() => void decide('apply_finding')}
               >
                 <Check size={15} />
-                Применить
+                Применить предложение
               </button>
             )}
             {issue.dismissible && !keeping && (
@@ -170,8 +193,10 @@ function DecisionItem({
             )}
             <Link className="button secondary" to={href}>
               {issue.element_id === 'calendar'
-                ? 'Исправить календарь'
-                : 'Открыть место в программе'}
+                ? 'Исправить календарь вручную'
+                : issue.fix
+                  ? 'Исправить вручную'
+                  : 'Открыть место в программе'}
               <ArrowRight size={15} />
             </Link>
           </div>

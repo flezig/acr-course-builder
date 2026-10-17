@@ -46,9 +46,14 @@ test('изменённый банковский запрос требует св
     (await request.inputValue()).replace('72 часа', '48 часов').replace('4 недели', 'три недели'),
   );
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
-  await expect(page.getByText('Устраните расхождения текста и сводки.')).toBeVisible();
-  await page.getByLabel('Объём в часах').fill('48');
-  await page.getByLabel('Срок в неделях').fill('3');
+  // Расхождения текста и сводки перечислены под запросом с исправлением в один клик.
+  const problems = page.getByRole('list', { name: 'Что исправить в сводке' });
+  await expect(problems).toContainText('В тексте запроса 48 ч, а в сводке 72 ч.');
+  await problems.getByRole('button', { name: 'Взять 48 ч из текста' }).click();
+  await problems.getByRole('button', { name: 'Взять 3 нед. из текста' }).click();
+  await expect(problems).toBeHidden();
+  await expect(page.getByLabel('Объём в часах')).toHaveValue('48');
+  await expect(page.getByLabel('Срок в неделях')).toHaveValue('3');
   await page.getByLabel('Максимум часов в день').fill('4');
   await page.getByLabel('Подтверждаю параметры изменённого запроса вручную').check();
   await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
@@ -68,7 +73,7 @@ test('DevOps: обычное подтверждение не меняет 4 ч �
   await page.goto(`/courses/${id}/plan#review`);
   const issue = page.locator('#issue-calendar-unknown');
   await expect(issue).toContainText('64 учебных дней');
-  await issue.getByRole('button', { name: 'Применить', exact: true }).click();
+  await issue.getByRole('button', { name: 'Применить предложение', exact: true }).click();
   await expect(page.locator('#issue-calendar-capacity')).toContainText('32');
   await page.goto(`/courses/${id}/plan#calendar`);
   await expect(page.locator('.calendar-summary')).toContainText('4');

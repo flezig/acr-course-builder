@@ -56,7 +56,7 @@ test('Decision queue: verdict counts, keyboard tabs, open place and keep with re
   await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeDisabled();
   await page.keyboard.press('Home');
   const first = page.locator('.decision-item').first();
-  await expect(first).toContainText('Доказательство');
+  await expect(first).toContainText('Что найдено');
   await first.getByRole('link', { name: 'Открыть место в программе' }).click();
   await expect(page.getByLabel('Дата начала', { exact: true })).toBeFocused();
   await page.getByRole('link', { name: 'Решения', exact: true }).click();

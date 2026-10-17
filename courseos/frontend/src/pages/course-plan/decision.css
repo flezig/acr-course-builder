@@ -284,3 +284,10 @@
 .acr-plan thead th:not(:first-child):not(:last-child) {
   text-align: right;
 }
+.fix-consequences {
+  margin: 0;
+  padding-left: 18px;
+}
+.fix-consequences li + li {
+  margin-top: 2px;
+}
