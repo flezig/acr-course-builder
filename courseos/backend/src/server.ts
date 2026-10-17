@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import { z } from 'zod';
+import { AgentRunner, agentRequestSchema } from './agent/run-agent.ts';
 import { LlmError, LlmGateway, type LlmErrorCode } from './llm/gateway.ts';
 import { routes } from './llm/models.ts';
 import { clarifyQuestions, questionsInputSchema } from './steps/clarify-questions.ts';
@@ -25,6 +26,12 @@ const gateway = new LlmGateway({
   apiKey: process.env.OPENAI_API_KEY,
   dataDir: resolve(process.env.DATA_DIR ?? join(root, 'var')),
 });
+
+const agent = new AgentRunner(
+  gateway,
+  resolve(process.env.DATA_DIR ?? join(root, 'var')),
+  process.env.AGENT_BUNDLE ?? join(root, '../frontend/dist-agent/headless.js'),
+);
 
 const statusByCode: Record<LlmErrorCode, number> = {
   unavailable: 503,
@@ -77,7 +84,53 @@ class HttpError extends Error {
   }
 }
 
+// Единый эндпоинт агента для автопроверки и внешних систем; описание — в README.
+async function handleAgent(request: IncomingMessage, response: ServerResponse, path: string) {
+  if (request.method === 'GET' && path === '/api/v1/agent')
+    return sendJson(response, 200, {
+      description:
+        'POST /api/v1/agent {request, clarifications?, answers?, approve?, wait?} собирает программу и комплект материалов.',
+      model_available: gateway.available,
+    });
+  if (request.method === 'POST' && path === '/api/v1/agent') {
+    if (!gateway.available)
+      throw new LlmError(
+        'unavailable',
+        'Модель не настроена: нет OPENAI_BASE_URL или OPENAI_API_KEY.',
+      );
+    const body = agentRequestSchema.safeParse(await readJson(request));
+    if (!body.success)
+      throw new HttpError(422, 'Нужен текст запроса методиста в поле request (до 8000 символов).');
+    const run = await agent.start(body.data);
+    return sendJson(response, body.data.wait ? 200 : 202, agent.view(run));
+  }
+  const match = path.match(/^\/api\/v1\/agent\/runs\/([^/]+)(?:\/(approve|files\/([^/]+)))?$/);
+  if (!match) throw new HttpError(404, 'Такого метода API нет.');
+  const [, id, action, fileName] = match;
+  if (request.method === 'GET' && !action) {
+    const run = await agent.get(id);
+    if (!run) throw new HttpError(404, 'Сборка не найдена.');
+    return sendJson(response, 200, agent.view(run));
+  }
+  if (request.method === 'POST' && action === 'approve') {
+    const run = await agent.approve(id);
+    if (!run) throw new HttpError(409, 'Сборка не ждёт утверждения.');
+    return sendJson(response, run.request.wait ? 200 : 202, agent.view(run));
+  }
+  if (request.method === 'GET' && fileName) {
+    const file = await agent.file(id, fileName);
+    if (!file) throw new HttpError(404, 'Файл не найден.');
+    response.writeHead(200, {
+      'Content-Type': file.contentType,
+      'Content-Disposition': `attachment; filename="${fileName}"`,
+    });
+    return response.end(file.body);
+  }
+  throw new HttpError(404, 'Такого метода API нет.');
+}
+
 async function handleApi(request: IncomingMessage, response: ServerResponse, path: string) {
+  if (path.startsWith('/api/v1/agent')) return handleAgent(request, response, path);
   if (request.method === 'GET' && path === '/api/llm/status')
     return sendJson(response, 200, {
       available: gateway.available,
