@@ -72,10 +72,11 @@ export function extractJson(content: string): unknown {
 export function normalize(value: unknown) {
   if (!value || typeof value !== 'object') return value;
   const record = { ...(value as Record<string, unknown>) };
-  // Отсутствующее значение модель иногда передаёт как null вместо пустой строки или списка.
+  // Отсутствующее значение модель передаёт как null или вовсе пропускает поле
+  // (чаще всего пустой missing); это то же самое, что пустая строка или список.
   for (const [key, field] of Object.entries(parsedRequestSchema.shape))
-    if (record[key] === null && key !== 'weeks')
-      record[key] = field instanceof z.ZodArray ? [] : '';
+    if (record[key] == null)
+      record[key] = key === 'weeks' ? null : field instanceof z.ZodArray ? [] : '';
   for (const key of ['total_hours', 'daily_limit'])
     if (typeof record[key] === 'number') record[key] = String(record[key]);
   for (const key of ['total_hours', 'daily_limit'])

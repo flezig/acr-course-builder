@@ -5,6 +5,7 @@ import {
   normalize,
   extractJson,
   parseRequest,
+  parsedRequestSchema,
   type ParsedRequest,
 } from '../src/steps/parse-request.ts';
 import { usageSummary } from '../src/usage.ts';
@@ -149,8 +150,21 @@ test('стажировка из текста запроса попадает в 
 });
 
 test('«unknown» в полях сводки становится пустым полем, а тип программы остаётся', () => {
-  assert.deepEqual(
-    normalize({ template_id: 'unknown', entry_level: 'unknown', assessment: 'Unknown' }),
-    { template_id: 'unknown', entry_level: '', assessment: '' },
-  );
+  const record = normalize({
+    template_id: 'unknown',
+    entry_level: 'unknown',
+    assessment: 'Unknown',
+  }) as Record<string, unknown>;
+  assert.equal(record.template_id, 'unknown');
+  assert.equal(record.entry_level, '');
+  assert.equal(record.assessment, '');
+});
+
+test('пропущенные моделью поля считаются пустыми, а не ломают разбор', () => {
+  // Реальный ответ GigaChat-3-Pro на запрос из README: без поля missing, недели строкой.
+  const content =
+    '{"title": "Анализ данных на Python", "template_id": "acr_professional", "audience": "сотрудники банков", "entry_level": "", "goal": "научить анализировать данные", "total_hours": "72", "delivery": "очно-заочная", "assessment": "защита проекта", "constraints": "", "weeks": "4", "daily_limit": ""}';
+  const parsed = parsedRequestSchema.parse(normalize(extractJson(content)));
+  assert.deepEqual(parsed.missing, []);
+  assert.equal(parsed.weeks, 4);
 });
