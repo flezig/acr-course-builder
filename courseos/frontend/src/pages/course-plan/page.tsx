@@ -147,25 +147,42 @@ export function PlanPage() {
   const canEdit = !readonly && !editing && !blockEditing;
   const versionQuery = view.is_latest ? '' : `?version=${snapshot.course_version}`;
   const href = (page: string) => `/courses/${view.course_id}/${page}${versionQuery}`;
+  const issueMaterial = (element: string) => {
+    const question = element.match(/Вопрос\s+(\d+)/i);
+    return snapshot.materials.find(
+      (material) =>
+        material.id === element ||
+        (question && material.questions.some((item) => item.id === `question-${question[1]}`)),
+    );
+  };
   const issuePlace = (id: string) =>
-    id === 'calendar'
-      ? 'Календарь · параметры нагрузки'
-      : id === 'legal'
-        ? 'О программе · основания разработки'
-        : id === 'tools'
-          ? 'О программе · инструменты'
-          : id === 'curriculum'
-            ? 'Учебный план'
-            : skeleton.requirements.references.find((reference) => reference.id === id)
-              ? `Приложение · ${skeleton.requirements.references.find((reference) => reference.id === id)!.name}`
-              : skeleton.topics.find((topic) => topic.id === id)?.title
-                ? `Учебный план · ${skeleton.topics.find((topic) => topic.id === id)!.title}`
-                : skeleton.outcomes.find((outcome) => outcome.id === id)?.description
-                  ? `О программе · ${outcomeText(skeleton.outcomes.find((outcome) => outcome.id === id)!.description)}`
-                  : skeleton.explanations.find((explanation) => explanation.id === id)?.title ||
-                    'Проверка программы';
-  const issueHref = (id: string, issueId: string) =>
-    id === 'legal' || id === 'tools'
+    issueMaterial(id)
+      ? `Материалы · ${issueMaterial(id)!.title} · ${id}`
+      : id === 'calendar'
+        ? 'Календарь · параметры нагрузки'
+        : id === 'legal'
+          ? 'О программе · основания разработки'
+          : id === 'tools'
+            ? 'О программе · инструменты'
+            : id === 'curriculum'
+              ? 'Учебный план'
+              : skeleton.requirements.references.find((reference) => reference.id === id)
+                ? `Приложение · ${skeleton.requirements.references.find((reference) => reference.id === id)!.name}`
+                : skeleton.topics.find((topic) => topic.id === id)?.title
+                  ? `Учебный план · ${skeleton.topics.find((topic) => topic.id === id)!.title}`
+                  : skeleton.outcomes.find((outcome) => outcome.id === id)?.description
+                    ? `О программе · ${outcomeText(skeleton.outcomes.find((outcome) => outcome.id === id)!.description)}`
+                    : skeleton.explanations.find((explanation) => explanation.id === id)?.title ||
+                      'Проверка программы';
+  const issueHref = (id: string, issueId: string) => {
+    const material = issueMaterial(id);
+    if (material) {
+      const query = new URLSearchParams({ material: material.id });
+      if (!view.is_latest) query.set('version', String(snapshot.course_version));
+      const question = id.match(/Вопрос\s+(\d+)/i);
+      return `/courses/${view.course_id}/materials?${query}${question ? `#question-${question[1]}` : ''}`;
+    }
+    return id === 'legal' || id === 'tools'
       ? `${href('plan')}#${id === 'legal' ? 'standard' : 'tools'}`
       : id === 'curriculum'
         ? `${href('plan')}#curriculum`
@@ -180,6 +197,7 @@ export function PlanPage() {
               ? href('map')
               : // Основания элементов разбираются в панели оснований на вкладке проверки.
                 `${href('plan')}#review`;
+  };
   const editButton = (block: IntentBlock, label: string) => (
     <button
       className="block-edit"
