@@ -6,6 +6,6 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     // Разбор запроса моделью выполняет сервер CourseOS (courseos/backend); в разработке он слушает 8000.
-    proxy: { '/api/llm': process.env.COURSEOS_BACKEND_URL ?? 'http://127.0.0.1:8000' },
+    proxy: { '/api': process.env.COURSEOS_BACKEND_URL ?? 'http://127.0.0.1:8000' },
   },
 });

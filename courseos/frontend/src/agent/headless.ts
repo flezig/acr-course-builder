@@ -3,6 +3,7 @@
 // интерфейсе: каркас → утверждение → материалы → аудит. Хранилище — в памяти процесса.
 import { DemoCourseApi } from '../entities/course/api/demo-course-api';
 import type { ContentSteps } from '../entities/course/model/content-generation';
+import { userReference } from '../entities/course/model/user-reference';
 import { emptyRequirements } from '../entities/course/model/presets';
 import { professionalStandardReferences } from '../entities/course/model/professional-standards';
 import { generalRequirements, requestChecklist } from '../entities/course/model/checklist';
@@ -315,6 +316,14 @@ export function makeRequirements(input: {
   questions: ClarifyingQuestion[];
   answers: Record<string, string>;
   actor: string;
+  references?: Array<{
+    id: string;
+    name: string;
+    text: string;
+    url: string;
+    scope: string;
+    coordinate: string;
+  }>;
   now?: Date;
 }): { requirements: Requirements; assumptions: string[] } {
   const { parameters } = input;
@@ -339,7 +348,10 @@ export function makeRequirements(input: {
       assessment: parameters.assessment,
       constraints: parameters.constraints,
       calendar,
-      references: scenario ? professionalStandardReferences(scenario) : [],
+      references: [
+        ...(scenario ? professionalStandardReferences(scenario) : []),
+        ...(input.references ?? []).map((source) => ({ ...userReference(source), ...source })),
+      ],
       parameters_confirmation: {
         request: input.request,
         actor: input.actor,
@@ -467,6 +479,7 @@ export interface SkeletonReview {
 }
 
 export type FindingDecision =
+  | { action: 'recheck_materials'; issue_id: string }
   | { action: 'apply_finding'; issue_id: string }
   | { action: 'dismiss_finding'; issue_id: string; reason: string };
 
@@ -490,6 +503,16 @@ export async function reviewFinding(
   decision: FindingDecision,
 ) {
   const snapshot = await reviewedSnapshot(api, courseId, review);
+  if (decision.action === 'recheck_materials') {
+    await api.command({
+      course_id: courseId,
+      expected_version: snapshot.course_version,
+      request_id: crypto.randomUUID(),
+      action: 'review_materials',
+      payload: {},
+    });
+    return (await api.get(courseId)).snapshot!;
+  }
   await api.command({
     course_id: courseId,
     expected_version: snapshot.course_version,
@@ -629,4 +652,8 @@ async function collectGenerated(
     }
     await pause(500);
   }
+}
+
+export async function exportReviewed(api: DemoCourseApi, courseId: string) {
+  return exportFiles(api, (await api.get(courseId)).snapshot!);
 }

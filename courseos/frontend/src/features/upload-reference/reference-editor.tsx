@@ -18,6 +18,8 @@ export function ReferenceEditor({
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
+  const [claim, setClaim] = useState('');
+  const [excerpt, setExcerpt] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [attempted, setAttempted] = useState(false);
   const urlRef = useRef<HTMLInputElement>(null);
@@ -65,7 +67,15 @@ export function ReferenceEditor({
     setPending(true);
     setError(null);
     try {
-      const source = await api.retrieveReference(courseId, url);
+      const response = await fetch('/api/sources/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, claim, excerpt }),
+      });
+      const source = await response.json();
+      if (!response.ok) throw new Error(source.detail || 'Проверка ссылки не выполнена.');
+      source.name = name || source.name;
+      source.claim = claim;
       onChange([...references, source]);
     } catch (e) {
       setError(e);
@@ -117,6 +127,16 @@ export function ReferenceEditor({
           placeholder="Вставьте фрагмент, на который должна опираться программа"
         />
       </Field>
+      <Field label="Проверяемое утверждение">
+        <input value={claim} onChange={(e) => setClaim(e.target.value)} />
+      </Field>
+      <Field label="Подтверждающий фрагмент страницы (от 30 символов)">
+        <textarea value={excerpt} onChange={(e) => setExcerpt(e.target.value)} rows={2} />
+      </Field>
+      <p>
+        Наличие фрагмента на странице не подтверждает истинность утверждения. Применимость проверяет
+        методист.
+      </p>
       <label className="checkbox">
         <input
           type="checkbox"
@@ -154,6 +174,8 @@ export function ReferenceEditor({
           </summary>
           <p>
             {source.coordinate} · {source.scope}
+            {source.text.length > 12000 &&
+              ` В генерацию передаются первые 12 000 из ${source.text.length} символов.`}
           </p>
           <p>
             {!source.text.trim()
@@ -162,6 +184,28 @@ export function ReferenceEditor({
                 ? 'Текст сверен с оригиналом.'
                 : 'Текст ещё не сверен с оригиналом.'}
           </p>
+          {source.extraction && (
+            <p>
+              Извлечение: {source.extraction.status === 'failed' ? 'не выполнено' : 'выполнено'}.
+              Передано {source.extraction.transmitted_chars} из {source.extraction.original_chars}{' '}
+              символов{source.extraction.truncated ? ' — текст обрезан' : ''}.
+            </p>
+          )}
+          {source.verification && (
+            <div>
+              <p>
+                Доступность:{' '}
+                {source.verification.availability === 'available' ? 'доступна' : 'недоступна'}; HTTP{' '}
+                {source.verification.http_status ?? 'нет ответа'}; {source.verification.checked_at}
+              </p>
+              <p>Конечный URL: {source.verification.final_url}</p>
+              <p>Утверждение: {source.verification.claim}</p>
+              <p>{source.verification.reason}</p>
+              {source.verification.excerpt && (
+                <blockquote>{source.verification.excerpt}</blockquote>
+              )}
+            </div>
+          )}
           <pre>
             {source.text || 'Текст не получен. Регистрация ссылки не подтверждает её содержание.'}
           </pre>

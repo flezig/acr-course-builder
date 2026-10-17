@@ -109,6 +109,12 @@ export function useSkeletonDraft() {
         '/api/llm/draft-skeleton',
         {
           ...summaryFields(requirements),
+          references: requirements.references.map((source) => ({
+            id: source.id,
+            name: source.name,
+            text: source.text.slice(0, 12000),
+            url: source.url,
+          })),
           answers: (requirements.model_questions ?? []).flatMap((question) => {
             const answer = requirements.clarification_answers?.[question.id]?.trim();
             return answer ? [{ question: question.label, answer }] : [];

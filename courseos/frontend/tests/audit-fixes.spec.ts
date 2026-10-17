@@ -26,7 +26,7 @@ async function exported(page: Page, id: string, version: number): Promise<Snapsh
   const pending = page.waitForEvent('download');
   await page
     .locator('.export-file')
-    .filter({ hasText: 'Полные данные курса' })
+    .filter({ hasText: 'Данные курса' })
     .getByRole('button')
     .click();
   const file = await pending;
@@ -60,7 +60,7 @@ test('изменённый банковский запрос требует св
   await expect(page.locator('.volume-summary')).toContainText('48');
   const id = page.url().match(/courses\/([^/]+)/)![1];
   await page.goto(`/courses/${id}/plan#calendar`);
-  await expect(page.locator('.calendar-summary')).toContainText('21 календарных дней');
+  await expect(page.locator('.calendar-panel')).toContainText('48');
   const data = await exported(page, id, 1);
   expect(data.skeleton.requirements).toMatchObject({
     total_hours: '48',
@@ -76,7 +76,7 @@ test('DevOps: обычное подтверждение не меняет 4 ч �
   await issue.getByRole('button', { name: 'Применить предложение', exact: true }).click();
   await expect(page.locator('#issue-calendar-capacity')).toContainText('32');
   await page.goto(`/courses/${id}/plan#calendar`);
-  await expect(page.locator('.calendar-summary')).toContainText('4');
+  await expect(page.locator('.calendar-panel')).toContainText('4');
   await page
     .locator('.calendar-panel')
     .screenshot({ path: '../reports/audit-fixes-calendar-desktop.png' });

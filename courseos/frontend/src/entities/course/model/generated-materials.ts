@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { generationSchema, type Material, type Skeleton } from './schema';
+import { sourceEvidenceSchema, generationSchema, type Material, type Skeleton } from './schema';
 import { isInternship } from './hours-plan';
 import { outcomeCodes } from '../export/outcome-codes';
 import { formatHours, sumHours } from '../../../shared/lib/decimal';
@@ -18,6 +18,7 @@ const usageSchema = z.object({
 });
 
 export const topicMaterialsResultSchema = z.object({
+  source_checks: z.array(sourceEvidenceSchema).optional(),
   topic_id: z.string(),
   materials: z.object({
     lecture_points: z.array(z.string()),
@@ -39,6 +40,7 @@ export const topicMaterialsResultSchema = z.object({
 });
 
 export const courseTestResultSchema = z.object({
+  source_checks: z.array(sourceEvidenceSchema).optional(),
   questions: z.array(
     z.object({
       text: z.string(),
@@ -53,6 +55,7 @@ export const courseTestResultSchema = z.object({
 });
 
 export const finalAssessmentResultSchema = z.object({
+  source_checks: z.array(sourceEvidenceSchema).optional(),
   final: z.object({
     title: z.string(),
     description: z.string(),
@@ -86,6 +89,7 @@ export const repairTestResultSchema = z.object({
 });
 
 export const programSectionsResultSchema = z.object({
+  source_checks: z.array(sourceEvidenceSchema).optional(),
   sections: generationSchema.shape.program_sections.unwrap(),
   usage: usageSchema,
 });
@@ -139,6 +143,15 @@ export function courseBrief(skeleton: Skeleton) {
       code: codes[o.id],
       kind: o.kind,
       description: o.title ? `${o.title}: ${o.description}` : o.description,
+    })),
+    constraints: r.constraints,
+    references: r.references.map((source) => ({
+      id: source.id,
+      name: source.name,
+      url: source.url,
+      text: source.text.slice(0, 12000),
+      scope: source.scope,
+      coordinate: source.coordinate,
     })),
     answers: (r.model_questions ?? []).flatMap((question) => {
       const answer = r.clarification_answers?.[question.id]?.trim();
@@ -355,6 +368,7 @@ export function reviewRequest(skeleton: Skeleton, materials: Material[]) {
   const final = materials.find((m) => m.topic_id === 'topic-final');
   return {
     title: skeleton.requirements.title,
+    goal: skeleton.goal,
     template:
       skeleton.requirements.template_id === 'acr_general'
         ? 'общеразвивающая программа'
@@ -362,22 +376,33 @@ export function reviewRequest(skeleton: Skeleton, materials: Material[]) {
     audience: skeleton.requirements.audience,
     entry_level: skeleton.requirements.entry_level,
     total_hours: Number(skeleton.requirements.total_hours),
+    constraints: skeleton.requirements.constraints,
+    materials: materials.map((m) => ({
+      id: m.id,
+      type: m.type,
+      title: m.title,
+      topic_id: m.topic_id,
+      content: m.content,
+      expected: m.expected,
+      criteria: m.criteria,
+      slides: m.slides,
+    })),
     outcomes: skeleton.outcomes.map((o) => ({ code: codes[o.id], description: o.description })),
     topics: studyTopics(skeleton).map((t) => ({
       number: numbers.get(t.id)!,
       title: t.title,
       hours: formatHours(t.planned_total),
       outcomes: t.outcome_ids.map((id) => codes[id]),
-      summary: (
+      summary:
         materials.find((m) => m.topic_id === t.id && m.type === 'working_program')?.content ??
-        t.content
-      ).slice(0, 600),
+        t.content,
     })),
     questions: (test?.questions ?? []).map((q, i) => ({
       number: i + 1,
       text: q.text,
       options: q.options,
       correct: q.options[q.correct_index] ?? '',
+      explanation: q.explanation,
       outcome: q.outcome_ids.map((id) => codes[id]).join(', '),
     })),
     final: final

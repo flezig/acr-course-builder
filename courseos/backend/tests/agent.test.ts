@@ -148,6 +148,7 @@ function answer(system: string, user: string): object {
 async function runner(
   options: {
     dataDir?: string;
+    seriousReview?: boolean;
     onRequest?: (system: string, user: string) => void | Promise<void>;
   } = {},
 ) {
@@ -165,7 +166,21 @@ async function runner(
           choices: [
             {
               message: {
-                content: JSON.stringify(answer(body.messages[0].content, body.messages[1].content)),
+                content: JSON.stringify(
+                  options.seriousReview && body.messages[0].content.includes('эксперт-методист')
+                    ? {
+                        issues: [
+                          {
+                            severity: 'error',
+                            element: 'Итоговая аттестация',
+                            message: 'Нет исходных данных',
+                            fix: 'Указать синтетическую таблицу и поля',
+                          },
+                        ],
+                        summary: 'Нужна вычитка',
+                      }
+                    : answer(body.messages[0].content, body.messages[1].content),
+                ),
               },
             },
           ],
@@ -184,6 +199,7 @@ test('один вызов проводит запрос через все шаг
   const run = await agent.start({
     request: 'Программа на 72 часа по анализу данных, очно-заочно',
     clarifications: '',
+    references: [],
     answers: {},
     approve: true,
     wait: true,
@@ -230,6 +246,7 @@ test('неполный запрос возвращает вопросы мето
   const run = await agent.start({
     request: 'Курс по кибербезопасности, примерно на месяц',
     clarifications: '',
+    references: [],
     answers: {},
     approve: true,
     wait: true,
@@ -418,30 +435,26 @@ test('ошибка сохранения одного запуска не ост�
   assert.equal((await failingAgent.retry(failed.run_id))?.status, 'awaiting_approval');
 });
 
-test(
-  'таймаут разбора не останавливает очередь следующих сборок',
-  { skip },
-  async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), 'courseos-queue-'));
-    let fail = true;
-    const agent = await runner({
-      dataDir,
-      onRequest: () => {
-        if (fail) {
-          fail = false;
-          throw new DOMException('timeout', 'TimeoutError');
-        }
-      },
-    });
-    const request = agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно' });
-    const first = await agent.start(request);
-    assert.equal(first.status, 'failed');
-    assert.equal((agent.view(first) as any).failure.code, 'timeout');
-    assert.equal((agent.view(first) as any).failure.retryable, true);
-    const second = await agent.start(request);
-    assert.equal(second.status, 'awaiting_approval', second.error ?? '');
-  },
-);
+test('таймаут разбора не останавливает очередь следующих сборок', { skip }, async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'courseos-queue-'));
+  let fail = true;
+  const agent = await runner({
+    dataDir,
+    onRequest: () => {
+      if (fail) {
+        fail = false;
+        throw new DOMException('timeout', 'TimeoutError');
+      }
+    },
+  });
+  const request = agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно' });
+  const first = await agent.start(request);
+  assert.equal(first.status, 'failed');
+  assert.equal((agent.view(first) as any).failure.code, 'timeout');
+  assert.equal((agent.view(first) as any).failure.retryable, true);
+  const second = await agent.start(request);
+  assert.equal(second.status, 'awaiting_approval', second.error ?? '');
+});
 
 test(
   'отказ записи контрольной точки внутри очереди не останавливает следующий запуск',
@@ -509,5 +522,48 @@ test(
     assert.equal(calls, before);
     assert.ok(await agent.file(run.run_id, 'program.docx'));
     assert.equal((agent.view(resumed!) as any).approval.human_approved, false);
+  },
+);
+
+test(
+  'серьёзная находка требует версионного решения методиста и сохраняется после перезапуска',
+  { skip },
+  async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'courseos-quality-'));
+    let agent = await runner({ dataDir, seriousReview: true });
+    let run = await agent.start(
+      agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно', approve: true }),
+    );
+    let view = agent.view(run) as any;
+    assert.equal(view.status, 'needs_review');
+    assert.equal(view.audit.technical_ready, false);
+    const issue = view.audit.issues.find((i: any) => i.id === 'llm-review-1');
+    assert.equal(issue.blocking, true);
+    assert.equal(issue.suggested_fix, 'Указать синтетическую таблицу и поля');
+    agent = await runner({ dataDir });
+    run = (await agent.get(run.run_id))!;
+    const version = reviewedVersion(view);
+    const reviewed = await agent.review(run.run_id, {
+      ...version,
+      decision: {
+        action: 'dismiss_finding',
+        issue_id: issue.id,
+        reason: 'Методист проверил: синтетическая таблица включена в условия задания',
+      },
+    });
+    assert.ok(reviewed);
+    view = agent.view(reviewed) as any;
+    assert.equal(view.audit.issues.find((i: any) => i.id === issue.id).blocking, false);
+    const json = JSON.parse((await agent.file(run.run_id, 'course.json'))!.body.toString());
+    assert.match(json.decisions.at(-1).scope, /Версия комплекта/);
+    assert.match(json.decisions.at(-1).reason, /Методист проверил/);
+    assert.equal(json.generation.review.issues[0].severity, 'error');
+    assert.equal(
+      await agent.review(run.run_id, {
+        ...version,
+        decision: { action: 'dismiss_finding', issue_id: issue.id, reason: 'Повтор старой версии' },
+      }),
+      null,
+    );
   },
 );

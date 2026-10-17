@@ -188,7 +188,9 @@ function DecisionItem({
             )}
             {issue.dismissible && !keeping && (
               <button disabled={readonly || command.isPending} onClick={() => setKeeping(true)}>
-                Оставить как есть
+                {issue.id.startsWith('llm-review-')
+                  ? 'Зафиксировать решение по качеству'
+                  : 'Оставить как есть'}
               </button>
             )}
             <Link className="button secondary" to={href}>
@@ -210,7 +212,9 @@ function DecisionItem({
             }}
           >
             <label>
-              Почему оставить как есть
+              {issue.id.startsWith('llm-review-')
+                ? 'Что проверено, какое решение принято и почему'
+                : 'Почему оставить как есть'}
               <textarea
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}

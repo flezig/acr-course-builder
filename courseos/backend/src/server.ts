@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
@@ -28,9 +30,15 @@ import {
 } from './steps/generate-materials.ts';
 import { parseRequest } from './steps/parse-request.ts';
 import { reviewCourse, reviewInputSchema } from './steps/review-course.ts';
+import { checkSource, extractUpload } from './sources/references.ts';
 import { usageSummary } from './usage.ts';
 
 const root = resolve(import.meta.dirname, '..');
+const releaseCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+  cwd: root,
+  encoding: 'utf8',
+}).trim();
+const startedAt = new Date().toISOString();
 const staticDir = resolve(process.env.STATIC_DIR ?? join(root, '../frontend/dist'));
 const gateway = new LlmGateway({
   baseUrl: process.env.OPENAI_BASE_URL,
@@ -77,7 +85,7 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
     size += (chunk as Buffer).length;
-    if (size > 64 * 1024) throw new HttpError(413, 'Запрос слишком большой.');
+    if (size > 12 * 1024 * 1024) throw new HttpError(413, 'Запрос слишком большой.');
     chunks.push(chunk as Buffer);
   }
   try {
@@ -166,6 +174,41 @@ async function handleAgent(request: IncomingMessage, response: ServerResponse, p
 }
 
 async function handleApi(request: IncomingMessage, response: ServerResponse, path: string) {
+  if (request.method === 'GET' && path === '/api/version')
+    return sendJson(response, 200, {
+      commit: releaseCommit,
+      started_at: startedAt,
+      frontend_sha256: createHash('sha256')
+        .update(await readFile(join(staticDir, 'index.html')))
+        .digest('hex'),
+    });
+  if (request.method === 'POST' && path === '/api/sources/extract') {
+    const body = z
+      .object({ name: z.string().max(255), base64: z.string().max(12 * 1024 * 1024) })
+      .parse(await readJson(request));
+    try {
+      return sendJson(
+        response,
+        200,
+        await extractUpload(body.name, Buffer.from(body.base64, 'base64')),
+      );
+    } catch (error) {
+      throw new HttpError(
+        422,
+        `Извлечение не выполнено: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+  if (request.method === 'POST' && path === '/api/sources/check') {
+    const body = z
+      .object({
+        url: z.string().url().max(4000),
+        claim: z.string().max(4000).default(''),
+        excerpt: z.string().max(4000).default(''),
+      })
+      .parse(await readJson(request));
+    return sendJson(response, 200, await checkSource(body.url, body.claim, body.excerpt));
+  }
   if (path.startsWith('/api/v1/agent')) return handleAgent(request, response, path);
   if (request.method === 'GET' && path === '/api/llm/status')
     return sendJson(response, 200, {
@@ -245,6 +288,8 @@ const server = createServer(async (request, response) => {
     if (path.startsWith('/api/')) await handleApi(request, response, path);
     else await serveStatic(response, path);
   } catch (error) {
+    if (error instanceof z.ZodError)
+      return sendJson(response, 422, { detail: error.issues[0]?.message ?? 'Неверный запрос.' });
     if (error instanceof LlmError)
       return sendJson(response, statusByCode[error.code], {
         detail: error.message,

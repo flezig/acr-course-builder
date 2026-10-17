@@ -161,6 +161,7 @@ test('лишние задачи и null в необязательных поля
     assessment: '',
     constraints: '',
     answers: [],
+  references: [],
   });
   assert.equal(design.tasks.length, 7);
   assert.equal(design.topics[0].weight_reason, '');
@@ -233,6 +234,7 @@ test('пустой модуль итоговой аттестации от мо�
     assessment: '',
     constraints: '',
     answers: [],
+  references: [],
   });
   assert.deepEqual(design.module_titles, ['Linux', 'CI/CD']);
 });

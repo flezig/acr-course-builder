@@ -34,6 +34,21 @@ export const agentRequestSchema = z.object({
   answers: z.record(z.string(), z.string()).default({}),
   // true — явный автоматический прогон без утверждения человеком.
   approve: z.boolean().default(false),
+  references: z
+    .array(
+      z
+        .object({
+          id: z.string(),
+          name: z.string(),
+          text: z.string().max(12000),
+          url: z.string().default(''),
+          scope: z.string().default(''),
+          coordinate: z.string().default(''),
+        })
+        .passthrough(),
+    )
+    .max(20)
+    .default([]),
   // false — сразу вернуть run_id, ход сборки смотреть в GET /api/v1/agent/runs/{id}.
   wait: z.boolean().default(true),
 });
@@ -45,6 +60,10 @@ export const skeletonReviewSchema = z.object({
 });
 export const findingReviewSchema = skeletonReviewSchema.extend({
   decision: z.discriminatedUnion('action', [
+    z.object({
+      action: z.literal('recheck_materials'),
+      issue_id: z.literal('quality').default('quality'),
+    }),
     z.object({ action: z.literal('apply_finding'), issue_id: z.string().min(1) }),
     z.object({
       action: z.literal('dismiss_finding'),
@@ -185,6 +204,7 @@ interface Headless {
     questions: ClarifyingQuestion[];
     answers: Record<string, string>;
     actor: string;
+    references?: AgentRequest['references'];
   }): { requirements: unknown; assumptions: string[] };
   buildSkeleton(
     requirements: unknown,
@@ -215,6 +235,10 @@ interface Headless {
     files: Record<keyof typeof fileNames, string | Uint8Array | null> | null;
     job: { status: string };
   }>;
+  exportReviewed(
+    api: unknown,
+    courseId: string,
+  ): Promise<Record<keyof typeof fileNames, string | Uint8Array | null>>;
   exportCourseState(api: unknown, courseId: string): Promise<unknown>;
   restoreCourseState(courseId: string, state: unknown, steps: unknown): Promise<unknown>;
   resumeGeneration(
@@ -323,9 +347,17 @@ export class AgentRunner {
     return run;
   }
 
-  private async pendingReview(id: string, review: SkeletonReview) {
+  private async pendingReview(id: string, review: SkeletonReview, includeMaterials = false) {
     const run = await this.get(id);
-    if (!run || run.status !== 'awaiting_approval' || !run.checkpoint) return null;
+    if (
+      !run ||
+      !(
+        run.status === 'awaiting_approval' ||
+        (includeMaterials && ['needs_review', 'succeeded'].includes(run.status))
+      ) ||
+      !run.checkpoint
+    )
+      return null;
     const skeleton = run.result.skeleton as ReturnType<typeof skeletonView>;
     if (
       skeleton.version !== review.skeleton_version ||
@@ -338,9 +370,10 @@ export class AgentRunner {
   }
 
   async review(id: string, input: FindingReview) {
-    const current = await this.pendingReview(id, input);
+    const current = await this.pendingReview(id, input, true);
     if (!current) return null;
     const { run } = current;
+    const materialReview = !!run.result.generation;
     const done = this.enqueue(run, async () => {
       const pending = await this.restore(run);
       try {
@@ -369,7 +402,12 @@ export class AgentRunner {
           {
             issue_id: input.decision.issue_id,
             issue: issue?.message,
-            action: input.decision.action === 'apply_finding' ? 'applied' : 'accepted_as_is',
+            action:
+              input.decision.action === 'recheck_materials'
+                ? 'rechecked'
+                : input.decision.action === 'apply_finding'
+                  ? 'applied'
+                  : 'accepted_as_is',
             reason:
               input.decision.action === 'dismiss_finding'
                 ? input.decision.reason
@@ -377,6 +415,19 @@ export class AgentRunner {
             actor: 'methodist-api',
           },
         ];
+        if (materialReview) {
+          const files = await engine.exportReviewed(pending.api, pending.courseId);
+          for (const [format, name] of Object.entries(fileNames)) {
+            const content = files[format as keyof typeof fileNames];
+            if (content !== null) await atomicWrite(join(this.runDir(id), name), content);
+          }
+          run.result.generation = snapshot.generation;
+          run.result.audit = snapshot.audit;
+          run.result.checklist = engine.checklist(snapshot);
+          run.result.next_action = snapshot.audit.technical_ready
+            ? 'Комплект проверен с учётом решений методиста.'
+            : 'Разберите оставшиеся замечания комплекта.';
+        }
         this.event(
           run,
           'review',
@@ -385,7 +436,11 @@ export class AgentRunner {
       } catch (error) {
         throw new AgentReviewError(error instanceof Error ? error.message : String(error));
       } finally {
-        run.status = 'awaiting_approval';
+        run.status = materialReview
+          ? (run.result.audit as EngineSnapshot['audit'])?.technical_ready
+            ? 'succeeded'
+            : 'needs_review'
+          : 'awaiting_approval';
         await this.save(run);
       }
       return run;
@@ -641,6 +696,7 @@ export class AgentRunner {
     run.result.content_questions = answered;
     const draft = await draftSkeleton(this.gateway, {
       ...summary,
+      references: run.request.references,
       total_hours: Number(parameters.total_hours),
       answers: answered.map((q) => ({ question: q.label, answer: q.answer })),
     });
@@ -654,6 +710,7 @@ export class AgentRunner {
       questions,
       answers: Object.fromEntries(answered.map((q) => [q.id, q.answer])),
       actor: 'api-client',
+      references: run.request.references,
     });
     run.result.assumptions = [
       ...assumptions,
@@ -775,12 +832,7 @@ export class AgentRunner {
           status: c.status,
           actual: c.actual,
         })),
-        issues: snapshot.audit.issues.map((i) => ({
-          severity: i.severity,
-          check_type: i.check_type,
-          blocking: i.blocking,
-          message: i.message,
-        })),
+        issues: snapshot.audit.issues,
       };
       run.result.checklist = engine.checklist(snapshot);
       run.result.total_ms = Date.now() - Date.parse(run.created_at);

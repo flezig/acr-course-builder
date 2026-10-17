@@ -163,6 +163,10 @@ export async function generateContent(
         const result = await completedStep('test', requests.test, courseTestResultSchema, () =>
           steps.test(requests.test),
         );
+        generation.source_checks = [
+          ...(generation.source_checks ?? []),
+          ...(result.source_checks ?? []),
+        ];
         content.test = result;
         generation.issues.push(...result.issues);
         record('course_test', 'Итоговый тест', result.usage);
@@ -175,6 +179,10 @@ export async function generateContent(
           finalAssessmentResultSchema,
           () => steps.final(requests.final),
         );
+        generation.source_checks = [
+          ...(generation.source_checks ?? []),
+          ...(result.source_checks ?? []),
+        ];
         content.final = result;
         generation.issues.push(...result.issues);
         record('final_assessment', 'Итоговая аттестация', result.usage);
@@ -187,6 +195,10 @@ export async function generateContent(
           programSectionsResultSchema,
           () => steps.sections(requests.sections),
         );
+        generation.source_checks = [
+          ...(generation.source_checks ?? []),
+          ...(result.source_checks ?? []),
+        ];
         generation.program_sections = result.sections;
         record('program_sections', 'Разделы программы', result.usage);
       }),
@@ -199,6 +211,10 @@ export async function generateContent(
             topicMaterialsResultSchema,
             () => steps.topic(input),
           );
+          generation.source_checks = [
+            ...(generation.source_checks ?? []),
+            ...(result.source_checks ?? []),
+          ];
           content.topics.push(result);
           record('topic_materials', `Тема ${input.topic.number}`, result.usage);
         }),
@@ -207,13 +223,20 @@ export async function generateContent(
   let generated = applyGeneratedContent(skeleton, materials, content);
   let review: ReviewResult | null = null;
   await attempt('Самопроверка', async () => {
-    const input = reviewRequest(skeleton, generated);
+    const input = {
+      ...reviewRequest(skeleton, generated),
+      program_sections: generation.program_sections,
+    };
     review = await completedStep('review', input, reviewResultSchema, () => steps.review(input));
-    generation.review = { summary: review.summary, issues: review.issues };
+    generation.review = {
+      summary: review.summary,
+      issues: review.issues,
+      complete: generation.failed.length === 0,
+      checked_signature: canonicalJson(reviewRequest(skeleton, generated)),
+    };
     record('review_course', 'Самопроверка', review.usage);
   });
-  // Цикл агента замыкается: ошибки ключей и непокрытые результаты исправляет отдельный шаг,
-  // а замечание помечается исправленным. Повторной самопроверки нет, чтобы не платить дважды.
+  // Доработка предлагает новую версию; серьёзное замечание закрывает только методист.
   const test = content.test;
   const repair =
     test && review
@@ -233,11 +256,37 @@ export async function generateContent(
       for (const issue of generation.review?.issues ?? []) {
         const number = Number(issue.element.match(/Вопрос\s+(\d+)/i)?.[1]);
         if (repair.replace.slice(0, fixed.length).some((q) => q.number === number))
-          issue.resolved = true;
+          issue.resolved = false;
       }
       const added = result.questions.length - fixed.length;
       if (added) generation.issues.push(`Добавлено вопросов по непокрытым результатам: ${added}.`);
       generated = applyGeneratedContent(skeleton, materials, content);
+      await attempt('Повторная самопроверка теста', async () => {
+        const input = {
+          ...reviewRequest(skeleton, generated),
+          program_sections: generation.program_sections,
+        };
+        const checked = await completedStep('review-after-repair', input, reviewResultSchema, () =>
+          steps.review(input),
+        );
+        const previous = generation.review?.issues ?? [];
+        generation.review = {
+          summary: checked.summary,
+          complete: generation.failed.length === 0,
+          checked_signature: canonicalJson(reviewRequest(skeleton, generated)),
+          // Повторная проверка не отменяет серьёзную находку без решения методиста.
+          issues: [
+            ...previous.filter((issue) => issue.severity === 'error'),
+            ...checked.issues,
+          ].filter(
+            (issue, index, all) =>
+              all.findIndex(
+                (other) => other.element === issue.element && other.message === issue.message,
+              ) === index,
+          ),
+        };
+        record('review_course', 'Повторная самопроверка теста', checked.usage);
+      });
     });
   return { materials: generated, generation };
 }

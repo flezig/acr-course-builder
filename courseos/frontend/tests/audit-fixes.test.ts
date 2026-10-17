@@ -697,3 +697,76 @@ it('карточка предложения заранее говорит, чт�
   const manual = snapshot.audit.issues.find((i) => !i.fix);
   if (manual) expect(fixConsequences(snapshot, manual)).toEqual([]);
 });
+
+it('серьёзная самопроверка блокирует комплект до решения методиста для текущих материалов', async () => {
+  let snapshot = await fullPython();
+  const { canonicalJson } = await import('../src/shared/lib/decimal');
+  const { reviewRequest } = await import('../src/entities/course/model/generated-materials');
+  snapshot.generation = {
+    calls: [],
+    issues: [],
+    failed: [],
+    review: {
+      summary: 'Неверный ключ',
+      complete: true,
+      checked_signature: canonicalJson(reviewRequest(snapshot.skeleton, snapshot.materials)),
+      issues: [
+        {
+          severity: 'error',
+          element: 'Вопрос 1',
+          message: 'Ключ противоречит объяснению',
+          fix: 'Сверить ключ с вычислением',
+          resolved: true,
+        },
+      ],
+    },
+  };
+  snapshot.audit = auditSnapshot(snapshot);
+  expect(snapshot.audit.technical_ready).toBe(false);
+  expect(snapshot.audit.issues.find((i) => i.id === 'llm-review-1')?.blocking).toBe(true);
+  const state = (await api.exportState(snapshot.course_id)) as { snapshots: Snapshot[] };
+  state.snapshots[state.snapshots.length - 1] = snapshot;
+  await api.restoreState(snapshot.course_id, state);
+  await expect(
+    command(snapshot, {
+      action: 'dismiss_finding',
+      payload: { issue_id: 'llm-review-1', reason: 'Автоматически', actor: 'automatic-api' },
+    }),
+  ).rejects.toMatchObject({ status: 422 });
+  await command(snapshot, {
+    action: 'dismiss_finding',
+    payload: {
+      issue_id: 'llm-review-1',
+      reason: 'Методист пересчитал пример: ключ верен, замечание отклонено',
+      actor: 'methodist',
+    },
+  });
+  snapshot = (await api.get(snapshot.course_id)).snapshot!;
+  expect(snapshot.audit.issues.find((i) => i.id === 'llm-review-1')?.blocking).toBe(false);
+  expect(snapshot.decisions.at(-1)?.scope).toContain('Версия комплекта');
+  expect(snapshot.generation?.review?.issues).toHaveLength(1);
+  snapshot.materials[0].hash = 'new-material-version';
+  expect(auditSnapshot(snapshot).issues.find((i) => i.id === 'llm-review-1')?.blocking).toBe(true);
+});
+
+it('сбой и устаревшая самопроверка не дают готовность', async () => {
+  const snapshot = await fullPython();
+  snapshot.generation = {
+    calls: [],
+    issues: [],
+    failed: ['Самопроверка: шлюз недоступен'],
+    review: null,
+  };
+  expect(auditSnapshot(snapshot).technical_ready).toBe(false);
+  snapshot.generation.failed = [];
+  snapshot.generation.review = {
+    summary: 'Замечаний нет',
+    issues: [],
+    complete: true,
+    checked_signature: 'previous-version',
+  };
+  expect(auditSnapshot(snapshot).technical_ready).toBe(false);
+  expect(auditSnapshot(snapshot).checks.find((c) => c.id === 'content-review')?.status).toBe(
+    'failed',
+  );
+});

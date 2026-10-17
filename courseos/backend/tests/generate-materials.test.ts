@@ -36,6 +36,8 @@ const brief = {
   delivery: 'Очно',
   assessment: 'Защита проекта',
   internship: false,
+  constraints: '',
+  references: [],
   outcomes: [
     { code: 'РО 1', kind: 'skill', description: 'Очищает данные' },
     { code: 'РО 2', kind: 'skill', description: 'Строит отчёт' },

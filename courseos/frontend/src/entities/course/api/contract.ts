@@ -37,6 +37,7 @@ export type CourseCommand =
     }
   | { action: 'resolve_observation'; payload: { issue_id: string; correction: string } }
   | { action: 'prune_history'; payload: { keep_versions: number[]; archive_saved: boolean } }
+  | { action: 'review_materials'; payload: Record<string, never> }
   | { action: 'audit'; payload: Record<string, never> }
   | { action: 'retry' | 'cancel'; payload: { job_id: string } }
   | { action: 'manual_material'; payload: { material_id: string; content: string } }

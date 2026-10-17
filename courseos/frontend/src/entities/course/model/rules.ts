@@ -1,3 +1,5 @@
+import { reviewRequest } from './generated-materials';
+import { canonicalJson } from '../../../shared/lib/decimal';
 import { sectionCompleteness } from './sections';
 import { materialReadiness, questionProblems } from './material-readiness';
 import { scheduleProblems } from './schedule';
@@ -461,24 +463,43 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
       actual: 'Техническая регистрация выполнена; содержательная проверка не проведена',
     },
   ];
-  // Замечания самопроверки моделью — подсказки методисту, а не блокировки.
+  const review = snapshot.generation?.review;
+  const reviewCurrent =
+    !!review?.complete &&
+    review.checked_signature === canonicalJson(reviewRequest(skeleton, snapshot.materials));
+  if (snapshot.generation)
+    checks.push({
+      id: 'content-review',
+      title: 'Полнота самопроверки',
+      status: reviewCurrent ? 'passed' : 'failed',
+      expected: 'Полная проверка текущего комплекта',
+      actual: reviewCurrent
+        ? 'Комплект проверен; серьёзные замечания требуют решения методиста'
+        : 'Проверка неполная, не выполнена или устарела после правок',
+    });
+  // Серьёзная находка остаётся блокером даже после автоматической доработки.
   snapshot.generation?.review?.issues.forEach((issue, index) =>
     issues.push({
       id: `llm-review-${index + 1}`,
-      severity: issue.severity === 'error' && !issue.resolved ? 'warning' : 'info',
+      severity: issue.severity,
+      dismissible: true,
       check_type: 'llm',
       element_id: issue.element,
       message: `Самопроверка: ${issue.element} — ${issue.message}${issue.resolved ? ' Вопрос переписан агентом, проверьте новую версию.' : ''}`,
       expected: 'Замечание устранено или отклонено методистом',
       actual: issue.message,
       suggested_fix: issue.fix,
-      blocking: false,
+      blocking: issue.severity === 'error',
     }),
   );
   // Решение «оставить как есть» снимает блокировку, но находка остаётся в отчёте с причиной.
   for (const decision of snapshot.decisions || []) {
     const issue = issues.find((item) => item.id === decision.issue_id && canAcceptException(item));
-    if (decision.scope_hash !== snapshot.skeleton_hash) continue;
+    if (
+      decision.scope_hash !==
+      (issue?.id.startsWith('llm-review-') ? qualityScope(snapshot) : snapshot.skeleton_hash)
+    )
+      continue;
     if (!issue) continue;
     issue.decision = { reason: decision.reason, actor: decision.actor, at: decision.at };
     issue.blocking = false;
@@ -489,7 +510,10 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
     checks,
     issues: decisionQueue(issues),
     technical_ready:
-      materialComplete && sectionsComplete && !issues.some((issue) => issue.blocking),
+      materialComplete &&
+      sectionsComplete &&
+      (!snapshot.generation || (reviewCurrent && !snapshot.generation.failed.length)) &&
+      !issues.some((issue) => issue.blocking),
     expert_status: 'not_reviewed',
   };
 }
@@ -566,5 +590,18 @@ export function approvalMatches(snapshot: Snapshot): boolean {
 }
 
 export function canAcceptException(issue: Audit['issues'][number]) {
-  return !!issue.dismissible && issue.check_type !== 'rule' && issue.severity !== 'error';
+  return (
+    !!issue.dismissible &&
+    (issue.id.startsWith('llm-review-') ||
+      (issue.check_type !== 'rule' && issue.severity !== 'error'))
+  );
+}
+
+// Решение по качеству действует только для этих текстов, ключей и отчёта проверки.
+export function qualityScope(snapshot: Snapshot) {
+  return canonicalJson({
+    skeleton: snapshot.skeleton_hash,
+    materials: snapshot.materials.map((m) => [m.id, m.hash]),
+    review: snapshot.generation?.review,
+  });
 }

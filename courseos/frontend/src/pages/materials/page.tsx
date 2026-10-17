@@ -101,7 +101,14 @@ export function MaterialsPage() {
         </Notice>
       )}
       {tab === 'content' && snapshot.generation && (
-        <GenerationSummary generation={snapshot.generation} />
+        <GenerationSummary
+          generation={snapshot.generation}
+          courseVersion={snapshot.course_version}
+          reviewCurrent={
+            snapshot.audit.checks.find((check) => check.id === 'content-review')?.status ===
+            'passed'
+          }
+        />
       )}
       <div className="tabs" role="tablist" aria-label="Разделы материалов">
         {[

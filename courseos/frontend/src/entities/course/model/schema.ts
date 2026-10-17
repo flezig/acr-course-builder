@@ -148,6 +148,28 @@ export const requirementsSchema = z.object({
       checked_at: z.string(),
       scope: z.string(),
       hash: z.string(),
+      extraction: z
+        .object({
+          status: z.enum(['extracted', 'failed']),
+          original_chars: z.number(),
+          transmitted_chars: z.number(),
+          truncated: z.boolean(),
+          warnings: z.array(z.string()),
+        })
+        .optional(),
+      verification: z
+        .object({
+          original_url: z.string(),
+          final_url: z.string(),
+          checked_at: z.string(),
+          availability: z.enum(['available', 'unavailable']),
+          http_status: z.number().nullable(),
+          claim: z.string(),
+          content_status: z.enum(['supported_excerpt', 'not_supported', 'unverified']),
+          excerpt: z.string(),
+          reason: z.string(),
+        })
+        .optional(),
       provenance: z
         .object({
           origin: z.enum(['user_text', 'url', 'file', 'research']),
@@ -457,7 +479,19 @@ export const approvalSchema = z.object({
 });
 // Как получены материалы курса с каркасом от модели: вызовы, замечания кода к ответам
 // и итог самопроверки. Нужен для расчёта стоимости и для аудита.
+export const sourceEvidenceSchema = z.object({
+  original_url: z.string(),
+  final_url: z.string(),
+  checked_at: z.string(),
+  availability: z.enum(['available', 'unavailable']),
+  http_status: z.number().nullable(),
+  claim: z.string(),
+  content_status: z.enum(['supported_excerpt', 'not_supported', 'unverified']),
+  excerpt: z.string(),
+  reason: z.string(),
+});
 export const generationSchema = z.object({
+  source_checks: z.array(sourceEvidenceSchema).optional(),
   calls: z.array(
     z.object({
       step: z.string(),
@@ -487,13 +521,15 @@ export const generationSchema = z.object({
   review: z
     .object({
       summary: z.string(),
+      complete: z.boolean().optional(),
+      checked_signature: z.string().optional(),
       issues: z.array(
         z.object({
           severity: z.enum(['error', 'warning']),
           element: z.string(),
           message: z.string(),
           fix: z.string(),
-          // Замечание к вопросу теста, по которому агент уже переписал вопрос.
+          // Переписывание агентом не заменяет решение методиста.
           resolved: z.boolean().optional(),
         }),
       ),

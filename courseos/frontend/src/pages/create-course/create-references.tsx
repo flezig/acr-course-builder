@@ -52,15 +52,16 @@ export function CreateReferences({
     setFocusLinkId(id);
     setMenuOpen(false);
   };
-  // У программы ещё нет идентификатора, а загрузка файла на сервер привязана к программе.
-  // Поэтому файл здесь не отправляется: методист видит, где его можно приложить.
-  const attachFile = (file?: File) => {
+  const attachFile = async (file?: File) => {
     if (!file) return;
-    setUploadError(
-      api.mode === 'demo'
-        ? `«${file.name}»: извлечение PDF/DOCX требует backend. Вставьте текст. Сканы без текста и PPTX не поддерживаются.`
-        : `«${file.name}»: файлы прикрепляются после создания программы — в источниках карты результатов. Пока добавьте ссылку на материал.`,
-    );
+    setUploadError('');
+    try {
+      const source = await api.uploadReference('', file);
+      onChange([...references, source]);
+      if (source.extraction?.status === 'failed') setUploadError(source.scope);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : String(error));
+    }
   };
 
   return (
@@ -71,7 +72,11 @@ export function CreateReferences({
             source.text ? (
               <li className="attachment-chip" key={source.id}>
                 <FileText size={16} aria-hidden="true" />
-                <span>{source.name} · текст сохранён</span>
+                <span>
+                  {source.name} · {source.text.length} символов ·{' '}
+                  {source.extraction?.truncated ? 'текст обрезан' : 'текст сохранён'}
+                </span>
+                <small>{source.scope}</small>
                 <button
                   type="button"
                   aria-label={`Убрать «${source.name}»`}
@@ -180,7 +185,7 @@ export function CreateReferences({
           type="file"
           accept=".pdf,.docx"
           onChange={(event) => {
-            attachFile(event.target.files?.[0]);
+            void attachFile(event.target.files?.[0]);
             event.target.value = '';
           }}
         />

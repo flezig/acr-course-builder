@@ -30,6 +30,7 @@ import {
   auditSnapshot,
   calendarCalculation,
   canAcceptException,
+  qualityScope,
 } from '../model/rules';
 import {
   makeMaterials,
@@ -52,7 +53,7 @@ import {
   type ContentSteps,
   type GenerationProgress,
 } from '../model/content-generation';
-import { applyGeneratedContent } from '../model/generated-materials';
+import { reviewRequest, applyGeneratedContent } from '../model/generated-materials';
 import {
   aiEditOutcomeSchema,
   feedbackSchema,
@@ -303,7 +304,9 @@ async function newSnapshot(
     decisions: structuredClone(previous?.decisions || []),
     approvals: course.approvals,
     approval_applicable: false,
-    ...(generation ? { generation } : {}),
+    ...((generation ?? previous?.generation)
+      ? { generation: structuredClone(generation ?? previous!.generation!) }
+      : {}),
     changes: previous?.changes || [],
     export_manifest: [],
   };
@@ -921,6 +924,76 @@ export class DemoCourseApi implements CourseApi {
             course.job.next_action = 'Предложение агента применено. Проверьте новую версию.';
             break;
           }
+          case 'review_materials': {
+            if (!base?.materials.length) throw new ApiError(409, 'Сначала создайте материалы.');
+            const input = {
+              ...reviewRequest(base.skeleton, base.materials),
+              program_sections: base.generation?.program_sections,
+            };
+            let checked;
+            try {
+              checked = await this.contentSteps.review(input);
+            } catch (error) {
+              const failed: Generation = structuredClone(
+                base.generation ?? { calls: [], issues: [], failed: [], review: null },
+              );
+              failed.failed.push(
+                `Самопроверка: ${error instanceof Error ? error.message : String(error)}`,
+              );
+              if (failed.review) failed.review.complete = false;
+              course.snapshots.push(
+                await newSnapshot(
+                  id,
+                  course,
+                  structuredClone(base.skeleton),
+                  structuredClone(base.materials),
+                  base,
+                  failed,
+                ),
+              );
+              course.job.status = 'needs_review';
+              break;
+            }
+            const generation: Generation = structuredClone(
+              base.generation ?? { calls: [], issues: [], failed: [], review: null },
+            );
+            const previous =
+              generation.review?.issues.filter((issue) => issue.severity === 'error') ?? [];
+            generation.failed = generation.failed.filter(
+              (failure) =>
+                !failure.startsWith('Самопроверка:') &&
+                !failure.startsWith('Повторная самопроверка'),
+            );
+            generation.calls.push({
+              step: 'review_course',
+              label: 'Повторная вычитка методистом',
+              ...checked.usage,
+            });
+            generation.review = {
+              summary: checked.summary,
+              complete: generation.failed.length === 0,
+              checked_signature: canonicalJson(reviewRequest(base.skeleton, base.materials)),
+              issues: [...previous, ...checked.issues].filter(
+                (issue, index, all) =>
+                  all.findIndex(
+                    (other) => other.element === issue.element && other.message === issue.message,
+                  ) === index,
+              ),
+            };
+            const snapshot = await newSnapshot(
+              id,
+              course,
+              structuredClone(base.skeleton),
+              structuredClone(base.materials),
+              base,
+              generation,
+            );
+            course.snapshots.push(snapshot);
+            course.job.status = snapshot.audit.technical_ready ? 'succeeded' : 'needs_review';
+            course.job.next_action =
+              'Проверьте новые замечания и сохраните решение по серьёзным ошибкам.';
+            break;
+          }
           case 'dismiss_finding': {
             if (!base) throw new ApiError(409, 'Программа ещё не создана.');
             const reason = envelope.payload.reason.trim();
@@ -929,6 +1002,8 @@ export class DemoCourseApi implements CourseApi {
             const issue = auditSnapshot(base).issues.find(
               (i) => i.id === envelope.payload.issue_id,
             );
+            if (issue?.id.startsWith('llm-review-') && envelope.payload.actor === 'automatic-api')
+              throw new ApiError(422, 'Серьёзное замечание требует решения методиста.');
             if (!issue || !canAcceptException(issue))
               throw new ApiError(422, 'Эту проблему нельзя оставить как есть: её нужно исправить.');
             const snapshot = await newSnapshot(
@@ -945,8 +1020,10 @@ export class DemoCourseApi implements CourseApi {
                 reason,
                 actor: envelope.payload.actor ?? 'demo-methodist',
                 at: now(),
-                scope_hash: base.skeleton_hash,
-                scope: `Версия ${base.skeleton_version}; элемент ${issue.element_id}`,
+                scope_hash: issue.id.startsWith('llm-review-')
+                  ? qualityScope(base)
+                  : base.skeleton_hash,
+                scope: `Версия комплекта ${base.course_version}; каркас ${base.skeleton_version}; элемент ${issue.element_id}`,
                 finding: [issue.message, issue.expected, issue.actual, issue.evidence]
                   .filter(Boolean)
                   .join('\n'),
@@ -1313,17 +1390,29 @@ export class DemoCourseApi implements CourseApi {
       });
     return (await import('../export/lecture-pptx')).buildLecturePptx(view.snapshot);
   }
-  async retrieveReference(_id: string, _url: string): Promise<Requirements['references'][number]> {
-    throw new ApiError(
-      503,
-      'Содержимое URL не загружено. Получение и проверка ссылок требуют backend.',
-    );
+  async retrieveReference(_id: string, url: string): Promise<Requirements['references'][number]> {
+    const response = await fetch('/api/sources/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new ApiError(response.status, result.detail);
+    return requirementsSchema.shape.references.element.parse(result);
   }
   async uploadReference(_id: string, file: File): Promise<Requirements['references'][number]> {
-    throw new ApiError(
-      503,
-      `«${file.name}»: реальное извлечение PDF/DOCX недоступно без backend. Для скана нужен текстовый референс; OCR не поддерживается. Вставьте текст.`,
-    );
+    if (file.size > 8 * 1024 * 1024) throw new ApiError(413, 'Файл превышает 8 МБ.');
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    const response = await fetch('/api/sources/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: file.name, base64: btoa(binary) }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new ApiError(response.status, result.detail);
+    return requirementsSchema.shape.references.element.parse(result);
   }
   // В демо нет языковой модели. Однозначную замену «замени "А" на "Б"» выполняем
   // буквально, а на любой другой запрос показываем заготовленный пример правки
