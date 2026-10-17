@@ -77,6 +77,78 @@ function nextMonday(from: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+const countWords: Record<string, number> = { один: 1, два: 2, две: 2, три: 3, четыре: 4, пять: 5 };
+// Дни недели занятий по их числу: равномерно, без выходных.
+const weekdayPatterns: Record<number, number[]> = {
+  1: [3],
+  2: [2, 4],
+  3: [1, 3, 5],
+  4: [1, 2, 4, 5],
+  5: [1, 2, 3, 4, 5],
+};
+
+// Срок и расписание: из запроса, если они там есть, иначе агент предлагает срок сам
+// и возвращает это как допущение, которое методист видит в ответе.
+export function calendarFromRequest(
+  request: string,
+  parameters: SummaryParameters,
+  now: Date,
+): { calendar: Requirements['calendar']; assumptions: string[] } {
+  const total = Number(parameters.total_hours);
+  const start = nextMonday(now);
+  const base = { ...emptyRequirements.calendar, start };
+  const sessions = request.match(/(\d+|один|два|две|три|четыре|пять)\s+раз[а]?\s+в\s+неделю/i);
+  const duration = request.match(
+    /по\s+(\d+(?:[.,]\d+)?)\s*(?:академическ[а-яё]*\s+)?(?:час|ч\b)/i,
+  )?.[1];
+  const perWeek = sessions ? (countWords[sessions[1].toLowerCase()] ?? Number(sessions[1])) : 0;
+  if (perWeek >= 1 && perWeek <= 5 && duration) {
+    const hours = Number(duration.replace(',', '.'));
+    const weeks = parameters.weeks ?? Math.ceil(total / (perWeek * hours));
+    return {
+      calendar: {
+        ...base,
+        schedule: {
+          weekdays: weekdayPatterns[perWeek],
+          sessions_per_week: perWeek,
+          duration: String(hours),
+          confirmed: true,
+        },
+        calendar_days: weeks * 7,
+        daily_limit: parameters.daily_limit || String(hours),
+        confirmed: true,
+        description: `${Math.ceil(total / hours)} занятий по ${hours} ч, ${perWeek} раза в неделю, ${weeks} нед.`,
+      },
+      assumptions: [
+        `Дни занятий не указаны: агент поставил ${weekdayPatterns[perWeek].map((d) => ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'][d]).join(' и ')} с ${start}.`,
+      ],
+    };
+  }
+  if (parameters.weeks)
+    return {
+      calendar: {
+        ...base,
+        calendar_days: Math.round(parameters.weeks * 7),
+        daily_limit: parameters.daily_limit,
+        description: `${parameters.weeks} нед. по запросу`,
+      },
+      assumptions: [`Дата начала не указана: агент поставил ближайший понедельник ${start}.`],
+    };
+  const limit = Number(parameters.daily_limit) || 4;
+  const weeks = Math.max(1, Math.ceil(total / (limit * 5)));
+  return {
+    calendar: {
+      ...base,
+      calendar_days: weeks * 7,
+      daily_limit: parameters.daily_limit,
+      description: `Срок не указан в запросе; агент предложил ${weeks} нед.`,
+    },
+    assumptions: [
+      `Срок обучения не указан: агент предложил ${weeks} нед. по будням до ${limit} ч в день с ${start}; срок подтверждает методист.`,
+    ],
+  };
+}
+
 export function makeRequirements(input: {
   request: string;
   parameters: SummaryParameters;
@@ -85,39 +157,40 @@ export function makeRequirements(input: {
   answers: Record<string, string>;
   actor: string;
   now?: Date;
-}): Requirements {
+}): { requirements: Requirements; assumptions: string[] } {
   const { parameters } = input;
+  const now = input.now ?? new Date();
   const scenario = standardScenario(parameters);
-  const weeks = parameters.weeks;
+  const { calendar, assumptions } = calendarFromRequest(input.request, parameters, now);
+  if (parameters.template_id === 'acr_professional' && !scenario)
+    assumptions.push(
+      'Профстандарт из локального каталога не подошёл: связь с трудовыми функциями подбирает методист.',
+    );
   return {
-    ...structuredClone(emptyRequirements),
-    request: input.request,
-    title: parameters.title,
-    template_id: parameters.template_id,
-    audience: parameters.audience,
-    entry_level: parameters.entry_level,
-    goal: parameters.goal,
-    total_hours: parameters.total_hours,
-    delivery: parameters.delivery,
-    assessment: parameters.assessment,
-    constraints: parameters.constraints,
-    calendar: {
-      ...emptyRequirements.calendar,
-      // Срок из запроса начинается с ближайшего понедельника; дату старта уточняет методист.
-      start: weeks ? nextMonday(input.now ?? new Date()) : '',
-      calendar_days: weeks ? Math.round(weeks * 7) : 0,
-      daily_limit: parameters.daily_limit,
-      description: weeks ? `${weeks} нед. по запросу` : '',
-    },
-    references: scenario ? professionalStandardReferences(scenario) : [],
-    parameters_confirmation: {
+    requirements: {
+      ...structuredClone(emptyRequirements),
       request: input.request,
-      actor: input.actor,
-      at: (input.now ?? new Date()).toISOString(),
+      title: parameters.title,
+      template_id: parameters.template_id,
+      audience: parameters.audience,
+      entry_level: parameters.entry_level,
+      goal: parameters.goal,
+      total_hours: parameters.total_hours,
+      delivery: parameters.delivery,
+      assessment: parameters.assessment,
+      constraints: parameters.constraints,
+      calendar,
+      references: scenario ? professionalStandardReferences(scenario) : [],
+      parameters_confirmation: {
+        request: input.request,
+        actor: input.actor,
+        at: now.toISOString(),
+      },
+      model_design: input.design,
+      model_questions: input.questions,
+      clarification_answers: input.answers,
     },
-    model_design: input.design,
-    model_questions: input.questions,
-    clarification_answers: input.answers,
+    assumptions,
   };
 }
 
