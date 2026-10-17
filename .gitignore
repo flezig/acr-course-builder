@@ -9,6 +9,7 @@
 # Зависимости, сборка и результаты запуска проверок
 node_modules/
 dist/
+dist-agent/
 coverage/
 .vite/
 playwright-report/

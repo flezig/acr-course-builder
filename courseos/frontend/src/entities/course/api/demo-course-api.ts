@@ -46,6 +46,7 @@ import { httpContentSteps } from './http-content-steps';
 import {
   generateContent,
   generationCost,
+  type ContentSteps,
   type GenerationProgress,
 } from '../model/content-generation';
 import { applyGeneratedContent } from '../model/generated-materials';
@@ -75,14 +76,19 @@ interface ContentRun {
   settled: { materials: Material[]; generation: Generation } | null;
 }
 const contentRuns = new Map<string, ContentRun>();
-function contentRun(jobId: string, skeleton: Skeleton, materials: Material[]) {
+function contentRun(
+  jobId: string,
+  skeleton: Skeleton,
+  materials: Material[],
+  steps: ContentSteps,
+) {
   let run = contentRuns.get(jobId);
   if (!run) {
     const created: ContentRun = {
       progress: { done: [], content: { topics: [], test: null, final: null } },
       settled: null,
     };
-    void generateContent(skeleton, materials, httpContentSteps, (progress) => {
+    void generateContent(skeleton, materials, steps, (progress) => {
       created.progress = progress;
     }).then((value) => (created.settled = value));
     contentRuns.set(jobId, created);
@@ -364,7 +370,7 @@ function projectMaterial(snapshot: Snapshot, materialId: string) {
     throw new ApiError(422, 'Выберите существующий проект или материал итогового оценивания.');
   return material;
 }
-async function advance(courseId: string, course: StoredCourse) {
+async function advance(courseId: string, course: StoredCourse, steps: ContentSteps) {
   if (!active(course.job)) return;
   const elapsed = Date.now() - Date.parse(course.job.started_at);
   course.job.status = 'running';
@@ -399,7 +405,7 @@ async function advance(courseId: string, course: StoredCourse) {
     let generation: Generation | undefined;
     // Каркас от модели: тексты тем, тест и итоговую аттестацию пишет модель после утверждения.
     if (base.skeleton.requirements.model_design) {
-      const run = contentRun(course.job.id, base.skeleton, generated);
+      const run = contentRun(course.job.id, base.skeleton, generated, steps);
       course.job.steps = [
         ...new Set([
           ...course.job.steps,
@@ -608,6 +614,11 @@ const demoScopeExample: Record<EditScope, (draft: Skeleton) => void> = {
 };
 export class DemoCourseApi implements CourseApi {
   readonly mode = 'demo';
+  private readonly contentSteps: ContentSteps;
+  // Сервер подставляет шаги, вызывающие модель напрямую; браузер ходит к ним по HTTP.
+  constructor(options: { contentSteps?: ContentSteps } = {}) {
+    this.contentSteps = options.contentSteps ?? httpContentSteps;
+  }
   private queue: Promise<unknown> = Promise.resolve();
   private transact<T>(work: (database: StoredDatabase) => Promise<T>): Promise<T> {
     const run = async () => {
@@ -642,7 +653,7 @@ export class DemoCourseApi implements CourseApi {
       const course = db.courses[id];
       if (!course)
         throw new ApiError(404, 'Курс не найден. Проверьте адрес или создайте новый курс.');
-      await advance(id, course);
+      await advance(id, course, this.contentSteps);
       const snapshot = version
         ? course.snapshots.find((s) => s.course_version === version)
         : latest(course);
@@ -673,7 +684,7 @@ export class DemoCourseApi implements CourseApi {
     return this.transact(async (db) => {
       const entry = Object.entries(db.courses).find(([, c]) => c.job.id === id);
       if (!entry) throw new ApiError(404, 'Задача не найдена.');
-      await advance(entry[0], entry[1]);
+      await advance(entry[0], entry[1], this.contentSteps);
       return structuredClone(entry[1].job);
     });
   }
