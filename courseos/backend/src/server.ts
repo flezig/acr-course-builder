@@ -4,6 +4,7 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { z } from 'zod';
 import { LlmError, LlmGateway, type LlmErrorCode } from './llm/gateway.ts';
 import { routes } from './llm/models.ts';
+import { draftSkeleton, skeletonInputSchema } from './steps/draft-skeleton.ts';
 import { parseRequest } from './steps/parse-request.ts';
 import { usageSummary } from './usage.ts';
 
@@ -81,6 +82,12 @@ async function handleApi(request: IncomingMessage, response: ServerResponse, pat
     if (!body.success)
       throw new HttpError(422, 'Нужен текст запроса методиста длиной до 8000 символов.');
     return sendJson(response, 200, await parseRequest(gateway, body.data.request));
+  }
+  if (request.method === 'POST' && path === '/api/llm/draft-skeleton') {
+    const body = skeletonInputSchema.safeParse(await readJson(request));
+    if (!body.success)
+      throw new HttpError(422, 'Нужны запрос методиста и подтверждённый объём от 16 до 500 часов.');
+    return sendJson(response, 200, await draftSkeleton(gateway, body.data));
   }
   throw new HttpError(404, 'Такого метода API нет.');
 }
