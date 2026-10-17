@@ -37,7 +37,10 @@ export function buildMoodleXml(snapshot: Snapshot): string {
     ...test.questions.map((question, index) => {
       const answers = question.options
         .map(
-          (option, optionIndex) => `    <answer fraction="${optionIndex === question.correct_index ? 100 : 0}" format="html">
+          (
+            option,
+            optionIndex,
+          ) => `    <answer fraction="${optionIndex === question.correct_index ? 100 : 0}" format="html">
       ${textTag(option)}
       <feedback format="html">${textTag(optionIndex === question.correct_index ? question.explanation : '')}</feedback>
     </answer>`,

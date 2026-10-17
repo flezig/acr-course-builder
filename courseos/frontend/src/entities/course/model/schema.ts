@@ -444,6 +444,38 @@ export const approvalSchema = z.object({
   actor_id: z.string(),
   approved_at: z.string(),
 });
+// Как получены материалы курса с каркасом от модели: вызовы, замечания кода к ответам
+// и итог самопроверки. Нужен для расчёта стоимости и для аудита.
+export const generationSchema = z.object({
+  calls: z.array(
+    z.object({
+      step: z.string(),
+      label: z.string(),
+      model: z.string(),
+      prompt_tokens: z.number(),
+      completion_tokens: z.number(),
+      cost_rub: z.number(),
+      duration_ms: z.number(),
+      cached: z.boolean(),
+    }),
+  ),
+  issues: z.array(z.string()),
+  failed: z.array(z.string()),
+  review: z
+    .object({
+      summary: z.string(),
+      issues: z.array(
+        z.object({
+          severity: z.enum(['error', 'warning']),
+          element: z.string(),
+          message: z.string(),
+          fix: z.string(),
+        }),
+      ),
+    })
+    .nullable(),
+});
+export type Generation = z.infer<typeof generationSchema>;
 export const snapshotSchema = z.object({
   schema_version: z.literal('1.0'),
   course_id: z.string(),
@@ -488,6 +520,7 @@ export const snapshotSchema = z.object({
   approvals: z.array(approvalSchema),
   approval_applicable: z.boolean(),
   approval_at_creation: z.boolean().optional(),
+  generation: generationSchema.optional(),
   changes: z.array(
     z.object({
       id: z.string(),

@@ -459,6 +459,20 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
       actual: 'Техническая регистрация выполнена; содержательная проверка не проведена',
     },
   ];
+  // Замечания самопроверки моделью — подсказки методисту, а не блокировки.
+  snapshot.generation?.review?.issues.forEach((issue, index) =>
+    issues.push({
+      id: `llm-review-${index + 1}`,
+      severity: issue.severity === 'error' ? 'warning' : 'info',
+      check_type: 'llm',
+      element_id: issue.element,
+      message: `Самопроверка: ${issue.element} — ${issue.message}`,
+      expected: 'Замечание устранено или отклонено методистом',
+      actual: issue.message,
+      suggested_fix: issue.fix,
+      blocking: false,
+    }),
+  );
   // Решение «оставить как есть» снимает блокировку, но находка остаётся в отчёте с причиной.
   for (const decision of snapshot.decisions || []) {
     const issue = issues.find((item) => item.id === decision.issue_id && canAcceptException(item));

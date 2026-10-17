@@ -17,6 +17,8 @@ import {
   courseHoursSchema,
   jobSchema,
   type ChangePlan,
+  type Generation,
+  type Material,
   type Job,
   type Requirements,
   type Skeleton,
@@ -40,6 +42,13 @@ import { contentHash, canonicalJson } from '../../../shared/lib/decimal';
 import { proposedAssessment, proposedCalendar } from '../model/findings';
 import { assessmentLabels } from '../model/presets';
 import { ApiError } from '../../../shared/api/http';
+import { httpContentSteps } from './http-content-steps';
+import {
+  generateContent,
+  generationCost,
+  type GenerationProgress,
+} from '../model/content-generation';
+import { applyGeneratedContent } from '../model/generated-materials';
 import {
   aiEditOutcomeSchema,
   feedbackSchema,
@@ -58,6 +67,29 @@ import {
   type ScopeEditRequest,
 } from './contract';
 const storageKey = 'courseos-demo-v1';
+// Генерация материалов моделью идёт вне транзакции хранилища: она длится минуты,
+// а опрос задачи только забирает уже готовые части. После перезагрузки страницы
+// генерация начинается заново, но сервер отдаёт готовые ответы из кэша бесплатно.
+interface ContentRun {
+  progress: GenerationProgress;
+  settled: { materials: Material[]; generation: Generation } | null;
+}
+const contentRuns = new Map<string, ContentRun>();
+function contentRun(jobId: string, skeleton: Skeleton, materials: Material[]) {
+  let run = contentRuns.get(jobId);
+  if (!run) {
+    const created: ContentRun = {
+      progress: { done: [], content: { topics: [], test: null, final: null } },
+      settled: null,
+    };
+    void generateContent(skeleton, materials, httpContentSteps, (progress) => {
+      created.progress = progress;
+    }).then((value) => (created.settled = value));
+    contentRuns.set(jobId, created);
+    run = created;
+  }
+  return run;
+}
 // Отзывы и итоги правок ИИ лежат под своими ключами: их не затрагивают
 // миграции и очистка истории курсов.
 const feedbackStorageKey = 'courseos-feedback-demo';
@@ -210,6 +242,7 @@ async function newSnapshot(
   skeleton: Skeleton,
   materials: Snapshot['materials'] = [],
   previous?: Snapshot,
+  generation?: Generation,
 ): Promise<Snapshot> {
   invalidateRationales(skeleton, previous?.skeleton);
   const snapshot: Snapshot = {
@@ -245,6 +278,7 @@ async function newSnapshot(
     decisions: structuredClone(previous?.decisions || []),
     approvals: course.approvals,
     approval_applicable: false,
+    ...(generation ? { generation } : {}),
     changes: previous?.changes || [],
     export_manifest: [],
   };
@@ -361,7 +395,37 @@ async function advance(courseId: string, course: StoredCourse) {
     course.job.steps = [
       ...new Set([...course.job.steps, ...completed.map((t) => `Сохранён шаг: ${t.title}`)]),
     ];
-    const generated = await makeMaterials(base.skeleton);
+    let generated = await makeMaterials(base.skeleton);
+    let generation: Generation | undefined;
+    // Каркас от модели: тексты тем, тест и итоговую аттестацию пишет модель после утверждения.
+    if (base.skeleton.requirements.model_design) {
+      const run = contentRun(course.job.id, base.skeleton, generated);
+      course.job.steps = [
+        ...new Set([
+          ...course.job.steps,
+          ...run.progress.done.map((label) => `Сгенерировано моделью: ${label}`),
+        ]),
+      ];
+      if (!run.settled) {
+        course.job.partial_materials = applyGeneratedContent(
+          base.skeleton,
+          generated,
+          run.progress.content,
+        ).filter((m) => run.progress.content.topics.some((t) => t.topic_id === m.topic_id));
+        return;
+      }
+      generated = run.settled.materials;
+      generation = run.settled.generation;
+      for (const material of generated) material.hash = await materialHash(material);
+      const { tokens, cost_rub } = generationCost(generation);
+      course.job.usage = {
+        tokens,
+        cost: cost_rub.toFixed(2),
+        source: `GigaChat через шлюз хакатона: ${generation.calls.length} вызовов`,
+      };
+      for (const failure of generation.failed)
+        course.job.steps.push(`Не сгенерировано: ${failure}`);
+    }
     // Повторная генерация зависимостей темы должна учитывать ранее согласованный проект.
     const projectPlans = new Map<string, ChangePlan>();
     for (const change of base.changes) {
@@ -387,12 +451,14 @@ async function advance(courseId: string, course: StoredCourse) {
       ),
     );
     if (elapsed < 1800) return;
+    contentRuns.delete(course.job.id);
     const snapshot = await newSnapshot(
       courseId,
       course,
       structuredClone(base.skeleton),
       materials,
       base,
+      generation,
     );
     course.snapshots.push(snapshot);
     course.job.status = snapshot.audit.technical_ready ? 'succeeded' : 'needs_review';
