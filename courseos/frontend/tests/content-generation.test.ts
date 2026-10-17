@@ -3,6 +3,7 @@ import {
   generateContent,
   repairRequest,
   type ContentSteps,
+  type ContentCheckpoint,
 } from '../src/entities/course/model/content-generation';
 import { makeMaterials, makeSkeleton } from '../src/entities/course/model/factory';
 import { generationRequests } from '../src/entities/course/model/generated-materials';
@@ -223,7 +224,40 @@ describe('генерация материалов по каркасу от мо�
     expect(materials.find((m) => m.id === 'working_program-topic-2')!.content).toBe(
       base.find((m) => m.id === 'working_program-topic-2')!.content,
     );
-    expect(generation.failed).toEqual(['Тема 2.1: шлюз недоступен']);
+    expect(generation.failed).toEqual([expect.stringContaining('Тема 2.1: шлюз недоступен')]);
+    expect(generation.failed[0]).toContain('Готовые части сохранены');
+  });
+
+  it('после восстановления контрольной точки вызывает только сбойную тему и повторную самопроверку', async () => {
+    const skeleton = makeSkeleton(requirements());
+    const materials = await makeMaterials(skeleton);
+    const checkpoint: ContentCheckpoint = {};
+    await generateContent(skeleton, materials, steps('2.1'), () => {}, checkpoint);
+    const restored = JSON.parse(JSON.stringify(checkpoint));
+    const calls: string[] = [];
+    const original = steps();
+    const retrySteps = Object.fromEntries(
+      Object.entries(original).map(([name, generate]) => [
+        name,
+        async (input: any) => {
+          calls.push(name === 'topic' ? `topic:${input.topic.number}` : name);
+          return generate(input);
+        },
+      ]),
+    ) as unknown as ContentSteps;
+    const retried = await generateContent(skeleton, materials, retrySteps, () => {}, restored);
+    expect(calls.filter((name) => name.startsWith('topic:'))).toEqual(['topic:2.1']);
+    expect(calls).toContain('review');
+    expect(calls).not.toContain('test');
+    expect(calls).not.toContain('final');
+    expect(calls).not.toContain('sections');
+    expect(retried.generation.failed).toEqual([]);
+    expect(retried.materials.find((m) => m.id === 'working_program-topic-2')?.content).toContain(
+      'DataFrame',
+    );
+    expect(retried.materials.find((m) => m.type === 'test')?.questions[2].text).toBe(
+      'Исправленный 3',
+    );
   });
 
   it('на стажировке добавляет собеседования с руководителем по модулям', async () => {

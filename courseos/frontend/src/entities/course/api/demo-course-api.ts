@@ -47,6 +47,8 @@ import { httpContentSteps } from './http-content-steps';
 import {
   generateContent,
   generationCost,
+  contentCheckpointSchema,
+  type ContentCheckpoint,
   type ContentSteps,
   type GenerationProgress,
 } from '../model/content-generation';
@@ -70,23 +72,40 @@ import {
 } from './contract';
 const storageKey = 'courseos-demo-v1';
 // Генерация материалов моделью идёт вне транзакции хранилища: она длится минуты,
-// а опрос задачи только забирает уже готовые части. После перезагрузки страницы
-// генерация начинается заново, но сервер отдаёт готовые ответы из кэша бесплатно.
+// а опрос задачи забирает готовые части и сохраняет ответы завершённых шагов.
 interface ContentRun {
   progress: GenerationProgress;
   settled: { materials: Material[]; generation: Generation } | null;
+  error?: string;
 }
 const contentRuns = new Map<string, ContentRun>();
-function contentRun(jobId: string, skeleton: Skeleton, materials: Material[], steps: ContentSteps) {
+function contentRun(
+  jobId: string,
+  skeleton: Skeleton,
+  materials: Material[],
+  steps: ContentSteps,
+  checkpoint: ContentCheckpoint,
+) {
   let run = contentRuns.get(jobId);
   if (!run) {
     const created: ContentRun = {
-      progress: { done: [], content: { topics: [], test: null, final: null } },
+      progress: { done: [], content: { topics: [], test: null, final: null }, checkpoint },
       settled: null,
     };
-    void generateContent(skeleton, materials, steps, (progress) => {
-      created.progress = progress;
-    }).then((value) => (created.settled = value));
+    void generateContent(
+      skeleton,
+      materials,
+      steps,
+      (progress) => {
+        created.progress = progress;
+      },
+      checkpoint,
+    ).then(
+      (value) => (created.settled = value),
+      (error) => {
+        created.error = error instanceof Error ? error.message : String(error);
+      },
+    );
     contentRuns.set(jobId, created);
     run = created;
   }
@@ -123,6 +142,7 @@ interface StoredCourse {
   job: Job;
   approvals: Snapshot['approvals'];
   plans: ChangePlan[];
+  content_checkpoint?: { skeleton_hash: string; steps: ContentCheckpoint };
 }
 interface StoredDatabase {
   schema_version: number;
@@ -136,6 +156,9 @@ const storedCourseSchema = z.object({
   job: jobSchema,
   approvals: z.array(snapshotSchema.shape.approvals.element),
   plans: z.array(changePlanSchema).default([]),
+  content_checkpoint: z
+    .object({ skeleton_hash: z.string(), steps: contentCheckpointSchema })
+    .optional(),
 });
 const storageVersion = 2;
 function load(): StoredDatabase {
@@ -401,7 +424,23 @@ async function advance(courseId: string, course: StoredCourse, steps: ContentSte
     let generation: Generation | undefined;
     // Каркас от модели: тексты тем, тест и итоговую аттестацию пишет модель после утверждения.
     if (base.skeleton.requirements.model_design) {
-      const run = contentRun(course.job.id, base.skeleton, generated, steps);
+      if (course.content_checkpoint?.skeleton_hash !== base.skeleton_hash)
+        course.content_checkpoint = { skeleton_hash: base.skeleton_hash, steps: {} };
+      const run = contentRun(
+        course.job.id,
+        base.skeleton,
+        generated,
+        steps,
+        course.content_checkpoint.steps,
+      );
+      if (run.progress.checkpoint) course.content_checkpoint.steps = run.progress.checkpoint;
+      if (run.error !== undefined) {
+        course.job.status = 'failed';
+        course.job.error = run.error;
+        course.job.next_action = 'Готовые части сохранены. Повторите незавершённые шаги.';
+        contentRuns.delete(course.job.id);
+        return;
+      }
       course.job.steps = [
         ...new Set([
           ...course.job.steps,
@@ -445,7 +484,9 @@ async function advance(courseId: string, course: StoredCourse, steps: ContentSte
         material.hash = await materialHash(material);
       }
     }
-    const preserved = base.materials.filter((m) => !m.stale);
+    const preserved = base.materials.filter(
+      (m) => !m.stale && (course.job.operation !== 'retry_generation' || m.manual),
+    );
     const materials = generated.map((m) => preserved.find((p) => p.id === m.id) || m);
     const completedIds = new Set(completed.map((topic) => topic.id));
     const savedIds = new Set(course.job.partial_materials.map((material) => material.id));
@@ -465,9 +506,13 @@ async function advance(courseId: string, course: StoredCourse, steps: ContentSte
       generation,
     );
     course.snapshots.push(snapshot);
-    course.job.status = snapshot.audit.technical_ready ? 'succeeded' : 'needs_review';
+    course.job.status =
+      snapshot.audit.technical_ready && !generation?.failed.length ? 'succeeded' : 'needs_review';
     course.job.steps.push('Аудит и полный JSON сохранены');
-    course.job.next_action = 'Проверьте материалы и неподтверждённые источники';
+    course.job.error = generation?.failed.length ? generation.failed.join('\n') : null;
+    course.job.next_action = generation?.failed.length
+      ? `Не завершено частей: ${generation.failed.length}. Готовые материалы сохранены; повторите незавершённые шаги.`
+      : 'Проверьте материалы и неподтверждённые источники';
     course.job.completed_at = now();
   }
 }
@@ -616,6 +661,23 @@ export class DemoCourseApi implements CourseApi {
   // Сервер подставляет шаги, вызывающие модель напрямую; браузер ходит к ним по HTTP.
   constructor(options: { contentSteps?: ContentSteps } = {}) {
     this.contentSteps = options.contentSteps ?? httpContentSteps;
+  }
+  async exportState(id: string): Promise<unknown> {
+    return this.transact(async (db) => {
+      if (!db.courses[id]) throw new ApiError(404, 'Курс для восстановления не найден.');
+      return structuredClone(db.courses[id]);
+    });
+  }
+  async restoreState(id: string, state: unknown) {
+    const course = storedCourseSchema.parse(state);
+    if (
+      course.job.course_id !== id ||
+      course.snapshots.some((snapshot) => snapshot.course_id !== id)
+    )
+      throw new ApiError(422, 'Сохранённое состояние относится к другому курсу.');
+    await this.transact(async (db) => {
+      db.courses[id] = course;
+    });
   }
   private queue: Promise<unknown> = Promise.resolve();
   private transact<T>(work: (database: StoredDatabase) => Promise<T>): Promise<T> {
@@ -1187,10 +1249,18 @@ export class DemoCourseApi implements CourseApi {
           case 'retry':
             if (
               course.job.id !== envelope.payload.job_id ||
-              !['cancelled', 'failed'].includes(course.job.status)
+              !(
+                ['cancelled', 'failed'].includes(course.job.status) ||
+                (course.job.status === 'needs_review' && base?.generation?.failed.length)
+              )
             )
               throw new ApiError(409, 'Повтор недоступен для текущего состояния.');
             course.job.status = 'queued';
+            if (base?.generation?.failed.length) course.job.operation = 'retry_generation';
+            course.job.error = null;
+            course.job.steps = [];
+            course.job.next_action =
+              'Повторяются незавершённые шаги; готовые ответы будут использованы из сохранённого результата.';
             course.job.started_at = now();
             course.job.completed_at = null;
             course.job.attempt++;

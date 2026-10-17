@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
@@ -145,14 +145,21 @@ function answer(system: string, user: string): object {
   throw new Error(`Неизвестный шаг: ${system.slice(0, 80)}`);
 }
 
-async function runner() {
-  const dataDir = await mkdtemp(join(tmpdir(), 'courseos-agent-'));
+async function runner(
+  options: {
+    dataDir?: string;
+    onRequest?: (system: string, user: string) => void | Promise<void>;
+  } = {},
+) {
+  const dataDir = options.dataDir ?? (await mkdtemp(join(tmpdir(), 'courseos-agent-')));
   const gateway = new LlmGateway({
     baseUrl: 'http://gateway.test',
     apiKey: 'test',
     dataDir,
+    retryDelaysMs: [],
     fetch: async (_url, init) => {
       const body = JSON.parse(String(init!.body));
+      await options.onRequest?.(body.messages[0].content, body.messages[1].content);
       return new Response(
         JSON.stringify({
           choices: [
@@ -241,9 +248,10 @@ function reviewedVersion(view: Record<string, any>) {
   };
 }
 
-test('по умолчанию ждёт методиста и не снимает замечания при утверждении', { skip }, async () => {
-  const agent = await runner();
-  const run = await agent.start(
+test('после перезапуска ждёт методиста и сохраняет решения по каркасу', { skip }, async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'courseos-restart-'));
+  let agent = await runner({ dataDir });
+  let run = await agent.start(
     agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно' }),
   );
   let view = agent.view(run) as Record<string, any>;
@@ -252,6 +260,8 @@ test('по умолчанию ждёт методиста и не снимает
   assert.equal(view.approval.human_approved, false);
   assert.equal(view.files, undefined);
   const initialSkeleton = structuredClone(view.skeleton);
+  agent = await runner({ dataDir });
+  run = (await agent.get(run.run_id))!;
   await assert.rejects(
     agent.review(run.run_id, {
       ...reviewedVersion(view),
@@ -298,6 +308,8 @@ test('по умолчанию ждёт методиста и не снимает
     assert.equal(run.calls.length, 3);
     assert.ok(view.skeleton.course_version > review.course_version);
     assert.equal(await agent.approve(run.run_id, review), null);
+    agent = await runner({ dataDir });
+    run = (await agent.get(run.run_id))!;
   }
   assert.ok(!view.skeleton.audit_issues.some((i: any) => i.blocking));
   const finalSkeleton = structuredClone(view.skeleton);
@@ -352,3 +364,150 @@ test('агент спрашивает тип и объём всегда, а од
     'Какой входной уровень подготовки у слушателей?',
   ]);
 });
+
+test('после сбоя темы и перезапуска повторяет только незавершённые запросы', { skip }, async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'courseos-partial-'));
+  const topics = new Map<string, number>();
+  let failedTopic = '';
+  const onRequest = (system: string, user: string) => {
+    if (!system.includes('содержание одной темы')) return;
+    topics.set(user, (topics.get(user) ?? 0) + 1);
+    if (!failedTopic) {
+      failedTopic = user;
+      throw new DOMException('timeout', 'TimeoutError');
+    }
+  };
+  let agent = await runner({ dataDir, onRequest });
+  const run = await agent.start(
+    agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно', approve: true }),
+  );
+  let view = agent.view(run) as Record<string, any>;
+  assert.equal(view.status, 'needs_review', view.error);
+  assert.equal(view.generation.failed.length, 1);
+  assert.match(view.generation.failed[0], /Тема.*2 минуты.*Готовые части сохранены/);
+  const successful = [...topics.keys()].filter((prompt) => prompt !== failedTopic);
+  assert.ok(successful.length > 0);
+  agent = await runner({ dataDir, onRequest });
+  const retried = await agent.retry(run.run_id);
+  assert.ok(retried);
+  view = agent.view(retried) as Record<string, any>;
+  assert.equal(view.error, null);
+  assert.deepEqual(view.generation.failed, []);
+  assert.equal(topics.get(failedTopic), 2);
+  for (const prompt of successful) assert.equal(topics.get(prompt), 1);
+  assert.deepEqual(Object.keys(view.files).sort(), ['docx', 'json', 'lms', 'markdown', 'pptx']);
+  assert.equal(view.approval.human_approved, false);
+  assert.equal(await agent.retry(run.run_id), null);
+});
+
+test('ошибка сохранения одного запуска не останавливает следующий', { skip }, async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'courseos-storage-'));
+  const failingAgent = await runner({ dataDir });
+  // Проверяем также отказ до первого вызова модели и возможность повторить после восстановления.
+  await writeFile(join(dataDir, 'runs'), 'storage unavailable');
+  const failed = await failingAgent.start(
+    agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно' }),
+  );
+  assert.equal(failed.status, 'failed');
+  assert.equal((failingAgent.view(failed) as any).failure.code, 'storage');
+  await rm(join(dataDir, 'runs'));
+  const next = await failingAgent.start(
+    agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно' }),
+  );
+  assert.equal(next.status, 'awaiting_approval', next.error ?? '');
+  assert.equal((await failingAgent.retry(failed.run_id))?.status, 'awaiting_approval');
+});
+
+test(
+  'таймаут разбора не останавливает очередь следующих сборок',
+  { skip },
+  async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'courseos-queue-'));
+    let fail = true;
+    const agent = await runner({
+      dataDir,
+      onRequest: () => {
+        if (fail) {
+          fail = false;
+          throw new DOMException('timeout', 'TimeoutError');
+        }
+      },
+    });
+    const request = agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно' });
+    const first = await agent.start(request);
+    assert.equal(first.status, 'failed');
+    assert.equal((agent.view(first) as any).failure.code, 'timeout');
+    assert.equal((agent.view(first) as any).failure.retryable, true);
+    const second = await agent.start(request);
+    assert.equal(second.status, 'awaiting_approval', second.error ?? '');
+  },
+);
+
+test(
+  'отказ записи контрольной точки внутри очереди не останавливает следующий запуск',
+  { skip },
+  async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'courseos-save-queue-'));
+    let block = true;
+    let brokenFile = '';
+    const agent = await runner({
+      dataDir,
+      onRequest: async () => {
+        if (!block) return;
+        block = false;
+        const [id] = await readdir(join(dataDir, 'runs'));
+        brokenFile = join(dataDir, 'runs', id, 'run.json');
+        await rm(brokenFile);
+        await mkdir(brokenFile);
+      },
+    });
+    const request = agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно' });
+    const failed = await agent.start(request);
+    assert.equal(failed.status, 'failed');
+    assert.equal((agent.view(failed) as any).failure.code, 'storage');
+    const next = await agent.start(request);
+    assert.equal(next.status, 'awaiting_approval', next.error ?? '');
+    await rm(brokenFile, { recursive: true });
+    const resumed = await agent.retry(failed.run_id);
+    assert.equal(resumed?.status, 'awaiting_approval');
+    assert.deepEqual((agent.view(resumed!) as any).skeleton, (agent.view(failed) as any).skeleton);
+  },
+);
+
+test(
+  'прерванный запуск после перезапуска получает понятный статус и восстанавливает выгрузки',
+  { skip },
+  async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'courseos-interrupted-'));
+    let calls = 0;
+    let agent = await runner({
+      dataDir,
+      onRequest: () => {
+        calls++;
+      },
+    });
+    const run = await agent.start(
+      agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно', approve: true }),
+    );
+    const path = join(dataDir, 'runs', run.run_id, 'run.json');
+    const state = JSON.parse(await readFile(path, 'utf8'));
+    state.status = 'running';
+    state.phase = 'content';
+    await writeFile(path, JSON.stringify(state));
+    const before = calls;
+    agent = await runner({
+      dataDir,
+      onRequest: () => {
+        calls++;
+      },
+    });
+    const interrupted = await agent.get(run.run_id);
+    assert.equal(interrupted?.status, 'failed');
+    assert.equal((agent.view(interrupted!) as any).failure.code, 'interrupted');
+    const resumed = await agent.retry(run.run_id);
+    assert.equal(resumed?.error, null);
+    assert.equal(calls, before);
+    assert.ok(await agent.file(run.run_id, 'program.docx'));
+    assert.equal((agent.view(resumed!) as any).approval.human_approved, false);
+  },
+);

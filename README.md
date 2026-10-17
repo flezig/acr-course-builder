@@ -30,6 +30,7 @@ curl -X POST https://tochka-sborki-2026-team-065.hub.gigaschool.ru/api/v1/agent 
 | `GET /api/v1/agent/runs/{run_id}` | Состояние сборки и ход шагов |
 | `POST /api/v1/agent/runs/{run_id}/review` | Разобрать одно замечание. Тело: `skeleton_version`, `skeleton_hash`, `course_version` и `decision: {action: "apply_finding", issue_id}` либо `decision: {action: "dismiss_finding", issue_id, reason}`. Возвращает новый каркас для проверки |
 | `POST /api/v1/agent/runs/{run_id}/approve` | Утвердить проверенный каркас и собрать материалы. Тело: `skeleton_version`, `skeleton_hash`, `course_version`. Значения берутся из актуального `skeleton.version`, `skeleton.hash`, `skeleton.course_version`. Устаревшие версии отклоняются с 409 |
+| `POST /api/v1/agent/runs/{run_id}/retry` | Продолжить прерванную сборку или повторить несозданные части. Готовые ответы используются из сохранённого результата; утверждение методиста сохраняется |
 | `GET /api/v1/agent/runs/{run_id}/files/{имя}` | `program.docx`, `slides.pptx`, `test-moodle.xml`, `course.json`, `rationale.md` |
 
 Для автопроверки можно явно передать `"approve": true` в исходном запросе: агент самостоятельно применит доступные исправления и снимет допустимые блокировки. Это **не утверждение человеком**: `approval.human_approved` останется `false`, событие называется `automatic_approval`, решения записываются от имени `automatic-api`. В выгрузках такой каркас остаётся неутверждённым методистом; JSON содержит `status.approved: false` и `approvals[].kind: "automatic"`.
@@ -49,6 +50,10 @@ curl -X POST https://tochka-sborki-2026-team-065.hub.gigaschool.ru/api/v1/agent 
 После каждого `/review` заново проверьте ответ и используйте его версии в следующем запросе. Решения и утверждение доступны, пока ожидающий курс находится в памяти процесса сервера; после перезапуска нужно начать новую сборку.
 
 В ответе: `status` (`awaiting_clarification`, `awaiting_approval`, `succeeded`, `needs_review` — комплект собран, но разделы или источники ждут методиста, `blocked`, `failed`), `questions`, `parameters` и `corrections`, `skeleton` (результаты и учебный план с часами), `assumptions`, `decisions`, `generation` (расход, сбои, самопроверка), `audit`, `checklist` (общие требования кейса и чек-лист запроса), `files`, `events` (время каждого шага от начала) и `usage` — вызовы модели с токенами и рублями. Сборки выполняются по одной; результаты хранятся в `courseos/backend/var/runs/`.
+
+Состояние новых запусков сохраняется атомарно после каркаса, решений методиста и во время генерации. После перезапуска ожидающий утверждения каркас остаётся доступным для `/review` и `/approve`; прерванная сборка получает статус `failed` с причиной `failure.code: interrupted` и продолжается через `/retry`. Ранее созданные запуски без контрольной точки восстановить нельзя.
+
+При частичном сбое готовые материалы доступны, а `generation.failed` перечисляет несозданные части. В интерфейсе появляется кнопка «Повторить незавершённые шаги». Повтор не вызывает модель для завершённых шагов с теми же входами; после изменения материалов самопроверка выполняется заново. Ручные правки сохраняются. Для ошибок запуска `failure` содержит `code`, `message`, `retryable` и `action`: при перегрузке или лимите нужно повторить позже, при отказе хранилища — восстановить запись на диск. Ошибка одной сборки не останавливает очередь остальных.
 
 Движок курса для сервера собирается из фронтенда командой `npm run build:agent` (входит в `npm run build`) в `courseos/frontend/dist-agent`; путь можно переопределить переменной `AGENT_BUNDLE`.
 

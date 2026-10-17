@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
@@ -88,6 +88,8 @@ interface Run {
   calls: Array<CallUsage & { label: string }>;
   result: Record<string, unknown>;
   error: string | null;
+  phase?: 'design' | 'approval' | 'content' | 'export';
+  checkpoint?: { course_id: string; state: unknown };
 }
 
 const fileNames = {
@@ -205,6 +207,7 @@ interface Headless {
     actor: string,
     onEvent: (event: { step: string; detail: string }) => void,
     review?: SkeletonReview,
+    onCheckpoint?: (state: unknown) => Promise<void>,
   ): Promise<{
     decisions: unknown[];
     blocking: Array<{ message: string }>;
@@ -212,6 +215,14 @@ interface Headless {
     files: Record<keyof typeof fileNames, string | Uint8Array | null> | null;
     job: { status: string };
   }>;
+  exportCourseState(api: unknown, courseId: string): Promise<unknown>;
+  restoreCourseState(courseId: string, state: unknown, steps: unknown): Promise<unknown>;
+  resumeGeneration(
+    api: unknown,
+    courseId: string,
+    onEvent: (event: { step: string; detail: string }) => void,
+    onCheckpoint: (state: unknown) => Promise<void>,
+  ): ReturnType<Headless['approveAndGenerate']>;
   checklist(snapshot: EngineSnapshot): unknown;
 }
 
@@ -220,12 +231,13 @@ export class AgentRunner {
   private readonly dataDir: string;
   private readonly bundlePath: string;
   private readonly runs = new Map<string, Run>();
-  // Курсы, ожидающие утверждения: движок и id курса живут в памяти процесса.
+  // Активные движки восстанавливаются из checkpoint сохранённого запуска.
   private readonly pending = new Map<string, { api: unknown; courseId: string }>();
   // Сборки идут по одной: шлюз всё равно пропускает два запроса, а движок курса
   // держит одно хранилище в памяти.
   private queue: Promise<unknown> = Promise.resolve();
   private headless?: Promise<Headless>;
+  private readonly saves = new Map<string, Promise<void>>();
 
   constructor(gateway: LlmGateway, dataDir: string, bundlePath: string) {
     this.gateway = gateway;
@@ -234,7 +246,12 @@ export class AgentRunner {
   }
 
   private engine() {
-    this.headless ??= import(pathToFileURL(resolve(this.bundlePath)).href) as Promise<Headless>;
+    this.headless ??= (
+      import(pathToFileURL(resolve(this.bundlePath)).href) as Promise<Headless>
+    ).catch((error) => {
+      this.headless = undefined;
+      throw error;
+    });
     return this.headless;
   }
 
@@ -294,15 +311,21 @@ export class AgentRunner {
       error: null,
     };
     this.runs.set(run.run_id, run);
-    const done = (this.queue = this.queue.then(() => this.execute(run)));
+    run.phase = 'design';
+    try {
+      await this.save(run);
+    } catch (error) {
+      this.fail(run, error);
+      return run;
+    }
+    const done = this.enqueue(run, () => this.execute(run));
     if (request.wait) await done;
     return run;
   }
 
   private async pendingReview(id: string, review: SkeletonReview) {
     const run = await this.get(id);
-    const pending = this.pending.get(id);
-    if (!run || run.status !== 'awaiting_approval' || !pending) return null;
+    if (!run || run.status !== 'awaiting_approval' || !run.checkpoint) return null;
     const skeleton = run.result.skeleton as ReturnType<typeof skeletonView>;
     if (
       skeleton.version !== review.skeleton_version ||
@@ -311,14 +334,15 @@ export class AgentRunner {
     )
       return null;
     run.status = 'queued';
-    return { run, pending };
+    return { run };
   }
 
   async review(id: string, input: FindingReview) {
     const current = await this.pendingReview(id, input);
     if (!current) return null;
-    const { run, pending } = current;
-    const done = this.queue.then(async () => {
+    const { run } = current;
+    const done = this.enqueue(run, async () => {
+      const pending = await this.restore(run);
       try {
         const engine = await this.engine();
         const before = run.result.skeleton as ReturnType<typeof skeletonView>;
@@ -333,6 +357,10 @@ export class AgentRunner {
           snapshot,
           (run.result.skeleton as ReturnType<typeof skeletonView>).model_issues,
         );
+        run.checkpoint = {
+          course_id: pending.courseId,
+          state: await engine.exportCourseState(pending.api, pending.courseId),
+        };
         run.result.blocking = snapshot.audit.issues.filter((i) => i.blocking).map((i) => i.message);
         run.result.next_action =
           'Проверьте обновлённый каркас; разберите оставшиеся блокировки через /review и вызовите /approve с актуальными версиями.';
@@ -362,16 +390,15 @@ export class AgentRunner {
       }
       return run;
     });
-    // Ошибка решения не должна останавливать очередь следующих сборок.
-    this.queue = done.catch(() => {});
-    return await done;
+    await done;
+    return run;
   }
 
   async approve(id: string, review: SkeletonReview) {
     const current = await this.pendingReview(id, review);
     if (!current) return null;
     const { run } = current;
-    const done = (this.queue = this.queue.then(() => this.generate(run, 'methodist-api', review)));
+    const done = this.enqueue(run, () => this.generate(run, 'methodist-api', review));
     if (run.request.wait) await done;
     return run;
   }
@@ -380,15 +407,49 @@ export class AgentRunner {
     const inMemory = this.runs.get(id);
     if (inMemory) return inMemory;
     if (!/^[0-9a-f-]{36}$/.test(id)) return null;
-    return readFile(join(this.runDir(id), 'run.json'), 'utf8').then(
-      (text) => JSON.parse(text) as Run,
-      () => null,
-    );
+    let text: string;
+    try {
+      text = await readFile(join(this.runDir(id), 'run.json'), 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw new AgentStorageError();
+    }
+    let run: Run;
+    try {
+      run = JSON.parse(text) as Run;
+      if (
+        run.run_id !== id ||
+        !Array.isArray(run.events) ||
+        !Array.isArray(run.calls) ||
+        !run.result ||
+        !agentRequestSchema.safeParse(run.request).success
+      )
+        throw new Error('invalid');
+    } catch {
+      throw new AgentReviewError(
+        'Сохранённая сборка повреждена. Сохраните её данные и обратитесь к администратору.',
+      );
+    }
+    const loaded = this.runs.get(id);
+    if (loaded) return loaded;
+    this.runs.set(id, run);
+    if (['queued', 'running'].includes(run.status))
+      this.fail(
+        run,
+        new Error(
+          'Сервер был перезапущен во время сборки. Готовые части сохранены; повторите незавершённые шаги.',
+        ),
+        'interrupted',
+      );
+    return run;
   }
 
   async file(id: string, name: string) {
     if (!(name in contentTypes) || !/^[0-9a-f-]{36}$/.test(id)) return null;
-    const body = await readFile(join(this.runDir(id), name)).catch(() => null);
+    const body = await readFile(join(this.runDir(id), name)).catch((error) => {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw new AgentStorageError();
+    });
     return body ? { body, contentType: contentTypes[name] } : null;
   }
 
@@ -422,9 +483,99 @@ export class AgentRunner {
     };
   }
 
-  private async save(run: Run) {
-    await mkdir(this.runDir(run.run_id), { recursive: true });
-    await writeFile(join(this.runDir(run.run_id), 'run.json'), JSON.stringify(run, null, 1));
+  private save(run: Run): Promise<void> {
+    const previous = this.saves.get(run.run_id) ?? Promise.resolve();
+    const next = previous
+      .catch(() => {})
+      .then(async () => {
+        await mkdir(this.runDir(run.run_id), { recursive: true });
+        await atomicWrite(join(this.runDir(run.run_id), 'run.json'), JSON.stringify(run, null, 1));
+      })
+      .catch(() => {
+        throw new AgentStorageError();
+      });
+    this.saves.set(run.run_id, next);
+    return next;
+  }
+
+  private enqueue(run: Run, work: () => Promise<unknown>): Promise<void> {
+    const done = this.queue.then(async () => {
+      try {
+        await work();
+        await this.save(run);
+      } catch (error) {
+        if (error instanceof AgentReviewError) throw error;
+        this.fail(run, error);
+        try {
+          await this.save(run);
+        } catch {
+          this.fail(run, new AgentStorageError());
+          console.error(`Не удалось сохранить сборку ${run.run_id}`);
+        }
+      }
+    });
+    // Отказ одной операции возвращается её клиенту, но не отравляет очередь остальных.
+    this.queue = done.then(
+      () => {},
+      () => {},
+    );
+    return done;
+  }
+
+  private fail(run: Run, error: unknown, code?: string) {
+    run.status = 'failed';
+    run.error = error instanceof Error ? error.message : String(error);
+    const failure = describeFailure(error, code);
+    run.result.failure = { ...failure, message: run.error };
+    run.result.next_action = failure.action;
+    this.event(run, 'error', run.error);
+  }
+
+  private async restore(run: Run) {
+    let pending = this.pending.get(run.run_id);
+    if (!pending) {
+      if (!run.checkpoint)
+        throw new Error('Нет сохранённого каркаса. Повторите построение программы.');
+      const engine = await this.engine();
+      pending = {
+        api: await engine.restoreCourseState(
+          run.checkpoint.course_id,
+          run.checkpoint.state,
+          this.contentSteps(run),
+        ),
+        courseId: run.checkpoint.course_id,
+      };
+      this.pending.set(run.run_id, pending);
+    }
+    return pending;
+  }
+
+  async retry(id: string) {
+    const run = await this.get(id);
+    const generation = run?.result.generation as { failed?: unknown[] } | undefined;
+    if (
+      !run ||
+      !(run.status === 'failed' || (run.status === 'needs_review' && generation?.failed?.length))
+    )
+      return null;
+    if ((run.result.failure as { retryable?: boolean } | undefined)?.retryable === false)
+      return null;
+    const resume = run.phase !== 'design' && Boolean(run.checkpoint);
+    run.status = 'queued';
+    run.error = null;
+    delete run.result.failure;
+    this.event(run, 'retry', 'Повтор незавершённых шагов; готовые части сохранены.');
+    const done = this.enqueue(run, async () => {
+      await this.save(run);
+      if (run.phase === 'approval' && run.checkpoint) {
+        await this.restore(run);
+        run.status = 'awaiting_approval';
+        run.result.next_action = 'Проверьте сохранённый каркас и утвердите его через /approve.';
+      } else if (resume) await this.generate(run, 'resume', undefined, true);
+      else await this.execute(run);
+    });
+    if (run.request.wait) await done;
+    return run;
   }
 
   private async execute(run: Run) {
@@ -434,9 +585,7 @@ export class AgentRunner {
       if (run.status === 'running' && run.request.approve)
         await this.generate(run, 'automatic-api');
     } catch (error) {
-      run.status = 'failed';
-      run.error = error instanceof Error ? error.message : String(error);
-      this.event(run, 'error', run.error);
+      this.fail(run, error);
     }
     await this.save(run);
   }
@@ -516,6 +665,11 @@ export class AgentRunner {
     const built = await engine.buildSkeleton(requirements, this.contentSteps(run));
     if (!built.snapshot) throw new Error(`Каркас не построен: ${built.job.next_action}`);
     this.pending.set(run.run_id, { api: built.api, courseId: built.courseId });
+    run.checkpoint = {
+      course_id: built.courseId,
+      state: await engine.exportCourseState(built.api, built.courseId),
+    };
+    run.phase = 'approval';
     run.result.skeleton = skeletonView(built.snapshot, draft.issues);
     this.event(
       run,
@@ -533,19 +687,40 @@ export class AgentRunner {
     }
   }
 
-  private async generate(run: Run, actor: string, review?: SkeletonReview) {
+  private async generate(run: Run, actor: string, review?: SkeletonReview, resume = false) {
     run.status = 'running';
-    const pending = this.pending.get(run.run_id)!;
+    const pending = await this.restore(run);
     const engine = await this.engine();
+    run.phase = 'content';
+    const checkpoint = async (state: unknown) => {
+      run.checkpoint = { course_id: pending.courseId, state };
+      await this.save(run);
+    };
+    const onEvent = (event: { step: string; detail: string }) => {
+      if (event.step === 'approval' || event.step === 'automatic_approval')
+        run.result.approval = {
+          mode: actor === 'automatic-api' ? 'automatic' : 'human',
+          human_approved: actor !== 'automatic-api',
+          actor,
+        };
+      this.event(run, event.step, event.detail);
+    };
     try {
-      const result = await engine.approveAndGenerate(
-        pending.api,
-        pending.courseId,
-        actor,
-        (event) => this.event(run, event.step, event.detail),
-        review,
-      );
+      const result = resume
+        ? await engine.resumeGeneration(pending.api, pending.courseId, onEvent, checkpoint)
+        : await engine.approveAndGenerate(
+            pending.api,
+            pending.courseId,
+            actor,
+            onEvent,
+            review,
+            checkpoint,
+          );
       run.result.decisions = [...((run.result.decisions as unknown[]) ?? []), ...result.decisions];
+      run.checkpoint = {
+        course_id: pending.courseId,
+        state: await engine.exportCourseState(pending.api, pending.courseId),
+      };
       run.result.skeleton = skeletonView(
         result.snapshot,
         (run.result.skeleton as ReturnType<typeof skeletonView>).model_issues,
@@ -558,23 +733,24 @@ export class AgentRunner {
         await this.save(run);
         return;
       }
-      run.result.approval = {
-        mode: actor === 'automatic-api' ? 'automatic' : 'human',
-        human_approved: actor !== 'automatic-api',
-        actor,
-        skeleton_version: result.snapshot.skeleton_version,
-        skeleton_hash: result.snapshot.skeleton_hash,
-      };
+      if (!resume)
+        run.result.approval = {
+          mode: actor === 'automatic-api' ? 'automatic' : 'human',
+          human_approved: actor !== 'automatic-api',
+          actor,
+          skeleton_version: result.snapshot.skeleton_version,
+          skeleton_hash: result.snapshot.skeleton_hash,
+        };
       delete run.result.blocking;
       delete run.result.next_action;
-      this.pending.delete(run.run_id);
+      run.phase = 'export';
       const dir = this.runDir(run.run_id);
       await mkdir(dir, { recursive: true });
       const files: Record<string, string> = {};
       for (const [format, name] of Object.entries(fileNames)) {
         const content = result.files[format as keyof typeof fileNames];
         if (content === null) continue;
-        await writeFile(join(dir, name), content);
+        await atomicWrite(join(dir, name), content);
         files[format] = `/api/v1/agent/runs/${run.run_id}/files/${name}`;
       }
       const snapshot = result.snapshot;
@@ -589,6 +765,9 @@ export class AgentRunner {
         slides: m.slides.length,
       }));
       run.result.generation = snapshot.generation ?? null;
+      const failed = (snapshot.generation as { failed?: string[] } | undefined)?.failed ?? [];
+      if (failed.length)
+        run.result.next_action = `Не завершено частей: ${failed.length}. Повторите POST /api/v1/agent/runs/${run.run_id}/retry. Готовые материалы сохранены.`;
       run.result.audit = {
         technical_ready: snapshot.audit.technical_ready,
         checks: snapshot.audit.checks.map((c) => ({
@@ -607,11 +786,46 @@ export class AgentRunner {
       run.result.total_ms = Date.now() - Date.parse(run.created_at);
       this.event(run, 'done', `Комплект собран, файлов: ${Object.keys(files).length}`);
     } catch (error) {
-      run.status = 'failed';
-      run.error = error instanceof Error ? error.message : String(error);
-      this.event(run, 'error', run.error);
+      this.fail(run, error);
     }
     await this.save(run);
+  }
+}
+
+export class AgentStorageError extends Error {
+  readonly status = 503;
+  constructor() {
+    super(
+      'Не удалось сохранить сборку на диск. Проверьте свободное место и права доступа; готовые части остаются в памяти сервера.',
+    );
+  }
+}
+
+function describeFailure(error: unknown, fallback = 'internal') {
+  const code =
+    error instanceof AgentStorageError
+      ? 'storage'
+      : ((error as { code?: string })?.code ?? fallback);
+  const retryable = !['rejected'].includes(code);
+  const action =
+    code === 'storage'
+      ? 'Восстановите доступ к хранилищу, затем повторите незавершённые шаги.'
+      : code === 'rate_limited'
+        ? 'Шлюз занят или исчерпан бюджет команды. Проверьте лимит и повторите позже.'
+        : code === 'rejected'
+          ? 'Проверьте параметры запроса; повтор без исправлений не поможет.'
+          : 'Готовые части сохранены. Повторите незавершённые шаги через /retry.';
+  return { code, retryable, action };
+}
+
+async function atomicWrite(path: string, content: string | Uint8Array) {
+  const temporary = `${path}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, content);
+    await rename(temporary, path);
+  } catch {
+    await rm(temporary, { force: true }).catch(() => {});
+    throw new AgentStorageError();
   }
 }
 

@@ -14,6 +14,8 @@ export function JobPanel({
 }) {
   const command = useCommand();
   const active = ['running', 'queued'].includes(job.status);
+  const retryable =
+    ['failed', 'cancelled'].includes(job.status) || (job.status === 'needs_review' && !!job.error);
   return (
     <div className={`job-panel${compact ? ' job-compact' : ''}`}>
       <div className="job-line">
@@ -36,7 +38,7 @@ export function JobPanel({
         )}
         <strong>{job.next_action}</strong>
       </div>
-      {(job.error || (!readonly && (active || ['failed', 'cancelled'].includes(job.status)))) && (
+      {(job.error || (!readonly && (active || retryable))) && (
         <div className="job-detail">
           {compact && <p>Состояние операции: {statuses[job.status]}</p>}
           {job.error && <p>{job.error}</p>}
@@ -54,7 +56,7 @@ export function JobPanel({
               Остановить дальнейшие шаги
             </button>
           )}
-          {!readonly && ['failed', 'cancelled'].includes(job.status) && (
+          {!readonly && retryable && (
             <button
               onClick={() =>
                 command.mutate({
@@ -65,7 +67,7 @@ export function JobPanel({
               }
               disabled={command.isPending}
             >
-              Повторить незавершённый шаг
+              Повторить незавершённые шаги
             </button>
           )}
           <ErrorMessage error={command.error} />

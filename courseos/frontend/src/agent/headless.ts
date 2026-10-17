@@ -514,6 +514,7 @@ export async function approveAndGenerate(
   actor: string,
   onEvent: (event: AgentEvent) => void = () => {},
   review?: SkeletonReview,
+  onCheckpoint: (state: unknown) => Promise<void> = async () => {},
 ) {
   const decisions: AgentDecision[] = [];
   const automatic = actor === 'automatic-api';
@@ -548,15 +549,75 @@ export async function approveAndGenerate(
       ? `Каркас версии ${settled.skeleton_version}: автоматический прогон, методистом не утверждён`
       : `Каркас версии ${settled.skeleton_version} утверждён: ${actor}`,
   });
+  await onCheckpoint(await api.exportState(courseId));
+  return collectGenerated(api, courseId, onEvent, onCheckpoint, decisions);
+}
+
+export async function exportCourseState(api: DemoCourseApi, courseId: string) {
+  return api.exportState(courseId);
+}
+
+export async function restoreCourseState(
+  courseId: string,
+  state: unknown,
+  contentSteps: ContentSteps,
+) {
+  const api = new DemoCourseApi({ contentSteps });
+  await api.restoreState(courseId, state);
+  return api;
+}
+
+export async function resumeGeneration(
+  api: DemoCourseApi,
+  courseId: string,
+  onEvent: (event: AgentEvent) => void = () => {},
+  onCheckpoint: (state: unknown) => Promise<void> = async () => {},
+) {
+  const view = await api.get(courseId);
+  if (view.job.status === 'awaiting_approval' && view.snapshot)
+    return {
+      decisions: [],
+      blocking: view.snapshot.audit.issues.filter((issue) => issue.blocking),
+      snapshot: view.snapshot,
+      files: null,
+      job: view.job,
+    };
+  if (
+    ['failed', 'cancelled'].includes(view.job.status) ||
+    (view.job.status === 'needs_review' && view.snapshot?.generation?.failed.length)
+  )
+    await api.command({
+      action: 'retry',
+      course_id: courseId,
+      expected_version: view.latest_version,
+      request_id: crypto.randomUUID(),
+      payload: { job_id: view.job.id },
+    });
+  return collectGenerated(api, courseId, onEvent, onCheckpoint, []);
+}
+
+async function collectGenerated(
+  api: DemoCourseApi,
+  courseId: string,
+  onEvent: (event: AgentEvent) => void,
+  onCheckpoint: (state: unknown) => Promise<void>,
+  decisions: AgentDecision[],
+) {
   let reported = 0;
   for (;;) {
     const view = await api.get(courseId);
+    await onCheckpoint(await api.exportState(courseId));
     const steps = view.job.steps.filter(
       (s) => s.startsWith('Сгенерировано') || s.startsWith('Не сгенерировано'),
     );
     for (const step of steps.slice(reported)) onEvent({ step: 'content', detail: step });
     reported = steps.length;
     if (terminal.has(view.job.status)) {
+      if (view.job.status === 'failed' || view.job.status === 'cancelled')
+        throw new Error(
+          view.job.error ||
+            'Генерация остановлена. Готовые части сохранены; повторите незавершённые шаги.',
+        );
       const snapshot = view.snapshot!;
       return {
         decisions,

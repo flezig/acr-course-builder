@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   AgentRunner,
   AgentReviewError,
+  AgentStorageError,
   agentRequestSchema,
   skeletonReviewSchema,
   findingReviewSchema,
@@ -115,10 +116,15 @@ async function handleAgent(request: IncomingMessage, response: ServerResponse, p
     return sendJson(response, body.data.wait ? 200 : 202, agent.view(run));
   }
   const match = path.match(
-    /^\/api\/v1\/agent\/runs\/([^/]+)(?:\/(approve|review|files\/([^/]+)))?$/,
+    /^\/api\/v1\/agent\/runs\/([^/]+)(?:\/(approve|review|retry|files\/([^/]+)))?$/,
   );
   if (!match) throw new HttpError(404, 'Такого метода API нет.');
   const [, id, action, fileName] = match;
+  if (request.method === 'POST' && action === 'retry') {
+    const run = await agent.retry(id);
+    if (!run) throw new HttpError(409, 'У этой сборки нет незавершённых шагов для повтора.');
+    return sendJson(response, run.request.wait ? 200 : 202, agent.view(run));
+  }
   if (request.method === 'GET' && !action) {
     const run = await agent.get(id);
     if (!run) throw new HttpError(404, 'Сборка не найдена.');
@@ -243,6 +249,12 @@ const server = createServer(async (request, response) => {
       return sendJson(response, statusByCode[error.code], {
         detail: error.message,
         code: error.code,
+      });
+    if (error instanceof AgentStorageError)
+      return sendJson(response, error.status, {
+        detail: error.message,
+        code: 'storage',
+        retryable: true,
       });
     if (error instanceof HttpError || error instanceof AgentReviewError)
       return sendJson(response, error.status, { detail: error.message });

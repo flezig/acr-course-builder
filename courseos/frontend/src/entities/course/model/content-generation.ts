@@ -1,4 +1,10 @@
 import {
+  courseTestResultSchema,
+  finalAssessmentResultSchema,
+  programSectionsResultSchema,
+  repairTestResultSchema,
+  reviewResultSchema,
+  topicMaterialsResultSchema,
   applyGeneratedContent,
   generationRequests,
   reviewRequest,
@@ -11,6 +17,8 @@ import {
   type ReviewResult,
   type TopicMaterialsResult,
 } from './generated-materials';
+import { z } from 'zod';
+import { canonicalJson } from '../../../shared/lib/decimal';
 import type { Generation, Material, Skeleton } from './schema';
 
 type Requests = ReturnType<typeof generationRequests>;
@@ -80,7 +88,14 @@ export function repairRequest(
 export interface GenerationProgress {
   done: string[];
   content: GeneratedContent;
+  checkpoint?: ContentCheckpoint;
 }
+
+export const contentCheckpointSchema = z.record(
+  z.string(),
+  z.object({ input: z.string(), result: z.unknown() }),
+);
+export type ContentCheckpoint = z.infer<typeof contentCheckpointSchema>;
 
 // Шлюз пропускает два одновременных запроса команды; третий получит 429.
 const concurrency = 2;
@@ -101,11 +116,33 @@ export async function generateContent(
   materials: Material[],
   steps: ContentSteps,
   onProgress: (progress: GenerationProgress) => void = () => {},
+  checkpoint: ContentCheckpoint = {},
 ): Promise<{ materials: Material[]; generation: Generation }> {
   const requests = generationRequests(skeleton);
   const content: GeneratedContent = { topics: [], test: null, final: null };
   const generation: Generation = { calls: [], issues: [], failed: [], review: null };
   const done: string[] = [];
+  async function completedStep<T extends { usage: GenerationUsage }>(
+    key: string,
+    input: unknown,
+    schema: z.ZodType<T>,
+    generate: () => Promise<T>,
+  ): Promise<T> {
+    const signature = canonicalJson(input);
+    const saved = checkpoint[key];
+    if (saved?.input === signature) {
+      const parsed = schema.safeParse(saved.result);
+      if (parsed.success)
+        return {
+          ...parsed.data,
+          usage: { ...parsed.data.usage, cached: true, cost_rub: 0, duration_ms: 0 },
+        };
+    }
+    const result = schema.parse(await generate());
+    // Сохраняем исходный ответ, чтобы доработка теста не меняла результат предыдущего шага.
+    checkpoint[key] = { input: signature, result: structuredClone(result) };
+    return result;
+  }
   const record = (step: string, label: string, usage: GenerationUsage) =>
     generation.calls.push({ step, label, ...usage });
   const attempt = async (label: string, run: () => Promise<void>) => {
@@ -113,36 +150,55 @@ export async function generateContent(
       await run();
       done.push(label);
     } catch (error) {
-      generation.failed.push(`${label}: ${error instanceof Error ? error.message : String(error)}`);
+      generation.failed.push(
+        `${label}: ${error instanceof Error ? error.message : String(error)} Готовые части сохранены; повторите незавершённые шаги.`,
+      );
     }
-    onProgress({ done: [...done], content });
+    onProgress({ done: [...done], content, checkpoint });
   };
   await inPool([
     // Тест и итоговая аттестация не зависят от тем, поэтому идут первыми и не ждут хвост очереди.
     () =>
       attempt('Итоговый тест', async () => {
-        const result = await steps.test(requests.test);
+        const result = await completedStep('test', requests.test, courseTestResultSchema, () =>
+          steps.test(requests.test),
+        );
         content.test = result;
         generation.issues.push(...result.issues);
         record('course_test', 'Итоговый тест', result.usage);
       }),
     () =>
       attempt('Итоговая аттестация', async () => {
-        const result = await steps.final(requests.final);
+        const result = await completedStep(
+          'final',
+          requests.final,
+          finalAssessmentResultSchema,
+          () => steps.final(requests.final),
+        );
         content.final = result;
         generation.issues.push(...result.issues);
         record('final_assessment', 'Итоговая аттестация', result.usage);
       }),
     () =>
       attempt('Разделы программы', async () => {
-        const result = await steps.sections(requests.sections);
+        const result = await completedStep(
+          'sections',
+          requests.sections,
+          programSectionsResultSchema,
+          () => steps.sections(requests.sections),
+        );
         generation.program_sections = result.sections;
         record('program_sections', 'Разделы программы', result.usage);
       }),
     ...requests.topics.map(
       (input) => () =>
         attempt(`Тема ${input.topic.number}`, async () => {
-          const result = await steps.topic(input);
+          const result = await completedStep(
+            `topic:${input.topic.id}`,
+            input,
+            topicMaterialsResultSchema,
+            () => steps.topic(input),
+          );
           content.topics.push(result);
           record('topic_materials', `Тема ${input.topic.number}`, result.usage);
         }),
@@ -151,7 +207,8 @@ export async function generateContent(
   let generated = applyGeneratedContent(skeleton, materials, content);
   let review: ReviewResult | null = null;
   await attempt('Самопроверка', async () => {
-    review = await steps.review(reviewRequest(skeleton, generated));
+    const input = reviewRequest(skeleton, generated);
+    review = await completedStep('review', input, reviewResultSchema, () => steps.review(input));
     generation.review = { summary: review.summary, issues: review.issues };
     record('review_course', 'Самопроверка', review.usage);
   });
@@ -164,7 +221,9 @@ export async function generateContent(
       : null;
   if (test && repair && (repair.replace.length || repair.add.length))
     await attempt('Доработка теста', async () => {
-      const result = await steps.repairTest(repair);
+      const result = await completedStep('repair', repair, repairTestResultSchema, () =>
+        steps.repairTest(repair),
+      );
       record('test_repair', 'Доработка теста', result.usage);
       const fixed = result.questions.slice(0, repair.replace.length);
       fixed.forEach((question, i) => {
