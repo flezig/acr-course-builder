@@ -17,6 +17,7 @@ import { hourTotals } from '../model/rules';
 import { isProfessionalStandardReference } from '../model/professional-standards';
 import { formatHours, hourKinds, hourLabels, sumHours } from '../../../shared/lib/decimal';
 import { outcomeCodes } from './outcome-codes';
+import { isInternship } from '../model/hours-plan';
 
 // Агент не выпускает финальный документ: пустые поля остаются заметными
 // прочерками, которые методист заполняет сам.
@@ -24,7 +25,7 @@ const blank = '____ (заполняет методист)';
 
 const templateNames = {
   acr_professional: 'Дополнительная профессиональная программа повышения квалификации',
-  acr_general: 'Дополнительная общеразвивающая программа',
+  acr_general: 'Дополнительная общеобразовательная общеразвивающая программа',
   unknown: 'Образовательная программа',
 };
 
@@ -68,12 +69,17 @@ function curriculumTable(snapshot: Snapshot) {
     control,
   ];
   const modules = [...new Set(skeleton.topics.map((t) => t.module_id))];
+  const moduleTitles = skeleton.requirements.model_design?.module_titles ?? [];
+  // Нумерация как в образцах АЦР: «Модуль 1. Название», затем «Тема 1.1.».
   const rows = modules.flatMap((moduleId, index) => {
     const topics = skeleton.topics.filter((t) => t.module_id === moduleId);
     if (moduleId === 'module-final') return topics.map((t) => hoursRow(t.title, [t], t.control));
+    const moduleTitle = moduleTitles[index];
     return [
-      hoursRow(`Модуль ${index + 1}`, topics, ''),
-      ...topics.map((t) => hoursRow(`  ${t.title}`, [t], t.control)),
+      hoursRow(`Модуль ${index + 1}${moduleTitle ? `. ${moduleTitle}` : ''}`, topics, ''),
+      ...topics.map((t, topicIndex) =>
+        hoursRow(`Тема ${index + 1}.${topicIndex + 1}. ${t.title}`, [t], t.control),
+      ),
     ];
   });
   const totals = hourTotals(skeleton);
@@ -260,18 +266,24 @@ function titlePage(snapshot: Snapshot) {
       children: [new TextRun({ text, ...options })],
     });
   return [
-    centered('Автономная некоммерческая организация «Академия цифрового развития»', { bold: true }),
-    new Paragraph({ alignment: AlignmentType.RIGHT, text: 'УТВЕРЖДАЮ' }),
+    centered('Автономная некоммерческая организация', { bold: true }),
+    centered('дополнительного профессионального образования', { bold: true }),
+    centered(`«${blank}»`, { bold: true }),
+    // Шапка повторяет образцы АЦР: реквизиты приказа агент не заполняет.
+    new Paragraph({ alignment: AlignmentType.RIGHT, text: 'УТВЕРЖДЕНО' }),
+    new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      text: 'Приказом № ____-ОБР от «___» __________ 20__ г.',
+    }),
     new Paragraph({
       alignment: AlignmentType.RIGHT,
       text: 'Руководитель ____________ / ____________',
-    }),
-    new Paragraph({
-      alignment: AlignmentType.RIGHT,
-      text: 'Приказ № ____ от «__» ________ 20__ г.',
       spacing: { after: 1200 },
     }),
-    centered(templateNames[r.template_id].toUpperCase(), { bold: true }),
+    centered(
+      `${templateNames[r.template_id]}${isInternship(r) ? ' в форме стажировки' : ''}`.toUpperCase(),
+      { bold: true },
+    ),
     centered(`«${r.title}»`, { bold: true, size: 32 }),
     centered(`Объём: ${formatHours(r.total_hours)} ч · Форма обучения: ${r.delivery || blank}`),
     centered(`Черновик версии ${snapshot.course_version} — требует проверки методистом`, {

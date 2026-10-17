@@ -240,7 +240,7 @@ it('DOCX и PPTX собираются из выбранной версии бе�
   const docx = await unzip(await file('docx'));
   const documentXml = await docx.file('word/document.xml')!.async('string');
   expect(documentXml).toContain(snapshot.skeleton.requirements.title);
-  expect(documentXml).toContain('Приказ № ____');
+  expect(documentXml).toContain('Приказом № ____-ОБР');
   expect(documentXml).toContain('Ключ: ');
   expect(documentXml).not.toMatch(/outcome-\d|topic-\d/);
   const pptx = await unzip(await file('pptx'));
