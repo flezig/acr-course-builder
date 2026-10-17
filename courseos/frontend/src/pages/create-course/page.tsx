@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
@@ -145,8 +145,6 @@ export function CreateCoursePage() {
   const analyzedCurrentRequest = analysis.isSuccess && analysis.variables === values.request;
   const submit = form.handleSubmit(async (values) => {
     dictation.stop();
-    if (reviewWithModel && analysis.variables !== values.request)
-      return fillSummary(values.request);
     if (
       discrepancies.length ||
       (api.mode === 'demo' && changedRequest && !reviewWithModel && !confirmed)
@@ -221,6 +219,18 @@ export function CreateCoursePage() {
       /* Ошибка отображается рядом с действием; черновик сохраняется. */
     }
   });
+  // Новый текст сначала разбирается моделью, а уже потом проверяется сводка: иначе
+  // поля от прежнего текста (например, 12 ч вне допустимых 16–500) блокировали бы разбор.
+  const send = (event: FormEvent<HTMLFormElement>) => {
+    const request = form.getValues('request');
+    if (reviewWithModel && request.trim().length >= 10 && analysis.variables !== request) {
+      event.preventDefault();
+      dictation.stop();
+      void fillSummary(request);
+      return;
+    }
+    void submit(event);
+  };
   const choose = (id: string) => {
     setPresetId(id);
     setConfirmationError('');
@@ -252,7 +262,7 @@ export function CreateCoursePage() {
         errors={form.formState.errors}
         submitCount={form.formState.submitCount}
         ref={formRef}
-        onSubmit={submit}
+        onSubmit={send}
         className="create-layout"
       >
         <Panel className="create-request" title="Какую программу создаём?">
