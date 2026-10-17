@@ -1,0 +1,104 @@
+import { z } from 'zod';
+import type { LlmGateway } from '../llm/gateway.ts';
+import { LlmError } from '../llm/gateway.ts';
+import { extractJson } from './parse-request.ts';
+
+// Самопроверка — последний шаг агента. Арифметику часов, покрытие результатов и пустые поля
+// проверяет код правилами; модель ищет только смысловые проблемы, которые правилом
+// не поймать: неверные ключи тестов, темы не по уровню слушателей, обещания сверх объёма.
+export const reviewInputSchema = z.object({
+  title: z.string().min(1),
+  template: z.string(),
+  audience: z.string(),
+  entry_level: z.string(),
+  total_hours: z.coerce.number(),
+  outcomes: z.array(z.object({ code: z.string(), description: z.string() })).min(1),
+  topics: z
+    .array(
+      z.object({
+        number: z.string(),
+        title: z.string(),
+        hours: z.string(),
+        outcomes: z.array(z.string()),
+        summary: z.string().max(600),
+      }),
+    )
+    .min(1)
+    .max(40),
+  questions: z
+    .array(
+      z.object({
+        number: z.number(),
+        text: z.string(),
+        options: z.array(z.string()),
+        correct: z.string(),
+        outcome: z.string(),
+      }),
+    )
+    .max(30),
+  final: z.string().max(3000),
+});
+
+export type ReviewInput = z.infer<typeof reviewInputSchema>;
+
+const reviewAnswerSchema = z.object({
+  issues: z
+    .array(
+      z.object({
+        severity: z.enum(['error', 'warning']).catch('warning'),
+        element: z.string().min(1),
+        message: z.string().min(1),
+        fix: z.string().default(''),
+      }),
+    )
+    .max(20),
+  summary: z.string().default(''),
+});
+
+export type ReviewIssue = z.infer<typeof reviewAnswerSchema>['issues'][number];
+
+const instructions = `Ты эксперт-методист, который проверяет черновик образовательной программы перед передачей методисту. Найди смысловые ошибки.
+
+Проверь:
+1. Ключи теста: верный ли ответ отмечен, нет ли второго верного варианта, понятна ли формулировка.
+2. Соответствие уровню: нет ли тем, требующих знаний, которые слушатели ещё не получили; подходит ли язык аудитории.
+3. Реалистичность: не обещают ли результаты больше, чем можно освоить за объём программы.
+4. Связь: проверяет ли итоговая аттестация результаты обучения; нет ли тем, не связанных с целью.
+5. Фактические ошибки и устаревшие или недоступные в России инструменты.
+
+Не проверяй арифметику часов и оформление — это делает код. Не придумывай проблем: если всё в порядке, верни пустой список.
+severity: error — ошибка, которую нужно исправить до выдачи слушателям (неверный ключ, фактическая ошибка); warning — стоит проверить.
+element — где проблема: «Вопрос 3», «Тема 1.2», «Результат РО-2», «Итоговая аттестация».
+
+Верни только JSON без пояснений и Markdown:
+{"issues": [{"severity": "error", "element": "Вопрос 3", "message": "...", "fix": "..."}], "summary": "одно предложение об общем качестве"}`;
+
+function brief(input: ReviewInput) {
+  return [
+    `Программа «${input.title}» (${input.template}), ${input.total_hours} ч.`,
+    `Слушатели: ${input.audience}; входной уровень: ${input.entry_level}.`,
+    'Результаты обучения:',
+    ...input.outcomes.map((o) => `${o.code} — ${o.description}`),
+    'Темы:',
+    ...input.topics.map(
+      (t) => `${t.number}. ${t.title} (${t.hours} ч; ${t.outcomes.join(', ')}): ${t.summary}`,
+    ),
+    'Тест (верный ответ указан после «Ключ»):',
+    ...input.questions.map(
+      (q) =>
+        `${q.number}. ${q.text} Варианты: ${q.options.map((o, i) => `${i + 1}) ${o}`).join('; ')}. Ключ: ${q.correct}. Проверяет ${q.outcome}.`,
+    ),
+    `Итоговая аттестация: ${input.final}`,
+  ].join('\n');
+}
+
+export async function reviewCourse(gateway: LlmGateway, input: ReviewInput) {
+  const { content, usage } = await gateway.chat('review_course', [
+    { role: 'system', content: instructions },
+    { role: 'user', content: brief(input) },
+  ]);
+  const parsed = reviewAnswerSchema.safeParse(extractJson(content));
+  if (!parsed.success)
+    throw new LlmError('empty', 'Модель вернула самопроверку не по схеме. Повторите проверку.');
+  return { ...parsed.data, usage };
+}

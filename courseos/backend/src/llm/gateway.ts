@@ -25,12 +25,7 @@ export interface CallLogEntry extends CallUsage {
 }
 
 export type LlmErrorCode =
-  | 'unavailable'
-  | 'rate_limited'
-  | 'timeout'
-  | 'upstream'
-  | 'rejected'
-  | 'empty';
+  'unavailable' | 'rate_limited' | 'timeout' | 'upstream' | 'rejected' | 'empty';
 
 export class LlmError extends Error {
   readonly code: LlmErrorCode;

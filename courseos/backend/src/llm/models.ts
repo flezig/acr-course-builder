@@ -24,6 +24,19 @@ export const routes = {
   // Вопросы должны повторяться для одного запроса: ответы хранятся под их id.
   clarify_questions: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0, maxTokens: 1500 },
   draft_skeleton: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.3, maxTokens: 4096 },
+  // Тексты материалов — генерация, поэтому температура выше, чем у структуры.
+  topic_materials: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.5, maxTokens: 3500 },
+  // В тесте важны верные ключи, поэтому температура низкая.
+  course_test: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.2, maxTokens: 4096 },
+  final_assessment: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.3, maxTokens: 3000 },
+  // Самопроверка — единственный шаг, где точность важнее скорости: ключи тестов и
+  // реалистичность результатов проверяет рассуждающая модель. Рассуждение тратит
+  // токены ответа, поэтому max_tokens максимальный.
+  review_course: {
+    model: 'ai-sage/GigaChat3.5-432B-A28B-Reasoning',
+    temperature: 0,
+    maxTokens: 4096,
+  },
 } satisfies Record<string, StepRoute>;
 
 export type StepId = keyof typeof routes;

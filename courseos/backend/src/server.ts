@@ -6,7 +6,16 @@ import { LlmError, LlmGateway, type LlmErrorCode } from './llm/gateway.ts';
 import { routes } from './llm/models.ts';
 import { clarifyQuestions, questionsInputSchema } from './steps/clarify-questions.ts';
 import { draftSkeleton, skeletonInputSchema } from './steps/draft-skeleton.ts';
+import {
+  finalInputSchema,
+  generateCourseTest,
+  generateFinalAssessment,
+  generateTopicMaterials,
+  testInputSchema,
+  topicInputSchema,
+} from './steps/generate-materials.ts';
 import { parseRequest } from './steps/parse-request.ts';
+import { reviewCourse, reviewInputSchema } from './steps/review-course.ts';
 import { usageSummary } from './usage.ts';
 
 const root = resolve(import.meta.dirname, '..');
@@ -94,6 +103,24 @@ async function handleApi(request: IncomingMessage, response: ServerResponse, pat
     if (!body.success)
       throw new HttpError(422, 'Нужны запрос методиста и подтверждённый объём от 16 до 500 часов.');
     return sendJson(response, 200, await draftSkeleton(gateway, body.data));
+  }
+  // Шаги после утверждения каркаса: браузер вызывает их по частям и сам собирает материалы.
+  const contentSteps = {
+    '/api/llm/topic-materials': [topicInputSchema, generateTopicMaterials],
+    '/api/llm/course-test': [testInputSchema, generateCourseTest],
+    '/api/llm/final-assessment': [finalInputSchema, generateFinalAssessment],
+    '/api/llm/review-course': [reviewInputSchema, reviewCourse],
+  } as const;
+  if (request.method === 'POST' && path in contentSteps) {
+    const [schema, step] = contentSteps[path as keyof typeof contentSteps];
+    const body = schema.safeParse(await readJson(request));
+    if (!body.success)
+      throw new HttpError(422, `Неверные данные шага: ${body.error.issues[0]?.message ?? ''}`);
+    return sendJson(
+      response,
+      200,
+      await (step as (g: LlmGateway, i: unknown) => Promise<unknown>)(gateway, body.data),
+    );
   }
   throw new HttpError(404, 'Такого метода API нет.');
 }
