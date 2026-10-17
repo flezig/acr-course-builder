@@ -22,7 +22,7 @@ for (const width of [1440, 390, 320]) {
       const firstIssue = blocked
         ? await page
             .locator('.verdict')
-            .getByRole('link', { name: 'К первому вопросу', exact: true })
+            .getByRole('link', { name: 'Разобрать замечания', exact: true })
             .getAttribute('href')
         : null;
       const panel = page.locator('.approval-action');

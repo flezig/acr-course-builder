@@ -46,8 +46,7 @@
 :root[data-theme='dark'] .topbar {
   background: #111827;
 }
-:root[data-theme='dark'] .panel,
-:root[data-theme='dark'] .verdict {
+:root[data-theme='dark'] .panel {
   background: linear-gradient(145deg, #1b2535, var(--theme-paper) 65%);
   border-radius: 24px;
   box-shadow: var(--glass-shadow);
@@ -369,57 +368,8 @@
   stroke: #2f6bff;
 }
 
-/* Вердикт по программе: статус передают точка и карточки вопросов, а не цветная полоса слева. */
+/* Статус выделяем иконкой: вложенные карточки и тени перегружают короткую сводку. */
 :root:not([data-theme='dark']) .verdict {
-  padding: 24px 28px;
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--glass-shadow);
-}
-:root:not([data-theme='dark']) .verdict h2 {
-  font-size: 22px;
-  margin: 6px 0 14px;
-}
-:root:not([data-theme='dark']) .verdict-queue {
-  gap: 10px;
-}
-:root:not([data-theme='dark']) .verdict-issue-link {
-  align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
-  border-radius: 20px;
+  border-color: var(--theme-border, #e6e8ee);
   background: #ffffff;
-  box-shadow: 0 8px 24px rgba(40, 80, 160, 0.08);
-  transition: box-shadow 0.15s;
-}
-:root:not([data-theme='dark']) .verdict-issue-link:hover {
-  box-shadow: 0 12px 30px rgba(40, 80, 160, 0.16);
-}
-:root:not([data-theme='dark']) .verdict-issue-link:hover .verdict-issue-heading {
-  text-decoration: none;
-}
-:root:not([data-theme='dark']) .verdict-issue-label.blocking {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--theme-red-surface, #fbe9e8);
-  font-size: 9px;
-}
-:root:not([data-theme='dark']) .verdict-issue-heading {
-  margin-bottom: 2px;
-}
-/* Кнопку поднимаем в угол, чтобы карточки вопросов шли во всю ширину. */
-@media (min-width: 651px) {
-  :root:not([data-theme='dark']) .verdict {
-    position: relative;
-  }
-  :root:not([data-theme='dark']) .verdict > .button {
-    position: absolute;
-    top: 24px;
-    right: 28px;
-  }
 }

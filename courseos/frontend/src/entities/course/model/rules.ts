@@ -66,17 +66,19 @@ export function calendarExplanation(requirements: Requirements) {
     !!calendar.start && !Number.isNaN(Date.parse(calendar.start)) && calendar.calendar_days > 0;
   const weeks = Math.ceil(calendar.calendar_days / 7);
   const missing = [
-    !hasDates && 'дату начала и длительность',
-    calc.needed === null && 'сколько часов в день можно заниматься',
-    !calendar.same_units && 'в каких единицах считаются часы',
+    !hasDates && 'дату начала и календарную длительность курса',
+    calc.needed === null && 'допустимую нагрузку в день',
+    !calendar.same_units && 'единицы учебных часов',
   ].filter(Boolean);
   if (missing.length)
     return [
-      `Не хватает данных: ${missing.join(', ')}.`,
+      `Укажите ${missing.join(', ')}, чтобы проверить нагрузку ${total} ч.`,
       hasDates && calc.minimumLimit
-        ? `Без этого нельзя проверить, уложатся ли ${total} ч в ${weeks} нед. (${calc.days} учебных дней) — для этого нужно заниматься не меньше ${formatHours(calc.minimumLimit)} ч в день.`
-        : `Без этого нельзя проверить, уложатся ли ${total} ч в срок.`,
-    ].join(' ');
+        ? `За ${weeks} нед. (${calc.days} учебных дней) нужно заниматься не меньше ${formatHours(calc.minimumLimit)} ч в день.`
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
   if (new Decimal(calc.deficit).gt(0))
     return `При лимите ${formatHours(calendar.daily_limit)} ч в день нужно минимум ${calc.needed} учебных дней. Доступно ${calc.days}; не хватает ${formatHours(calc.deficit)} ч. Подтверждение календаря не устраняет дефицит.`;
   return `Календарь заполнен (${calc.days} учебных дней, до ${formatHours(calendar.daily_limit)} ч в день — всего ${formatHours(calc.capacity)} ч), но ещё не подтверждён. Проверьте параметры и подтвердите.`;
@@ -138,7 +140,7 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
         element_id: 'calendar',
         message:
           conflict.id === 'calendar-unknown'
-            ? 'Неясно, уложится ли курс в срок'
+            ? 'Нужно уточнить календарь обучения'
             : conflict.id === 'calendar-capacity'
               ? 'Объём не помещается в календарь при дневном лимите запроса'
               : conflict.expected,

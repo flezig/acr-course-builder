@@ -1,4 +1,5 @@
 import { answerDemoQuestions } from './answer-demo-questions';
+import { editDraft } from './create-draft';
 import { test, expect, type Page } from '@playwright/test';
 const teacher = 'ИИ в работе учителя 36 часов · учителя · повышение квалификации';
 const python = 'Первые шаги в Python 16 часов · школьники · общеразвивающая';
@@ -15,6 +16,57 @@ async function tab(page: Page, name: string) {
     .getByRole('link', { name, exact: true })
     .click();
 }
+
+test('Одно уточнение календаря показывается компактно и ведёт к нужному вопросу', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: python, exact: true }).click();
+  await editDraft(page, (draft) => {
+    draft.calendar.start = '';
+    draft.calendar.calendar_days = 0;
+    draft.calendar.confirmed = false;
+    draft.calendar.schedule.confirmed = false;
+  });
+  await page.getByRole('button', { name: 'Отправить запрос', exact: true }).click();
+  await answerDemoQuestions(page);
+  await expect(page.locator('.verdict')).toBeVisible();
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('courseos-demo-v1')!);
+    const course = Object.values(stored.courses)[0] as {
+      snapshots: { audit: { issues: { id: string; evidence: string }[] } }[];
+    };
+    const issue = course.snapshots.at(-1)!.audit.issues.find((i) => i.id === 'calendar-unknown')!;
+    issue.evidence = 'Прежнее пояснение о длительности.';
+    localStorage.setItem('courseos-demo-v1', JSON.stringify(stored));
+  });
+  await page.reload();
+  const banner = page.getByRole('region', { name: 'Решение по программе' });
+  await expect(banner.locator('h2')).toHaveText('Перед утверждением уточните сроки');
+  await expect(banner.locator('.verdict-queue')).toHaveCount(0);
+  await expect(banner.locator('.verdict-evidence')).toHaveText(
+    'Укажите дату начала и календарную длительность курса, чтобы проверить нагрузку 16 ч.',
+  );
+  for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    if (theme === 'dark') {
+      await page.getByLabel('Меню методиста', { exact: true }).click();
+      await page.getByRole('button', { name: 'Включить тёмную тему', exact: true }).click();
+      await page.keyboard.press('Escape');
+    }
+    for (const width of [1440, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      );
+      await expect(banner.getByRole('link', { name: 'Уточнить сроки', exact: true })).toBeVisible();
+      await banner.screenshot({ path: `../reports/verdict-single-${theme}-${width}.png` });
+    }
+  }
+  await banner.getByRole('link', { name: 'Уточнить сроки', exact: true }).click();
+  await expect(page.locator('#issue-calendar-unknown')).toBeFocused();
+});
+
 test('Overview, real tabs, contextual correction and responsive layout preserve programme facts', async ({
   page,
 }) => {
@@ -48,7 +100,7 @@ test('Overview, real tabs, contextual correction and responsive layout preserve 
   await page.locator('.topic-details summary').first().click();
   await expect(page.locator('.topic-content').first()).toBeVisible();
   await page.screenshot({ path: '../reports/curriculum-workspace-1440.png' });
-  await page.locator('.verdict').getByRole('link', { name: 'К первому вопросу' }).press('Enter');
+  await page.locator('.verdict').getByRole('link', { name: 'Разобрать замечания' }).press('Enter');
   await expect(page.locator('.decision-item.field-highlight')).toBeFocused();
   await expect(page.locator('.decision-item.field-highlight')).toContainText(
     'Календарь · параметры нагрузки',
@@ -56,10 +108,10 @@ test('Overview, real tabs, contextual correction and responsive layout preserve 
   await page.screenshot({ path: '../reports/review-workspace-1440.png' });
   await page
     .locator('.decision-item.field-highlight')
-    .getByRole('link', { name: 'Открыть место в программе' })
+    .getByRole('link', { name: 'Исправить календарь вручную' })
     .click();
   await expect(page.getByLabel('Дата начала', { exact: true })).toBeFocused();
-  await expect(page.locator('.calendar-form')).toHaveClass(/field-highlight/);
+  await expect(page.locator('.calendar-form')).toBeVisible();
   await page.getByLabel('Дата начала').fill('2026-10-19');
   await page.getByLabel('Календарных дней').fill('7');
   await page.getByLabel('Максимум часов в день').fill('4');
@@ -69,8 +121,12 @@ test('Overview, real tabs, contextual correction and responsive layout preserve 
     .getByRole('checkbox', { name: 'Подтверждаю изменение срока обучения', exact: true })
     .check();
   await page.getByRole('button', { name: 'Применить и пересчитать' }).click();
-  await expect(page.locator('.calendar-summary')).toContainText('Календарь подтверждён');
-  await expect(page.locator('.verdict')).toContainText('Блокирует утверждение: 1');
+  await expect(page.locator('.calendar-overview')).toContainText(
+    'Календарь согласован с учебным планом',
+  );
+  await expect(
+    page.locator('.verdict').getByRole('link', { name: 'Разобрать замечание', exact: true }),
+  ).toBeVisible();
   await page.screenshot({ path: '../reports/calendar-workspace-1440.png' });
   await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeDisabled();
   await expect(page.locator('.approval-action')).toContainText(
@@ -146,10 +202,10 @@ test('A coverage remark opens the assessment field', async ({ page }) => {
   await page.getByText('Оценочные материалы', { exact: true }).click();
   await page.getByRole('button', { name: 'Удалить оценочное средство 2', exact: true }).click();
   await page.getByRole('button', { name: 'Сохранить новую версию', exact: true }).click();
-  await page.locator('.verdict').getByRole('link', { name: 'К первому вопросу' }).click();
+  await page.locator('.verdict .verdict-action').click();
   await page
     .locator('.decision-item.field-highlight')
-    .getByRole('link', { name: 'Открыть место в программе' })
+    .getByRole('link', { name: 'Исправить вручную' })
     .click();
   await expect(page.locator('.assessment-plan-editor')).toHaveAttribute('open', '');
   await expect(page.locator('.assessment-plan-editor input.field-highlight')).toBeFocused();
@@ -237,7 +293,7 @@ test('Only blockers appear in the compact summary and assessment forms stay visi
   for (const evidence of await page.locator('.verdict-queue .verdict-evidence').all()) {
     await expect(evidence).toBeVisible();
   }
-  await expect(page.locator('.verdict h2')).toHaveText('Блокируют утверждение: 2');
+  await expect(page.locator('.verdict h2')).toHaveText('До утверждения — 2 вопроса');
   await page.setViewportSize({ width: 1000, height: 900 });
   await expect(page.locator('.plan-nav')).toBeInViewport({ ratio: 1 });
   const banner = (await page.locator('.verdict').boundingBox())!;

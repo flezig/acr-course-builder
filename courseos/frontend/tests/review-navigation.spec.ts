@@ -36,12 +36,12 @@ test('Decision queue: verdict counts, keyboard tabs, open place and keep with re
     'aria-selected',
     'true',
   );
-  await expect(page.locator('.verdict')).toContainText(`Блокируют утверждение: ${blocking}`);
+  await expect(page.locator('.verdict')).toContainText(`До утверждения — ${blocking} вопроса`);
   await expect(page.locator('.rationale-panel')).toBeHidden();
   expect(
     (await page
       .locator('.verdict')
-      .getByRole('link', { name: 'К первому вопросу', exact: true })
+      .getByRole('link', { name: 'Разобрать замечания', exact: true })
       .boundingBox())!.y,
   ).toBeLessThan(900);
   await page.getByRole('tab', { name: /^Решения/ }).focus();
@@ -57,7 +57,7 @@ test('Decision queue: verdict counts, keyboard tabs, open place and keep with re
   await page.keyboard.press('Home');
   const first = page.locator('.decision-item').first();
   await expect(first).toContainText('Что найдено');
-  await first.getByRole('link', { name: 'Открыть место в программе' }).click();
+  await first.getByRole('link', { name: 'Исправить календарь вручную' }).click();
   await expect(page.getByLabel('Дата начала', { exact: true })).toBeFocused();
   await page.getByRole('link', { name: 'Решения', exact: true }).click();
   await expect(page.getByRole('tab', { name: /^Решения/ })).toHaveAttribute(

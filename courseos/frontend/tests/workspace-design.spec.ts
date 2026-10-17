@@ -20,7 +20,7 @@ test('Course OS: замечания, версии и адаптивность 14
   await expect(page.locator('.verdict')).toBeVisible();
   const planUrl = page.url();
   const status = page.locator('.verdict');
-  await expect(status.locator('h2')).toHaveText('Блокируют утверждение: 2');
+  await expect(status.locator('h2')).toHaveText('До утверждения — 2 вопроса');
   await expect(page.getByRole('button', { name: 'Утвердить', exact: true })).toBeDisabled();
   await expect(page.locator('.approval-action')).toContainText(
     'Сначала закройте 2 блокирующих вопроса',
@@ -54,7 +54,7 @@ test('Course OS: замечания, версии и адаптивность 14
     expect(geometry.document).toBeLessThanOrEqual(width);
     // У нового курса одна версия, поэтому выбирать версию не из чего.
     await expect(page.getByLabel('Версия курса')).toHaveCount(0);
-    await expect(status.getByRole('link', { name: 'К первому вопросу' })).toBeVisible();
+    await expect(status.getByRole('link', { name: 'Разобрать замечания' })).toBeVisible();
     if (width <= 800) {
       await page.getByRole('button', { name: 'Открыть навигацию' }).click();
       await expect(page.getByRole('dialog', { name: 'Навигация CourseOS' })).toBeVisible();
@@ -62,7 +62,7 @@ test('Course OS: замечания, версии и адаптивность 14
       await expect(page.getByRole('button', { name: 'Открыть навигацию' })).toBeFocused();
     }
   }
-  await status.getByRole('link', { name: 'К первому вопросу' }).click();
+  await status.getByRole('link', { name: 'Разобрать замечания' }).click();
   const issueId = decodeURIComponent(new URL(page.url()).hash.slice(1));
   await expect(page.locator(`[id="${issueId}"]`)).toBeVisible();
   await expect(page.locator(`[id="${issueId}"]`)).toBeFocused();

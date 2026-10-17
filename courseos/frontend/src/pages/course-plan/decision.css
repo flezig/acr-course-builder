@@ -1,54 +1,37 @@
-/* Вердикт, очередь решений и учебный план по шаблону АЦР. Палитра нейтральная, как в проекте;
-   цветом выделена только граница вердикта, чтобы состояние читалось и в тёмной теме. */
 .verdict {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
+  padding: 28px;
   margin: 0 0 20px;
   border: 1px solid var(--border);
-  border-left-width: 4px;
-  border-radius: 10px;
+  border-radius: 22px;
   background: var(--surface, var(--theme-paper, #ffffff));
-}
-.verdict-blocked {
-  border-left-color: var(--theme-red-ink, #b4413c);
-}
-.verdict-decide {
-  border-left-color: var(--theme-red-ink, #b4413c);
-}
-.verdict-ready,
-.verdict-approved {
-  border-left-color: var(--theme-green-ink, #2f7a4f);
 }
 .verdict-body {
   min-width: 0;
-  flex: 1;
-}
-.verdict small {
-  color: var(--muted);
-  font-size: 12px;
 }
 .verdict h2 {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 0 6px;
-  font-size: 19px;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 0;
+  font-size: 21px;
   line-height: 1.35;
 }
 .verdict-evidence {
-  margin: 0;
+  margin: 8px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 1.55;
   overflow-wrap: anywhere;
+}
+.verdict-single .verdict-body > .verdict-evidence {
+  margin-left: 46px;
 }
 .verdict-queue {
   display: grid;
-  gap: 6px;
-  margin: 8px 0 0;
-  padding: 0;
+  gap: 20px;
+  margin: 20px 0 0;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--border);
   list-style: none;
 }
 .verdict-queue li,
@@ -57,8 +40,8 @@
 }
 .verdict-issue-link {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 14px;
   color: inherit;
   text-decoration: none;
 }
@@ -67,26 +50,30 @@
 }
 .verdict-issue-heading {
   display: block;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .verdict-issue-text .verdict-evidence {
   display: block;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 .verdict-issue-label.blocking {
-  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--theme-red-surface, #fbe9e8);
   color: var(--theme-red-ink, #b4413c);
-  font-size: 10px;
 }
-.verdict > .button {
-  flex-shrink: 0;
-  font-size: 13px;
+:root .verdict .button.verdict-action {
+  margin-top: 20px;
+  font-size: 14px;
+  border-radius: 12px;
+}
+.verdict-single .verdict-action {
+  margin-left: 46px;
 }
 
 .decision-queue section + section {
@@ -262,15 +249,16 @@
 
 @media (max-width: 760px) {
   .verdict {
-    flex-direction: column;
-    padding: 16px;
+    padding: 20px;
   }
-  .verdict-body {
-    width: 100%;
+  .verdict h2 {
+    font-size: 19px;
   }
-  .verdict > .button {
-    width: 100%;
-    justify-content: center;
+  .verdict-single .verdict-action {
+    margin-left: 0;
+  }
+  .verdict-single .verdict-body > .verdict-evidence {
+    margin-left: 0;
   }
   .volume-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
