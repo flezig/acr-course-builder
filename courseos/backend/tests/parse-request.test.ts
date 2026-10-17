@@ -96,3 +96,26 @@ test('форма обучения, которой нет в тексте, не �
   );
   assert.equal(adverb.parameters.delivery, 'очная');
 });
+
+test('null от модели становится пустым полем, а «по 2 часа» — не объёмом курса', async () => {
+  const gateway = {
+    chat: async () => ({
+      content: JSON.stringify({
+        ...parameters,
+        total_hours: '12',
+        delivery: null,
+        assessment: null,
+        missing: null,
+      }),
+      usage: {} as never,
+    }),
+  };
+  const result = await parseRequest(
+    gateway as never,
+    'Интенсив «ML за 2 недели», занятия 3 раза в неделю по 2 часа',
+  );
+  assert.equal(result.parameters.delivery, '');
+  assert.equal(result.parameters.assessment, '');
+  assert.deepEqual(result.parameters.missing, []);
+  assert.equal(result.parameters.total_hours, '12');
+});

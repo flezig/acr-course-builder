@@ -72,6 +72,10 @@ export function extractJson(content: string): unknown {
 function normalize(value: unknown) {
   if (!value || typeof value !== 'object') return value;
   const record = { ...(value as Record<string, unknown>) };
+  // Отсутствующее значение модель иногда передаёт как null вместо пустой строки или списка.
+  for (const [key, field] of Object.entries(parsedRequestSchema.shape))
+    if (record[key] === null && key !== 'weeks')
+      record[key] = field instanceof z.ZodArray ? [] : '';
   for (const key of ['total_hours', 'daily_limit'])
     if (typeof record[key] === 'number') record[key] = String(record[key]);
   for (const key of ['total_hours', 'daily_limit'])
@@ -93,11 +97,12 @@ function normalize(value: unknown) {
 export function checkAgainstText(parameters: ParsedRequest, request: string) {
   const corrections: string[] = [];
   const result = { ...parameters };
-  // Нагрузку «4 часа в день» не путаем с общим объёмом; при нескольких разных объёмах не правим.
+  // Нагрузку «4 часа в день» и длительность занятия «по 2 часа» не путаем с общим объёмом;
+  // при нескольких разных объёмах не правим.
   const totals = new Set(
     [
       ...request.matchAll(
-        /(\d+(?:[.,]\d+)?)\s*(?:академических\s+)?(?:часов|часа|час|ч)(?![а-яё])(?!\s*(?:в|за|\/)\s*(?:день|сутки|недел))/gi,
+        /(?<!по\s)(\d+(?:[.,]\d+)?)\s*(?:академических\s+)?(?:часов|часа|час|ч)(?![а-яё])(?!\s*(?:в|за|\/)\s*(?:день|сутки|недел))/gi,
       ),
     ].map((match) => match[1].replace(',', '.')),
   );
