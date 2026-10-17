@@ -2,41 +2,45 @@ import { useState } from 'react';
 import { Download } from 'lucide-react';
 import type { Snapshot } from '../../entities/course/model/schema';
 import { useApi } from '../../entities/course/api/provider';
+import { exportFileName } from '../../entities/course/export/file-names';
 import { Badge, ErrorMessage, Panel } from '../../shared/ui/ui';
 import { saveFile } from '../../shared/lib/use-unsaved';
 import './export-panel.css';
 
 const exportFormats = {
   md: {
-    title: 'Программа и обоснования',
-    description: 'Аудитория, результаты, темы и часы, задания, оценивание и обоснования решений.',
+    title: 'Программа и пояснения',
+    description:
+      'Весь комплект одним читаемым файлом: что проверить перед утверждением, учебный план, материалы по темам и почему план устроен так.',
     label: 'MD',
   },
   json: {
-    title: 'Полные данные курса',
-    description: 'Структура курса, материалы и результаты проверки в машиночитаемом формате.',
+    title: 'Данные курса',
+    description:
+      'Сводка программы и полная версия курса с материалами и результатами проверок — для загрузки в другие системы.',
     label: 'JSON',
   },
   docx: {
     title: 'Программа по шаблону АЦР',
-    description: 'Документ Word: учебный план, рабочие программы и обязательные разделы.',
+    description:
+      'Документ Word для согласования: учебный план, рабочие программы, оценочные материалы и лист проверки методистом.',
     label: 'DOCX',
   },
   pptx: {
-    title: 'Планы лекций и слайды',
-    description: 'Презентации по модулям с пояснениями для преподавателя.',
+    title: 'Слайды лекций',
+    description: 'Презентация по темам курса с заметками для преподавателя.',
     label: 'PPTX',
   },
   lms: {
-    title: 'Курс для учебной платформы',
-    description: 'Комплект для импорта в систему управления обучением.',
+    title: 'Тесты для LMS',
+    description: 'Вопросы с ключами в формате Moodle XML для импорта в банк вопросов.',
     label: 'LMS',
   },
 };
 
 const exportStatuses = {
   ready: { label: 'Готов к скачиванию', tone: 'green' },
-  unavailable: { label: 'Недоступен', tone: 'neutral' },
+  unavailable: { label: 'Пока недоступен', tone: 'neutral' },
   creating: { label: 'Создаётся', tone: 'amber' },
   failed: { label: 'Ошибка создания', tone: 'red' },
 };
@@ -69,7 +73,7 @@ export function ExportPanel({ snapshot }: { snapshot: Snapshot }) {
       status: 'ready' as const,
       course_version: snapshot.course_version,
       file_id: null,
-      filename: `${snapshot.course_id}-v${snapshot.course_version}-rationale.md`,
+      filename: exportFileName(snapshot, 'md'),
       reason: '',
     },
     ...snapshot.export_manifest,
@@ -78,7 +82,7 @@ export function ExportPanel({ snapshot }: { snapshot: Snapshot }) {
     <Panel
       className="export-panel"
       title="Выгрузки комплекта"
-      subtitle={`Версия ${snapshot.course_version} · ${api.mode} · Черновик — требует проверки методистом`}
+      subtitle={`Версия ${snapshot.course_version} · Черновик — требует проверки методистом`}
     >
       <ul className="export-list" aria-label="Файлы курса">
         {files.map((file) => {
@@ -103,13 +107,8 @@ export function ExportPanel({ snapshot }: { snapshot: Snapshot }) {
                 )}
               </div>
               <div className="export-file-actions">
-                <Badge tone={status.tone}>
-                  {file.status === 'unavailable' && snapshot.mode === 'demo'
-                    ? 'Недоступно в демо'
-                    : status.label}
-                </Badge>
+                <Badge tone={status.tone}>{status.label}</Badge>
                 <button
-                  className={file.format === 'md' ? 'primary' : undefined}
                   disabled={file.status !== 'ready' || pending}
                   onClick={() => void download(file.format, file.file_id, file.filename)}
                 >
