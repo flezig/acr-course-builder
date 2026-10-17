@@ -166,6 +166,15 @@ export interface CourseDesign {
   generated_by: CallUsage;
 }
 
+export function outcomeKindByVerb(description: string) {
+  const verb = description.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+  if (/^(знает|понимает|перечисляет|называет|различает|описывает|объясняет)$/.test(verb))
+    return 'knowledge' as const;
+  if (verb === 'владеет') return 'proficiency' as const;
+  if (verb === 'умеет') return 'skill' as const;
+  return null;
+}
+
 // Сколько результатов реалистично сформировать за объём: на 16 ч — 3–4,
 // на 72 ч — 4–7, на 256 ч — 6–10. Знаний на больших программах нужно больше одного.
 export function outcomeRange(totalHours: number) {
@@ -200,6 +209,7 @@ function instructions(input: SkeletonInput) {
   • knowledge — «Знает …»: конкретные понятия, методы, алгоритмы, инструменты, которые слушатель сможет перечислить и сравнить (например, «Знает алгоритмы обучения с учителем: линейную и логистическую регрессию, деревья решений, k-ближайших соседей; признаки переобучения»). Не пиши общих формулировок вроде «Описывает, что такое …».
   • skill — «Умеет …»: измеримое действие с инструментом или методом на конкретной задаче.
   • proficiency — «Владеет …»: целостный рабочий приём или опыт, который слушатель покажет в итоговой работе.
+  description начинается со слова «Знает», «Умеет» или «Владеет» — по kind. title — короткое название результата.
   Для каждого результата дай 1–2 критерия, по которым преподаватель проверит его достижение.
 - Входной уровень: не учи тому, что слушатели уже знают, а опирайся на это; если для цели не хватает базы (например, математической статистики), добавь вводные темы. Глубина результатов должна быть достижима за объём программы.
 - design_notes — объяснение для методиста: entry_basis — на какие знания слушателей программа опирается и что поэтому не включено; added_basics — какие базовые темы добавлены из-за входного уровня (пустой список, если не нужны); realism — achievable, partly или not_achievable: достижима ли цель запроса за этот объём при этом входном уровне; realism_reason — почему, с цифрами часов; recommendation — если цель достижима не полностью: что предложить методисту (увеличить объём до N ч или сузить цель до …), иначе пустая строка.
@@ -211,7 +221,7 @@ function instructions(input: SkeletonInput) {
 - Не выдумывай нормативные документы, профстандарты, авторов и ссылки.
 
 Верни только JSON без пояснений и Markdown:
-{"goal": "...", "tasks": ["..."], "design_notes": {"entry_basis": "...", "added_basics": [], "realism": "achievable", "realism_reason": "...", "recommendation": ""}, "outcomes": [{"kind": "skill", "title": "...", "description": "...", "criteria": ["..."]}], "modules": [{"title": "...", "topics": [{"title": "...", "content": "...", "profile": "tool", "weight": 3, "weight_reason": "...", "outcomes": [1], "prerequisites": [], "control": "..."}]}]}`;
+{"goal": "...", "tasks": ["..."], "design_notes": {"entry_basis": "...", "added_basics": [], "realism": "achievable", "realism_reason": "...", "recommendation": ""}, "outcomes": [{"kind": "knowledge", "title": "...", "description": "Знает ...", "criteria": ["..."]}, {"kind": "skill", "title": "...", "description": "Умеет ...", "criteria": ["..."]}], "modules": [{"title": "...", "topics": [{"title": "...", "content": "...", "profile": "tool", "weight": 3, "weight_reason": "...", "outcomes": [1], "prerequisites": [], "control": "..."}]}]}`;
 }
 
 function brief(input: SkeletonInput) {
@@ -321,6 +331,16 @@ export function normalizeDesign(answer: z.infer<typeof modelAnswerSchema>, total
   });
   if (formed.length < 2)
     throw new LlmError('empty', 'Темы формируют меньше двух результатов. Попробуйте ещё раз.');
+  // Тип результата сверяется с глаголом формулировки: модель иногда помечает
+  // «Перечисляет и сравнивает понятия…» как умение, хотя это знание.
+  for (const number of formed) {
+    const outcome = answer.outcomes[number - 1];
+    const kind = outcomeKindByVerb(outcome.description);
+    if (kind && kind !== outcome.kind) {
+      issues.push(`Тип результата «${outcome.title}» исправлен по формулировке.`);
+      outcome.kind = kind;
+    }
+  }
   const expected = outcomeRange(totalHours);
   if (formed.length < expected.min || formed.length > expected.max)
     issues.push(

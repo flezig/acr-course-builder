@@ -8,6 +8,7 @@ import { normalizeQuestions } from '../src/steps/clarify-questions.ts';
 import {
   draftSkeleton,
   normalizeDesign,
+  outcomeKindByVerb,
   outcomeRange,
   topicRange,
 } from '../src/steps/draft-skeleton.ts';
@@ -249,4 +250,11 @@ test('код сообщает, если результатов или знани
   );
   assert.ok(issues.some((issue) => issue.includes('Результатов обучения 2, для 150 ч обычно 5–9')));
   assert.ok(issues.some((issue) => issue.includes('Результатов-знаний 0')));
+});
+
+test('тип результата определяется по глаголу формулировки', () => {
+  assert.equal(outcomeKindByVerb('Перечисляет и сравнивает понятия обучения'), 'knowledge');
+  assert.equal(outcomeKindByVerb('Знает алгоритмы'), 'knowledge');
+  assert.equal(outcomeKindByVerb('Владеет приёмом'), 'proficiency');
+  assert.equal(outcomeKindByVerb('Использует scikit-learn'), null);
 });
