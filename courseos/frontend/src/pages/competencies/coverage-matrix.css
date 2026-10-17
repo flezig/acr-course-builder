@@ -291,8 +291,12 @@
 .coverage-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: baseline;
+  gap: 16px;
   margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
 }
 .coverage-actions button,
 .coverage-chain button {
@@ -312,41 +316,24 @@
   color: var(--muted);
 }
 .coverage-chain {
-  margin-bottom: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg, #fff);
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
   scroll-margin-top: 100px;
 }
 .coverage-chain-head {
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 12px;
 }
 .coverage-chain-head strong {
-  flex: 1 1 240px;
+  flex: 1 1 auto;
+  font-size: 14px;
 }
-.coverage-chain-type {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--surface);
+.coverage-criteria {
+  margin: 4px 0 0;
+  padding-left: 18px;
   color: var(--muted);
-  font-size: 12px;
-}
-.coverage-chain dl {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px 12px;
-  margin: 8px 0 0;
-}
-.coverage-chain dt {
-  color: var(--muted);
-  font-size: 12px;
-}
-.coverage-chain dd {
-  margin: 0;
+  font-size: 13px;
 }
 .coverage-chain-note {
   margin: 8px 0 0;

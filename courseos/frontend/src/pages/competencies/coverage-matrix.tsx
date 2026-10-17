@@ -297,15 +297,25 @@ export function CoverageMatrix({
                                 {topic ? ` по теме «${topic.title}»` : ''}
                               </strong>
                               {editable && (
-                                <button onClick={() => edit(assessment.id)}>Открыть задание</button>
+                                <button className="link-button" onClick={() => edit(assessment.id)}>
+                                  Открыть
+                                </button>
                               )}
                             </div>
-                            <dl>
-                              <dt>Критерий</dt>
-                              <dd className={criterion ? undefined : 'gap-count'}>
-                                {criterion || 'Не указан'}
-                              </dd>
-                            </dl>
+                            {criterion ? (
+                              <ul className="coverage-criteria">
+                                {criterion
+                                  .split(';')
+                                  .map((part) => part.trim().replace(/\.$/, ''))
+                                  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                                  .filter(Boolean)
+                                  .map((part) => (
+                                    <li key={part}>{part}</li>
+                                  ))}
+                              </ul>
+                            ) : (
+                              <p className="gap-count">Критерий не указан</p>
+                            )}
                             {topic && !topic.outcome_ids.includes(outcome.id) && (
                               <p className="gap-count">
                                 Тема задания не связана с этим результатом.
@@ -334,13 +344,16 @@ export function CoverageMatrix({
                               Указать критерии
                             </button>
                           )}
-                          <button onClick={() => link(outcome.id, 'topic')}>Связать тему</button>
-                          <button onClick={() => link(outcome.id, 'assessment')}>
+                          <button className="link-button" onClick={() => link(outcome.id, 'topic')}>
+                            Связать тему
+                          </button>
+                          <button
+                            className="link-button"
+                            onClick={() => link(outcome.id, 'assessment')}
+                          >
                             Добавить проверку
                           </button>
-                          <Link to={reviewHref(outcome.id)}>
-                            Проверить соответствие на карте связей
-                          </Link>
+                          <Link to={reviewHref(outcome.id)}>Открыть на карте связей</Link>
                         </div>
                       )}
                       {!editable && <p>Версия доступна только для просмотра.</p>}

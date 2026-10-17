@@ -149,7 +149,7 @@ test('Покрытие в программе: три состояния, фил�
     .locator('.coverage-chain')
     .filter({ hasText: 'Цикл корректно обрабатывает список' });
   await expect(chain).toBeVisible();
-  await chain.getByRole('button', { name: 'Открыть задание' }).click();
+  await chain.getByRole('button', { name: 'Открыть', exact: true }).click();
   await expect(page.locator('input[name="assessments.0.criterion"]')).toBeFocused();
   await page.getByRole('button', { name: 'Закрыть редактор', exact: true }).click();
   await row(2).getByRole('link', { name: 'Исправить', exact: true }).click();
