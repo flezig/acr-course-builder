@@ -201,9 +201,31 @@ export async function buildProgramDocx(snapshot: Snapshot): Promise<Blob> {
       .map((line) => line.trim())
       .filter(Boolean);
   // Одна строка — обычный абзац, несколько — список с тире.
+  // Тексты разделов отмечают пункты списка тире «– »; остальные строки — абзацы.
+  // Многострочное значение без тире и без точек — перечень (литература, задачи), это список.
   const paragraphs = (text: string) => {
     const lines = textLines(text);
-    return lines.length > 1 ? listItems(lines) : lines.map((line) => body(sentence(line)));
+    // Строки, которые все заканчиваются точкой или двоеточием, — абзацы связного текста.
+    const prose = lines.every((line) => /[.:!?]$/.test(line));
+    if (!lines.some((line) => line.startsWith('– ')))
+      return lines.length > 1 && !prose
+        ? listItems(lines)
+        : lines.map((line) => body(sentence(line)));
+    const result: Paragraph[] = [];
+    let items: string[] = [];
+    const flush = () => {
+      result.push(...listItems(items));
+      items = [];
+    };
+    for (const line of lines) {
+      if (line.startsWith('– ')) items.push(line.slice(2));
+      else {
+        flush();
+        result.push(body(sentence(line), { keepNext: line.endsWith(':') }));
+      }
+    }
+    flush();
+    return result;
   };
   const sentence = (text: string) => text.replace(/([^.?!:;»)])$/, '$1.');
   // После подписи поля значение продолжает предложение: «Аудитория: школьники…».
@@ -499,9 +521,6 @@ export async function buildProgramDocx(snapshot: Snapshot): Promise<Blob> {
 
   const sectionBody = (section: Snapshot['sections'][number]) => {
     if (/Учебно-тематическ/.test(section.title)) return [thematicTable()];
-    // В образце ДПП раздел 2.5.2 только отсылает к приложениям: формы и критерии
-    // уже перечислены в 2.5.1, а сами материалы вынесены в приложения.
-    if (/^2\.5\.2/.test(section.title) && assessed.length) return [];
     const kind = sectionTable(section.title);
     if (kind === 'curriculum') return [curriculumTable()];
     if (kind === 'outcomes') return outcomesBlock();
@@ -520,20 +539,9 @@ export async function buildProgramDocx(snapshot: Snapshot): Promise<Blob> {
         return lines.length ? paragraphs(field.value) : [body(blank)];
       if (lines.length <= 1)
         return [body(sentence(`${field.label}: ${lines[0] ? continued(lines[0]) : blank}`))];
-      return [subheading(`${field.label}:`), ...listItems(lines)];
+      return [subheading(`${field.label}:`), ...paragraphs(field.value)];
     });
     if (kind === 'calendar' && snapshot.skeleton.sessions?.length) result.push(calendarTable());
-    // В образце ДПП раздел «Объём» — разбивка часов списком, учебный план идёт в 2.1.
-    if (kind === 'hours') {
-      const totals = curriculumRows(snapshot.skeleton).at(-1)!.hours;
-      result.push(
-        ...listItems(
-          hourKinds
-            .filter((k) => Number(totals[k]) > 0)
-            .map((k) => `${hourLabels[k]}: ${formatHours(totals[k])} ч`),
-        ),
-      );
-    }
     return result;
   };
 

@@ -294,9 +294,10 @@ it('DOCX и PPTX собираются из выбранной версии бе�
 it('повторы под разными заголовками и пустые обязательные поля оставляют программу незавершённой', async () => {
   const snapshot = await fullPython();
   const distinct = snapshot.sections.find((s) => s.title.includes('Цель'))!;
-  expect(distinct.content).toContain(snapshot.skeleton.goal);
+  // В тексте раздела цель продолжает фразу «Цель программы – …», поэтому со строчной.
+  expect(distinct.content).toContain(snapshot.skeleton.goal.slice(1));
   expect(snapshot.sections.find((s) => s.title === '2.1 Учебный план')!.content).toContain(
-    'assessment: 2',
+    'Аттестация 2',
   );
   for (const section of snapshot.sections) section.content = 'Один и тот же общий текст программы';
   expect(sectionCompleteness(snapshot).every((s) => !s.complete)).toBe(true);

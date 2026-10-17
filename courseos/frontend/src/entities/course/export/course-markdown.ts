@@ -66,17 +66,24 @@ const table = (header: string[], rows: string[][], align: ('l' | 'r')[] = []) =>
     ...rows.map((row) => `| ${row.map(cell).join(' | ')} |`),
   ].join('\n');
 const list = (items: string[]) => items.map((item) => `- ${item}`).join('\n');
-// Строки вида «Цель: …» в материалах и разделах выделяются как поля.
+// Строки вида «Цель: …» в материалах и разделах выделяются как поля,
+// строки с тире «– » — пункты списка.
 const labelledLines = (value: string) =>
   value
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => {
+    .map((line, index, lines) => {
+      if (line.startsWith('– ')) {
+        const item = `- ${text(line.slice(2))}`;
+        return index > 0 && !lines[index - 1].startsWith('– ') ? `\n${item}` : item;
+      }
       const field = /^([^:.!?]{2,40}):\s+(.+)$/.exec(line);
-      return field ? `**${text(field[1])}:** ${text(field[2])}` : text(line);
+      const paragraph = field ? `**${text(field[1])}:** ${text(field[2])}` : text(line);
+      return index > 0 && lines[index - 1].startsWith('– ') ? `\n${paragraph}` : paragraph;
     })
-    .join('  \n');
+    .join('  \n')
+    .replace(/  \n(?=- |\n)/g, '\n');
 
 export function courseMarkdown(snapshot: Snapshot): string {
   const s = snapshot.skeleton;
