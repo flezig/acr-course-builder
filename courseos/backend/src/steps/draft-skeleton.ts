@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CallUsage, LlmGateway } from '../llm/gateway.ts';
 import { LlmError } from '../llm/gateway.ts';
 import { chatStructured } from './structured.ts';
+import { describeClaims, markClaimsDeep, type UnverifiedClaim } from './unverified-claims.ts';
 
 // На итоговую аттестацию каркас всегда отводит 2 ч (см. finalHours во фронтенде),
 // поэтому число тем подбирается под оставшиеся учебные часы.
@@ -260,7 +261,10 @@ export async function draftSkeleton(gateway: LlmGateway, input: SkeletonInput) {
     modelAnswerSchema,
     'Модель вернула каркас не по схеме. Попробуйте ещё раз.',
   );
-  const { design, issues } = normalizeDesign(data, input.total_hours);
+  const claims: UnverifiedClaim[] = [];
+  const marked = markClaimsDeep(data, brief(input), claims);
+  const { design, issues } = normalizeDesign(marked, input.total_hours);
+  issues.push(...describeClaims('Каркас', claims));
   const result: { design: CourseDesign; issues: string[] } = {
     design: { ...design, generated_by: usage },
     issues,

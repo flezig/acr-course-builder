@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { CallUsage, LlmGateway } from '../llm/gateway.ts';
 import { chatStructured } from './structured.ts';
+import { describeClaims, markClaimsDeep, type UnverifiedClaim } from './unverified-claims.ts';
 
 // Материалы генерируются после утверждения каркаса по частям: тема за вызов, отдельно тест
 // и итоговая аттестация. Так ответ укладывается в max_tokens шлюза (4096), а ошибка одной
@@ -235,14 +236,21 @@ export async function generateTopicMaterials(gateway: LlmGateway, input: TopicIn
     topicAnswerSchema,
     `Модель вернула материалы темы «${input.topic.title}» не по схеме. Повторите генерацию темы.`,
   );
-  const materials = data;
+  const claims: UnverifiedClaim[] = [];
+  const materials = markClaimsDeep(data, topicBrief(input), claims);
   // Слайды и пункты лекции без лекционных часов не нужны: их часы утверждены в каркасе.
   if (input.topic.hours.lecture === 0) materials.lecture_points = [];
   if (input.topic.hours.lecture === 0 && !input.brief.internship) materials.slides = [];
   if (input.topic.hours.practice + input.topic.hours.lab === 0) materials.practice = null;
-  return { topic_id: input.topic.id, materials, usage } satisfies {
+  return {
+    topic_id: input.topic.id,
+    materials,
+    issues: describeClaims(`Тема ${input.topic.number}`, claims),
+    usage,
+  } satisfies {
     topic_id: string;
     materials: TopicMaterials;
+    issues: string[];
     usage: CallUsage;
   };
 }
@@ -280,6 +288,15 @@ export interface TestQuestion {
   outcome_code: string;
 }
 
+function testKnownText(input: TestInput) {
+  return [
+    briefText(input.brief),
+    '',
+    'Темы программы:',
+    ...input.topics.map((t) => `${t.number}. ${t.title}`),
+  ].join('\n');
+}
+
 export async function generateCourseTest(gateway: LlmGateway, input: TestInput) {
   const codes = input.brief.outcomes.map((o) => o.code);
   const { data, usage } = await chatStructured(
@@ -302,19 +319,18 @@ ${commonRules}
       },
       {
         role: 'user',
-        content: [
-          briefText(input.brief),
-          '',
-          'Темы программы:',
-          ...input.topics.map((t) => `${t.number}. ${t.title}`),
-        ].join('\n'),
+        content: testKnownText(input),
       },
     ],
     testJsonSchema,
     questionAnswerSchema,
     'Модель вернула тест не по схеме. Повторите генерацию теста.',
   );
-  return { ...normalizeQuestions(data.questions, codes, input.question_count), usage };
+  const claims: UnverifiedClaim[] = [];
+  const questions = markClaimsDeep(data.questions, testKnownText(input), claims);
+  const normalized = normalizeQuestions(questions, codes, input.question_count);
+  normalized.issues.push(...describeClaims('Тест', claims));
+  return { ...normalized, usage };
 }
 
 // Код не доверяет ключам модели: номер ответа должен существовать, варианты — различаться,
@@ -386,6 +402,15 @@ const finalAnswerSchema = z.object({
 
 export type FinalAssessment = z.infer<typeof finalAnswerSchema>;
 
+function finalKnownText(input: FinalInput) {
+  return [
+    briefText(input.brief),
+    '',
+    'Модули программы:',
+    ...input.modules.map((m, i) => `${i + 1}. ${m.title}: ${m.topics.join('; ')}`),
+  ].join('\n');
+}
+
 export async function generateFinalAssessment(gateway: LlmGateway, input: FinalInput) {
   const internship = input.brief.internship;
   const { data, usage } = await chatStructured(
@@ -417,20 +442,16 @@ ${commonRules}
       },
       {
         role: 'user',
-        content: [
-          briefText(input.brief),
-          '',
-          'Модули программы:',
-          ...input.modules.map((m, i) => `${i + 1}. ${m.title}: ${m.topics.join('; ')}`),
-        ].join('\n'),
+        content: finalKnownText(input),
       },
     ],
     finalJsonSchema,
     finalAnswerSchema,
     'Модель вернула итоговую аттестацию не по схеме. Повторите генерацию.',
   );
-  const issues: string[] = [];
-  const final = data;
+  const claims: UnverifiedClaim[] = [];
+  const final = markClaimsDeep(data, finalKnownText(input), claims);
+  const issues = describeClaims('Итоговая аттестация', claims);
   const total = final.criteria.reduce((sum, c) => sum + c.max_points, 0);
   // Баллы по критериям складывает код: при расхождении шкала приводится к 100 пропорционально.
   if (total !== 100) {
@@ -526,7 +547,9 @@ ${commonRules}
     questionAnswerSchema,
     'Модель вернула исправленный тест не по схеме.',
   );
-  const { questions } = normalizeQuestions(data.questions, codes, expected);
+  // Исправленные вопросы проходят ту же проверку реквизитов, что и исходный тест.
+  const marked = markClaimsDeep(data.questions, briefText(input.brief));
+  const { questions } = normalizeQuestions(marked, codes, expected);
   return { questions, usage };
 }
 
@@ -605,5 +628,9 @@ ${commonRules}
     sectionsAnswerSchema,
     'Модель вернула разделы программы не по схеме. Повторите генерацию.',
   );
-  return { sections: data, usage };
+  // Литература и так целиком идёт с пометкой «не подтверждён», поэтому размечается
+  // только связный текст и список ПО.
+  const known = [briefText(input.brief), ...input.topics].join('\n');
+  const { literature, ...text } = data;
+  return { sections: { ...markClaimsDeep(text, known), literature }, usage };
 }
