@@ -139,7 +139,8 @@ test('лишние задачи и null в необязательных поля
         title: 'CI/CD',
         topics: [
           { ...topic('GitLab CI', [1]), weight_reason: null, prerequisites: null },
-          topic('Terraform', [2], [1]),
+          // На 72 ч модель ставила вес 12 — похоже на часы; это максимум, а не ошибка.
+          { ...topic('Terraform', [2], [1]), weight: 12 },
           topic('Мониторинг', [2], [2]),
         ],
       },
@@ -164,6 +165,7 @@ test('лишние задачи и null в необязательных поля
   assert.equal(design.tasks.length, 7);
   assert.equal(design.topics[0].weight_reason, '');
   assert.deepEqual(design.topics[0].prerequisites, []);
+  assert.equal(design.topics[1].weight, 5);
 });
 
 test('вопросы о полях сводки (аттестация, объём, форма обучения) отбрасываются', () => {

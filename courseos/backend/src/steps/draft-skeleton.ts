@@ -67,7 +67,11 @@ const modelAnswerSchema = z.object({
               title: z.string().min(1),
               content: z.string().min(1),
               profile: z.enum(['intro', 'tool', 'project']),
-              weight: z.coerce.number().int().min(1).max(5),
+              // Вес относительный, часы из него считает код. Модель иногда ставит больше 5
+              // (на 72 ч — 6 и 12, похоже на часы); это значит «максимум», а не сломанный каркас.
+              weight: z.coerce
+                .number()
+                .transform((value) => Math.min(5, Math.max(1, Math.round(value)))),
               // Пустое модель иногда передаёт как null — для этих полей это просто «нет».
               weight_reason: z
                 .string()
