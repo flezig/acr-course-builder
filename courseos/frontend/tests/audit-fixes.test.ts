@@ -738,12 +738,14 @@ it('серьёзная самопроверка блокирует компле�
     payload: {
       issue_id: 'llm-review-1',
       reason: 'Методист пересчитал пример: ключ верен, замечание отклонено',
+      resolution: 'rejected',
       actor: 'methodist',
     },
   });
   snapshot = (await api.get(snapshot.course_id)).snapshot!;
   expect(snapshot.audit.issues.find((i) => i.id === 'llm-review-1')?.blocking).toBe(false);
   expect(snapshot.decisions.at(-1)?.scope).toContain('Версия комплекта');
+  expect(snapshot.decisions.at(-1)?.resolution).toBe('rejected');
   expect(snapshot.generation?.review?.issues).toHaveLength(1);
   snapshot.materials[0].hash = 'new-material-version';
   expect(auditSnapshot(snapshot).issues.find((i) => i.id === 'llm-review-1')?.blocking).toBe(true);

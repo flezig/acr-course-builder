@@ -484,7 +484,12 @@ export type FindingDecision =
   | { action: 'save_skeleton'; issue_id: string; skeleton: unknown }
   | { action: 'recheck_materials'; issue_id: string }
   | { action: 'apply_finding'; issue_id: string }
-  | { action: 'dismiss_finding'; issue_id: string; reason: string };
+  | {
+      action: 'dismiss_finding';
+      issue_id: string;
+      reason: string;
+      resolution?: 'fixed_verified' | 'rejected' | 'risk_accepted';
+    };
 
 async function reviewedSnapshot(api: DemoCourseApi, courseId: string, review: SkeletonReview) {
   const snapshot = (await api.get(courseId)).snapshot!;
@@ -554,6 +559,7 @@ export async function reviewFinding(
           payload: {
             issue_id: decision.issue_id,
             reason: decision.reason,
+            resolution: decision.resolution,
             actor: 'methodist-api',
           },
         }),

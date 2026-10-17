@@ -42,7 +42,15 @@ export type CourseCommand =
   | { action: 'retry' | 'cancel'; payload: { job_id: string } }
   | { action: 'manual_material'; payload: { material_id: string; content: string } }
   | { action: 'apply_finding'; payload: { issue_id: string } }
-  | { action: 'dismiss_finding'; payload: { issue_id: string; reason: string; actor?: string } }
+  | {
+      action: 'dismiss_finding';
+      payload: {
+        issue_id: string;
+        reason: string;
+        actor?: string;
+        resolution?: 'fixed_verified' | 'rejected' | 'risk_accepted';
+      };
+    }
   | {
       action: 'resolve_calendar';
       payload: {

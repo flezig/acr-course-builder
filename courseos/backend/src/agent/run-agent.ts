@@ -79,6 +79,7 @@ export const findingReviewSchema = skeletonReviewSchema.extend({
       action: z.literal('dismiss_finding'),
       issue_id: z.string().min(1),
       reason: z.string().trim().min(3).max(4000),
+      resolution: z.enum(['fixed_verified', 'rejected', 'risk_accepted']).optional(),
     }),
   ]),
 });
@@ -430,7 +431,7 @@ export class AgentRunner {
                     ? 'rechecked'
                     : input.decision.action === 'apply_finding'
                       ? 'applied'
-                      : 'accepted_as_is',
+                      : (input.decision.resolution ?? 'accepted_as_is'),
             reason:
               input.decision.action === 'dismiss_finding'
                 ? input.decision.reason

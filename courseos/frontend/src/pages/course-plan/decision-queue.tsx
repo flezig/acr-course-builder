@@ -9,6 +9,12 @@ import { Badge, ErrorMessage, Notice } from '../../shared/ui/ui';
 type Issue = Snapshot['audit']['issues'][number];
 
 export function issueState(issue: Issue) {
+  if (issue.decision?.resolution === 'fixed_verified')
+    return { label: 'Исправление проверено', tone: 'green' };
+  if (issue.decision?.resolution === 'rejected')
+    return { label: 'Замечание отклонено', tone: 'neutral' };
+  if (issue.decision?.resolution === 'risk_accepted')
+    return { label: 'Риск принят', tone: 'amber' };
   if (issue.decision) return { label: 'Оставлено как есть', tone: 'neutral' };
   if (!issue.blocking) return { label: 'К сведению', tone: 'neutral' };
   return issue.dismissible
@@ -95,6 +101,9 @@ function DecisionItem({
   const command = useCommand();
   const [keeping, setKeeping] = useState(false);
   const [reason, setReason] = useState('');
+  const [resolution, setResolution] = useState<'fixed_verified' | 'rejected' | 'risk_accepted'>(
+    'fixed_verified',
+  );
   const state = issueState(issue);
   const consequences = issue.decision ? [] : fixConsequences(snapshot, issue);
   const decide = async (action: 'apply_finding' | 'dismiss_finding') => {
@@ -109,7 +118,11 @@ function DecisionItem({
           : {
               action,
               expected_version: snapshot.course_version,
-              payload: { issue_id: issue.id, reason },
+              payload: {
+                issue_id: issue.id,
+                reason,
+                ...(issue.id.startsWith('llm-review-') ? { resolution } : {}),
+              },
             },
       );
       setKeeping(false);
@@ -211,6 +224,19 @@ function DecisionItem({
               void decide('dismiss_finding');
             }}
           >
+            {issue.id.startsWith('llm-review-') && (
+              <label>
+                Решение по замечанию
+                <select
+                  value={resolution}
+                  onChange={(event) => setResolution(event.target.value as typeof resolution)}
+                >
+                  <option value="fixed_verified">Исправление проверено</option>
+                  <option value="rejected">Замечание отклонено</option>
+                  <option value="risk_accepted">Риск принят</option>
+                </select>
+              </label>
+            )}
             <label>
               {issue.id.startsWith('llm-review-')
                 ? 'Что проверено, какое решение принято и почему'

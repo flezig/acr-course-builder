@@ -1004,6 +1004,11 @@ export class DemoCourseApi implements CourseApi {
             );
             if (issue?.id.startsWith('llm-review-') && envelope.payload.actor === 'automatic-api')
               throw new ApiError(422, 'Серьёзное замечание требует решения методиста.');
+            if (issue?.id.startsWith('llm-review-') && !envelope.payload.resolution)
+              throw new ApiError(
+                422,
+                'Выберите решение: исправление проверено, замечание отклонено или риск принят.',
+              );
             if (!issue || !canAcceptException(issue))
               throw new ApiError(422, 'Эту проблему нельзя оставить как есть: её нужно исправить.');
             const snapshot = await newSnapshot(
@@ -1020,6 +1025,7 @@ export class DemoCourseApi implements CourseApi {
                 reason,
                 actor: envelope.payload.actor ?? 'demo-methodist',
                 at: now(),
+                resolution: envelope.payload.resolution,
                 scope_hash: issue.id.startsWith('llm-review-')
                   ? qualityScope(base)
                   : base.skeleton_hash,

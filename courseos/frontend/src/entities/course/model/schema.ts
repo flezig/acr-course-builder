@@ -450,7 +450,14 @@ export const issueSchema = z.object({
   evidence: z.string().optional(),
   fix: z.enum(['add_assessment', 'confirm_calendar']).optional(),
   dismissible: z.boolean().optional(),
-  decision: z.object({ reason: z.string(), actor: z.string(), at: z.string() }).optional(),
+  decision: z
+    .object({
+      reason: z.string(),
+      actor: z.string(),
+      at: z.string(),
+      resolution: z.enum(['fixed_verified', 'rejected', 'risk_accepted']).optional(),
+    })
+    .optional(),
 });
 export const auditSchema = z.object({
   course_version: z.number(),
@@ -572,6 +579,7 @@ export const snapshotSchema = z.object({
         reason: z.string(),
         actor: z.string(),
         at: z.string(),
+        resolution: z.enum(['fixed_verified', 'rejected', 'risk_accepted']).optional(),
         scope_hash: z.string().optional(),
         scope: z.string().optional(),
         finding: z.string().optional(),

@@ -549,6 +549,7 @@ test(
         action: 'dismiss_finding',
         issue_id: issue.id,
         reason: 'Методист проверил: синтетическая таблица включена в условия задания',
+        resolution: 'rejected',
       },
     });
     assert.ok(reviewed);
@@ -557,6 +558,7 @@ test(
     const json = JSON.parse((await agent.file(run.run_id, 'course.json'))!.body.toString());
     assert.match(json.decisions.at(-1).scope, /Версия комплекта/);
     assert.match(json.decisions.at(-1).reason, /Методист проверил/);
+  assert.equal(json.decisions.at(-1).resolution, 'rejected');
     assert.equal(json.generation.review.issues[0].severity, 'error');
     assert.equal(
       await agent.review(run.run_id, {

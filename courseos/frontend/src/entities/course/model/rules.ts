@@ -501,7 +501,12 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
     )
       continue;
     if (!issue) continue;
-    issue.decision = { reason: decision.reason, actor: decision.actor, at: decision.at };
+    issue.decision = {
+      reason: decision.reason,
+      actor: decision.actor,
+      at: decision.at,
+      resolution: decision.resolution,
+    };
     issue.blocking = false;
   }
   return {
