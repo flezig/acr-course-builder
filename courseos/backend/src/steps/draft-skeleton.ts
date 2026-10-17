@@ -83,10 +83,11 @@ export interface CourseDesign {
   generated_by: CallUsage;
 }
 
+// Тема не короче 2 ч (в образце интенсива АЦР на 24 ч темы по 2–3 ч) и не длиннее ~12 ч.
 export function topicRange(totalHours: number) {
   const study = totalHours - finalHours;
-  const min = Math.min(maxTopics, Math.max(3, Math.ceil(study / 10)));
-  return { min, max: Math.min(maxTopics, Math.max(min, Math.ceil(study / 4))) };
+  const min = Math.min(maxTopics, Math.max(3, Math.ceil(study / 12)));
+  return { min, max: Math.min(maxTopics, Math.max(min, Math.floor(study / 2))) };
 }
 
 function instructions(input: SkeletonInput) {

@@ -62,7 +62,7 @@ test('ссылки на несуществующие результаты и б�
 });
 
 test('число тем подбирается под объём', () => {
-  assert.deepEqual(topicRange(16), { min: 3, max: 4 });
-  assert.deepEqual(topicRange(72), { min: 7, max: 18 });
+  assert.deepEqual(topicRange(16), { min: 3, max: 7 });
+  assert.deepEqual(topicRange(72), { min: 6, max: 24 });
   assert.deepEqual(topicRange(500), { min: 24, max: 24 });
 });
