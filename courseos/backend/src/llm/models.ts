@@ -21,6 +21,8 @@ export const routes = {
   parse_request: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0, maxTokens: 1500 },
   // Каркас — творческий шаг, но формулировки должны повторяться между запусками,
   // поэтому температура невысокая. Reasoning здесь не нужна: каркас по ТЗ строится за 3 минуты.
+  // Вопросы должны повторяться для одного запроса: ответы хранятся под их id.
+  clarify_questions: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0, maxTokens: 1500 },
   draft_skeleton: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.3, maxTokens: 4096 },
 } satisfies Record<string, StepRoute>;
 

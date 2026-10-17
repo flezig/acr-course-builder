@@ -19,26 +19,33 @@ export const skeletonInputSchema = z.object({
   delivery: z.string(),
   assessment: z.string(),
   constraints: z.string(),
+  // Ответы методиста на уточняющие вопросы агента по содержанию.
+  answers: z
+    .array(z.object({ question: z.string(), answer: z.string().trim().min(1) }))
+    .max(10)
+    .default([]),
 });
 
 export type SkeletonInput = z.infer<typeof skeletonInputSchema>;
 
 // Ответ модели: только смысловая структура. Часов в нём нет — их распределяет код
 // по относительной сложности тем, чтобы сумма всегда сходилась с подтверждённым объёмом.
+// Схема отвергает только сломанную структуру. Лишняя задача или критерий — не повод
+// терять каркас: число результатов и тем проверяет normalizeDesign с понятным замечанием.
 const modelAnswerSchema = z.object({
   goal: z.string().min(1),
-  tasks: z.array(z.string().min(1)).min(1).max(6),
+  tasks: z.array(z.string().min(1)).min(1).max(12),
   outcomes: z
     .array(
       z.object({
         kind: z.enum(['knowledge', 'skill', 'proficiency']),
         title: z.string().min(1),
         description: z.string().min(1),
-        criteria: z.array(z.string().min(1)).min(1).max(3),
+        criteria: z.array(z.string().min(1)).min(1).max(6),
       }),
     )
     .min(2)
-    .max(8),
+    .max(12),
   modules: z
     .array(
       z.object({
@@ -50,9 +57,19 @@ const modelAnswerSchema = z.object({
               content: z.string().min(1),
               profile: z.enum(['intro', 'tool', 'project']),
               weight: z.coerce.number().int().min(1).max(5),
-              weight_reason: z.string(),
-              outcomes: z.array(z.coerce.number().int()),
-              prerequisites: z.array(z.coerce.number().int()),
+              // Пустое модель иногда передаёт как null — для этих полей это просто «нет».
+              weight_reason: z
+                .string()
+                .nullish()
+                .transform((value) => value ?? ''),
+              outcomes: z
+                .array(z.coerce.number().int())
+                .nullish()
+                .transform((value) => value ?? []),
+              prerequisites: z
+                .array(z.coerce.number().int())
+                .nullish()
+                .transform((value) => value ?? []),
               control: z.string().min(1),
             }),
           )
@@ -107,6 +124,7 @@ function instructions(input: SkeletonInput) {
 - Для темы: content — что изучают и что делают на занятии (до 200 символов); profile — intro (вводная, больше объяснения), tool (отработка инструмента, больше практики), project (проектная работа); weight — относительная трудоёмкость от 1 до 5 и weight_reason — короткое обоснование; outcomes — номера результатов (с 1), которые тема формирует; prerequisites — номера предыдущих тем (сквозная нумерация с 1), без которых тему не освоить; control — форма текущего контроля.
 - Каждый результат должен формироваться хотя бы одной темой.
 - Часы не указывай: их распределит программа по трудоёмкости тем.
+- Ответы методиста на уточняющие вопросы обязательны: инструменты, данные, проект и акценты из ответов должны прямо отразиться в темах и результатах.
 - Не выдумывай нормативные документы, профстандарты, авторов и ссылки.
 
 Верни только JSON без пояснений и Markdown:
@@ -124,6 +142,12 @@ function brief(input: SkeletonInput) {
     `Форма обучения: ${input.delivery || 'не указана'}`,
     `Итоговая аттестация: ${input.assessment || 'не указана'}`,
     `Ограничения: ${input.constraints || 'нет'}`,
+    ...(input.answers.length
+      ? [
+          'Ответы методиста на уточняющие вопросы:',
+          ...input.answers.map(({ question, answer }) => `- ${question} — ${answer}`),
+        ]
+      : []),
   ].join('\n');
 }
 
@@ -155,10 +179,10 @@ export function normalizeDesign(answer: z.infer<typeof modelAnswerSchema>, total
   const numbered = answer.modules.flatMap((module) =>
     module.topics.map((topic) => ({ topic, module })),
   );
-  const keptModules = answer.modules.filter(
-    (module) =>
-      !finalAssessmentTitle.test(module.title) &&
-      module.topics.some((topic) => !finalAssessmentTitle.test(topic.title)),
+  // Модуль «Проект и итоговая аттестация» остаётся, если в нём есть учебные темы:
+  // убирается только тема самой аттестации.
+  const keptModules = answer.modules.filter((module) =>
+    module.topics.some((topic) => !finalAssessmentTitle.test(topic.title)),
   );
   const kept = numbered.filter(
     ({ topic, module }) => keptModules.includes(module) && !finalAssessmentTitle.test(topic.title),

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeDesign, topicRange } from '../src/steps/draft-skeleton.ts';
+import { normalizeQuestions } from '../src/steps/clarify-questions.ts';
+import { draftSkeleton, normalizeDesign, topicRange } from '../src/steps/draft-skeleton.ts';
 
 const topic = (title: string, outcomes: number[], prerequisites: number[] = []) => ({
   title,
@@ -30,17 +31,26 @@ test('итоговая аттестация от модели убирается
         { title: 'Основы', topics: [topic('Синтаксис', [1]), topic('Pandas', [1], [1])] },
         { title: 'Итоговая аттестация', topics: [topic('Защита итогового проекта', [1, 2])] },
         { title: 'Визуализация', topics: [topic('Графики', [2], [2])] },
+        {
+          title: 'Интеграция и итоговая аттестация',
+          topics: [topic('Сквозной проект', [1, 2], [4]), topic('Итоговая аттестация', [1])],
+        },
       ],
     },
     24,
   );
-  assert.deepEqual(design.module_titles, ['Основы', 'Визуализация']);
+  assert.deepEqual(design.module_titles, [
+    'Основы',
+    'Визуализация',
+    'Интеграция и итоговая аттестация',
+  ]);
   assert.deepEqual(
     design.topics.map((t) => [t.module, t.title, t.prerequisites]),
     [
       [1, 'Синтаксис', []],
       [1, 'Pandas', [1]],
       [2, 'Графики', [2]],
+      [3, 'Сквозной проект', [3]],
     ],
   );
   assert.ok(issues.some((issue) => issue.includes('Итоговую аттестацию')));
@@ -65,4 +75,75 @@ test('число тем подбирается под объём', () => {
   assert.deepEqual(topicRange(16), { min: 3, max: 7 });
   assert.deepEqual(topicRange(72), { min: 6, max: 24 });
   assert.deepEqual(topicRange(500), { min: 24, max: 24 });
+});
+
+test('вопросы модели получают устойчивые id, а рекомендация — один из вариантов', () => {
+  const questions = normalizeQuestions([
+    {
+      label: ' Какую библиотеку визуализации использовать? ',
+      reason: 'От ответа зависят практические задания.',
+      options: ['matplotlib', 'plotly', 'matplotlib'],
+      recommended: 'seaborn',
+    },
+    {
+      label: 'На каких данных учиться?',
+      reason: 'Данные определяют задачи семинаров.',
+      options: ['Обезличенные данные банка', 'Открытые датасеты'],
+      recommended: 'Открытые датасеты',
+    },
+  ]);
+  assert.deepEqual(
+    questions.map((q) => [q.id, q.label, q.options, q.recommended]),
+    [
+      [
+        'model-1',
+        'Какую библиотеку визуализации использовать?',
+        ['matplotlib', 'plotly'],
+        'matplotlib',
+      ],
+      [
+        'model-2',
+        'На каких данных учиться?',
+        ['Обезличенные данные банка', 'Открытые датасеты'],
+        'Открытые датасеты',
+      ],
+    ],
+  );
+});
+
+test('лишние задачи и null в необязательных полях темы не ломают каркас', async () => {
+  const answer = {
+    goal: 'Цель',
+    tasks: ['1', '2', '3', '4', '5', '6', '7'],
+    outcomes: [outcome('Настраивает CI'), outcome('Пишет Terraform')],
+    modules: [
+      {
+        title: 'CI/CD',
+        topics: [
+          { ...topic('GitLab CI', [1]), weight_reason: null, prerequisites: null },
+          topic('Terraform', [2], [1]),
+          topic('Мониторинг', [2], [2]),
+        ],
+      },
+    ],
+  };
+  const gateway = {
+    chat: async () => ({ content: JSON.stringify(answer), usage: {} as never }),
+  };
+  const { design } = await draftSkeleton(gateway as never, {
+    request: 'DevOps на 36 часов',
+    title: 'DevOps',
+    template_id: 'acr_professional',
+    audience: 'администраторы',
+    entry_level: '',
+    goal: '',
+    total_hours: 36,
+    delivery: '',
+    assessment: '',
+    constraints: '',
+    answers: [],
+  });
+  assert.equal(design.tasks.length, 7);
+  assert.equal(design.topics[0].weight_reason, '');
+  assert.deepEqual(design.topics[0].prerequisites, []);
 });
