@@ -113,6 +113,22 @@ export function checkAgainstText(parameters: ParsedRequest, request: string) {
         `Модель указала ${result.total_hours} ч, в тексте — ${explicit} ч; взято из текста.`,
       );
     result.total_hours = explicit;
+  } else if (totals.size === 0) {
+    // Объём задан расписанием («3 раза в неделю по 3 часа» за 2 недели): умножает код,
+    // потому что модель в таком подсчёте ошибается.
+    const schedule = request.match(
+      /(\d+)\s*раз[а]?\s*в\s*неделю\s*по\s*(\d+(?:[.,]\d+)?)\s*(?:часов|часа|час|ч)(?![а-яё])/i,
+    );
+    const textWeeks = request.match(/(\d+)\s*недел/i)?.[1];
+    const weeks = textWeeks ? Number(textWeeks) : result.weeks;
+    if (schedule && weeks) {
+      const computed = String(Number(schedule[1]) * Number(schedule[2].replace(',', '.')) * weeks);
+      if (result.total_hours && Number(result.total_hours) !== Number(computed))
+        corrections.push(
+          `Модель указала ${result.total_hours} ч, по расписанию из запроса — ${schedule[1]} × ${schedule[2]} ч × ${weeks} нед. = ${computed} ч; взят расчёт.`,
+        );
+      result.total_hours = computed;
+    }
   }
   // Форму обучения модель часто подставляет «по умолчанию» (очная), даже если её нет в тексте.
   // Сравниваем по корню из трёх букв: «очная» в ответе и «очно» в тексте — одна форма.

@@ -119,3 +119,12 @@ test('null от модели становится пустым полем, а «
   assert.deepEqual(result.parameters.missing, []);
   assert.equal(result.parameters.total_hours, '12');
 });
+
+test('объём по расписанию считает код, а не модель', () => {
+  const result = checkAgainstText(
+    { ...parameters, total_hours: '36', delivery: '', weeks: 2 },
+    'Интенсив «ML за 2 недели», занятия 3 раза в неделю по 3 часа',
+  );
+  assert.equal(result.parameters.total_hours, '18');
+  assert.match(result.corrections[0], /3 × 3 ч × 2 нед\. = 18 ч/);
+});
