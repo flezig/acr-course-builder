@@ -463,10 +463,10 @@ export function auditSnapshot(snapshot: Snapshot): Audit {
   snapshot.generation?.review?.issues.forEach((issue, index) =>
     issues.push({
       id: `llm-review-${index + 1}`,
-      severity: issue.severity === 'error' ? 'warning' : 'info',
+      severity: issue.severity === 'error' && !issue.resolved ? 'warning' : 'info',
       check_type: 'llm',
       element_id: issue.element,
-      message: `Самопроверка: ${issue.element} — ${issue.message}`,
+      message: `Самопроверка: ${issue.element} — ${issue.message}${issue.resolved ? ' Вопрос переписан агентом, проверьте новую версию.' : ''}`,
       expected: 'Замечание устранено или отклонено методистом',
       actual: issue.message,
       suggested_fix: issue.fix,

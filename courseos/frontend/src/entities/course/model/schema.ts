@@ -470,6 +470,8 @@ export const generationSchema = z.object({
           element: z.string(),
           message: z.string(),
           fix: z.string(),
+          // Замечание к вопросу теста, по которому агент уже переписал вопрос.
+          resolved: z.boolean().optional(),
         }),
       ),
     })

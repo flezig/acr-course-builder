@@ -135,6 +135,18 @@ const steps = (failTopic?: string): ContentSteps => ({
     issues: [],
     usage,
   }),
+  repairTest: async (input) => ({
+    questions: [
+      ...input.replace.map((q) => ({
+        text: `Исправленный ${q.number}`,
+        options: ['А', 'Б', 'В', 'Г'],
+        correct_index: 0,
+        explanation: 'Исправлено',
+        outcome_code: q.outcome,
+      })),
+    ],
+    usage,
+  }),
   review: async () => ({
     issues: [
       { severity: 'error', element: 'Вопрос 3', message: 'Два верных ответа', fix: 'Уточнить' },
@@ -168,8 +180,19 @@ describe('генерация материалов по каркасу от мо�
     expect(final.title).toBe('Защита аналитического отчёта');
     expect(final.criteria[0]).toMatch(/до 60 баллов/);
     expect(materials.map((m) => m.id)).toEqual(expect.arrayContaining(base.map((m) => m.id)));
-    expect(generation.calls).toHaveLength(6);
-    expect(generation.review?.issues).toHaveLength(1);
+    expect(generation.calls.map((c) => c.step)).toEqual([
+      'course_test',
+      'final_assessment',
+      'topic_materials',
+      'topic_materials',
+      'topic_materials',
+      'review_course',
+      'test_repair',
+    ]);
+    // Замечание самопроверки к вопросу 3 исправлено отдельным шагом.
+    expect(test.questions[2].text).toBe('Исправленный 3');
+    expect(test.questions[3].text).toBe('Вопрос 4');
+    expect(generation.review?.issues[0].resolved).toBe(true);
     expect(generation.failed).toEqual([]);
   });
 

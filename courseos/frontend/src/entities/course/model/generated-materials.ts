@@ -80,6 +80,12 @@ export const reviewResultSchema = z.object({
   usage: usageSchema,
 });
 
+export const repairTestResultSchema = z.object({
+  questions: courseTestResultSchema.shape.questions,
+  usage: usageSchema,
+});
+
+export type RepairTestResult = z.infer<typeof repairTestResultSchema>;
 export type TopicMaterialsResult = z.infer<typeof topicMaterialsResultSchema>;
 export type CourseTestResult = z.infer<typeof courseTestResultSchema>;
 export type FinalAssessmentResult = z.infer<typeof finalAssessmentResultSchema>;

@@ -6,6 +6,7 @@ import {
   type FinalAssessmentResult,
   type GeneratedContent,
   type GenerationUsage,
+  type RepairTestResult,
   type ReviewResult,
   type TopicMaterialsResult,
 } from './generated-materials';
@@ -19,6 +20,49 @@ export interface ContentSteps {
   test(input: Requests['test']): Promise<CourseTestResult>;
   final(input: Requests['final']): Promise<FinalAssessmentResult>;
   review(input: ReturnType<typeof reviewRequest>): Promise<ReviewResult>;
+  repairTest(input: RepairRequest): Promise<RepairTestResult>;
+}
+
+export interface RepairRequest {
+  brief: Requests['test']['brief'];
+  replace: Array<{
+    number: number;
+    text: string;
+    options: string[];
+    correct: string;
+    outcome: string;
+    problem: string;
+  }>;
+  add: string[];
+}
+
+// Что исправить в тесте после самопроверки: вопросы с ошибкой и результаты без вопросов.
+export function repairRequest(
+  brief: Requests['test']['brief'],
+  test: CourseTestResult,
+  review: ReviewResult,
+): RepairRequest {
+  const replace = review.issues.flatMap((issue) => {
+    const number = Number(issue.element.match(/Вопрос\s+(\d+)/i)?.[1]);
+    const question = test.questions[number - 1];
+    if (issue.severity !== 'error' || !question) return [];
+    return [
+      {
+        number,
+        text: question.text,
+        options: question.options,
+        correct: question.options[question.correct_index],
+        outcome: question.outcome_code,
+        problem: `${issue.message} ${issue.fix}`.trim(),
+      },
+    ];
+  });
+  const covered = new Set(test.questions.map((q) => q.outcome_code));
+  return {
+    brief,
+    replace: replace.filter((q, i) => replace.findIndex((r) => r.number === q.number) === i),
+    add: brief.outcomes.map((o) => o.code).filter((code) => !covered.has(code)),
+  };
 }
 
 export interface GenerationProgress {
@@ -86,12 +130,35 @@ export async function generateContent(
         }),
     ),
   ]);
-  const generated = applyGeneratedContent(skeleton, materials, content);
+  let generated = applyGeneratedContent(skeleton, materials, content);
+  let review: ReviewResult | null = null;
   await attempt('Самопроверка', async () => {
-    const result = await steps.review(reviewRequest(skeleton, generated));
-    generation.review = { summary: result.summary, issues: result.issues };
-    record('review_course', 'Самопроверка', result.usage);
+    review = await steps.review(reviewRequest(skeleton, generated));
+    generation.review = { summary: review.summary, issues: review.issues };
+    record('review_course', 'Самопроверка', review.usage);
   });
+  // Цикл агента замыкается: ошибки ключей и непокрытые результаты исправляет отдельный шаг,
+  // а замечание помечается исправленным. Повторной самопроверки нет, чтобы не платить дважды.
+  const test = content.test;
+  const repair = test && review ? repairRequest(requests.test.brief, test, review) : null;
+  if (test && repair && (repair.replace.length || repair.add.length))
+    await attempt('Доработка теста', async () => {
+      const result = await steps.repairTest(repair);
+      record('test_repair', 'Доработка теста', result.usage);
+      const fixed = result.questions.slice(0, repair.replace.length);
+      fixed.forEach((question, i) => {
+        test.questions[repair.replace[i].number - 1] = question;
+      });
+      test.questions.push(...result.questions.slice(repair.replace.length));
+      for (const issue of generation.review?.issues ?? []) {
+        const number = Number(issue.element.match(/Вопрос\s+(\d+)/i)?.[1]);
+        if (repair.replace.slice(0, fixed.length).some((q) => q.number === number))
+          issue.resolved = true;
+      }
+      const added = result.questions.length - fixed.length;
+      if (added) generation.issues.push(`Добавлено вопросов по непокрытым результатам: ${added}.`);
+      generated = applyGeneratedContent(skeleton, materials, content);
+    });
   return { materials: generated, generation };
 }
 

@@ -76,12 +76,7 @@ interface ContentRun {
   settled: { materials: Material[]; generation: Generation } | null;
 }
 const contentRuns = new Map<string, ContentRun>();
-function contentRun(
-  jobId: string,
-  skeleton: Skeleton,
-  materials: Material[],
-  steps: ContentSteps,
-) {
+function contentRun(jobId: string, skeleton: Skeleton, materials: Material[], steps: ContentSteps) {
   let run = contentRuns.get(jobId);
   if (!run) {
     const created: ContentRun = {
