@@ -142,6 +142,7 @@ export function courseBrief(skeleton: Skeleton) {
     outcomes: skeleton.outcomes.map((o) => ({
       code: codes[o.id],
       kind: o.kind,
+      criteria: o.criteria ?? [],
       description: o.title ? `${o.title}: ${o.description}` : o.description,
     })),
     constraints: r.constraints,
@@ -387,7 +388,11 @@ export function reviewRequest(skeleton: Skeleton, materials: Material[]) {
       criteria: m.criteria,
       slides: m.slides,
     })),
-    outcomes: skeleton.outcomes.map((o) => ({ code: codes[o.id], description: o.description })),
+    outcomes: skeleton.outcomes.map((o) => ({
+      code: codes[o.id],
+      description: o.description,
+      criteria: o.criteria ?? [],
+    })),
     topics: studyTopics(skeleton).map((t) => ({
       number: numbers.get(t.id)!,
       title: t.title,

@@ -40,7 +40,14 @@ export const courseBriefSchema = z.object({
     .max(20)
     .default([]),
   outcomes: z
-    .array(z.object({ code: z.string().min(1), kind: z.string(), description: z.string() }))
+    .array(
+      z.object({
+        code: z.string().min(1),
+        kind: z.string(),
+        description: z.string(),
+        criteria: z.array(z.string()).optional(),
+      }),
+    )
     .min(1)
     .max(20),
   // Ответы методиста на уточняющие вопросы: инструменты, данные, проект.
@@ -195,7 +202,9 @@ function briefText(brief: CourseBrief) {
     ),
     `Форма обучения: ${brief.delivery || 'не указана'}; итоговая аттестация: ${brief.assessment || 'не указана'}.`,
     'Результаты обучения:',
-    ...brief.outcomes.map((o) => `${o.code} — ${o.description}`),
+    ...brief.outcomes.map(
+      (o) => `${o.code} — ${o.description}. Критерии: ${(o.criteria ?? []).join('; ')}`,
+    ),
     ...(brief.answers.length
       ? ['Уточнения методиста:', ...brief.answers.map((a) => `- ${a}`)]
       : []),

@@ -567,3 +567,24 @@ test(
     );
   },
 );
+
+test('методист редактирует полный каркас и утверждает только новую версию', { skip }, async () => {
+  const agent = await runner();
+  const run = await agent.start(
+    agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно' }),
+  );
+  const before = agent.view(run) as any;
+  const document = structuredClone(before.skeleton.document);
+  document.outcomes[0].description = 'Умеет очищать синтетические транзакции и проверять результат';
+  const reviewed = await agent.review(run.run_id, {
+    ...reviewedVersion(before),
+    decision: { action: 'save_skeleton', issue_id: 'skeleton', skeleton: document },
+  });
+  assert.ok(reviewed);
+  const after = agent.view(reviewed) as any;
+  assert.equal(after.status, 'awaiting_approval');
+  assert.equal(after.skeleton.version, before.skeleton.version + 1);
+  assert.match(after.skeleton.outcomes[0].description, /синтетические транзакции/);
+  assert.equal(await agent.approve(run.run_id, reviewedVersion(before)), null);
+  assert.equal(after.approval.human_approved, false);
+});

@@ -30,7 +30,15 @@ export const reviewInputSchema = z.object({
     )
     .default([]),
   program_sections: z.unknown().optional(),
-  outcomes: z.array(z.object({ code: z.string(), description: z.string() })).min(1),
+  outcomes: z
+    .array(
+      z.object({
+        code: z.string(),
+        description: z.string(),
+        criteria: z.array(z.string()).optional(),
+      }),
+    )
+    .min(1),
   topics: z
     .array(
       z.object({
@@ -101,7 +109,9 @@ function brief(input: ReviewInput) {
     `Цель: ${input.goal}`,
     `Слушатели: ${input.audience}; входной уровень: ${input.entry_level}.`,
     'Результаты обучения:',
-    ...input.outcomes.map((o) => `${o.code} — ${o.description}`),
+    ...input.outcomes.map(
+      (o) => `${o.code} — ${o.description}. Критерии: ${(o.criteria ?? []).join('; ')}`,
+    ),
     `Ограничения: ${input.constraints}`,
     `Материалы для DOCX и PPTX, практические задания и критерии: ${JSON.stringify(input.materials)}`,
     `Разделы программы: ${JSON.stringify(input.program_sections)}`,

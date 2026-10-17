@@ -61,6 +61,11 @@ export const skeletonReviewSchema = z.object({
 export const findingReviewSchema = skeletonReviewSchema.extend({
   decision: z.discriminatedUnion('action', [
     z.object({
+      action: z.literal('save_skeleton'),
+      issue_id: z.literal('skeleton').default('skeleton'),
+      skeleton: z.unknown(),
+    }),
+    z.object({
       action: z.literal('recheck_materials'),
       issue_id: z.literal('quality').default('quality'),
     }),
@@ -403,11 +408,13 @@ export class AgentRunner {
             issue_id: input.decision.issue_id,
             issue: issue?.message,
             action:
-              input.decision.action === 'recheck_materials'
-                ? 'rechecked'
-                : input.decision.action === 'apply_finding'
-                  ? 'applied'
-                  : 'accepted_as_is',
+              input.decision.action === 'save_skeleton'
+                ? 'edited_skeleton'
+                : input.decision.action === 'recheck_materials'
+                  ? 'rechecked'
+                  : input.decision.action === 'apply_finding'
+                    ? 'applied'
+                    : 'accepted_as_is',
             reason:
               input.decision.action === 'dismiss_finding'
                 ? input.decision.reason
@@ -415,6 +422,8 @@ export class AgentRunner {
             actor: 'methodist-api',
           },
         ];
+        if (input.decision.action === 'save_skeleton')
+          run.result.approval = { mode: 'human', human_approved: false };
         if (materialReview) {
           const files = await engine.exportReviewed(pending.api, pending.courseId);
           for (const [format, name] of Object.entries(fileNames)) {
@@ -436,11 +445,12 @@ export class AgentRunner {
       } catch (error) {
         throw new AgentReviewError(error instanceof Error ? error.message : String(error));
       } finally {
-        run.status = materialReview
-          ? (run.result.audit as EngineSnapshot['audit'])?.technical_ready
-            ? 'succeeded'
-            : 'needs_review'
-          : 'awaiting_approval';
+        run.status =
+          materialReview && input.decision.action !== 'save_skeleton'
+            ? (run.result.audit as EngineSnapshot['audit'])?.technical_ready
+              ? 'succeeded'
+              : 'needs_review'
+            : 'awaiting_approval';
         await this.save(run);
       }
       return run;
@@ -942,6 +952,7 @@ function skeletonView(snapshot: SnapshotLike, issues: string[]) {
   return {
     course_id: snapshot.course_id,
     course_version: snapshot.course_version,
+    document: s,
     calendar: s.requirements.calendar,
     references: s.requirements.references,
     assessments: s.assessments,
