@@ -84,15 +84,117 @@ const monthWords: Record<string, number> = {
   трех: 3,
   четырех: 4,
 };
-const countWords: Record<string, number> = { один: 1, два: 2, две: 2, три: 3, четыре: 4, пять: 5 };
-// Дни недели занятий по их числу: равномерно, без выходных.
+const countWords: Record<string, number> = {
+  один: 1,
+  два: 2,
+  две: 2,
+  три: 3,
+  четыре: 4,
+  пять: 5,
+  шесть: 6,
+  семь: 7,
+};
+// Предложение дней по числу занятий; методист подтверждает его отдельно.
 const weekdayPatterns: Record<number, number[]> = {
   1: [3],
   2: [2, 4],
   3: [1, 3, 5],
   4: [1, 2, 4, 5],
   5: [1, 2, 3, 4, 5],
+  6: [1, 2, 3, 4, 5, 6],
+  7: [1, 2, 3, 4, 5, 6, 0],
 };
+
+const dateMonths = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря',
+];
+
+function requestStart(request: string, now: Date) {
+  const datePattern = `\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[./]\\d{1,2}(?:[./]\\d{4})?|\\d{1,2}\\s+(?:${dateMonths.join('|')})(?:\\s+\\d{4})?`;
+  const match = request.match(
+    new RegExp(
+      `(?<![а-яёa-z])(?:дата\\s+начала|начало(?:\\s+(?:обучения|курса|занятий))?|старт(?:\\s+(?:обучения|курса))?|начать|с)\\s*[:—-]?\\s*(?:с\\s+)?(${datePattern})(?!\\d)`,
+      'iu',
+    ),
+  );
+  if (!match) {
+    const start = nextMonday(now);
+    return {
+      start,
+      assumptions: [`Дата начала не указана: агент предложил ближайший понедельник ${start}.`],
+    };
+  }
+  const text = match[1].toLowerCase();
+  const parts = text.split(/[./\s-]+/);
+  const iso = /^\d{4}-/.test(text);
+  const day = Number(parts[iso ? 2 : 0]);
+  const month = /^\d+$/.test(parts[1]) ? Number(parts[1]) : dateMonths.indexOf(parts[1]) + 1;
+  const explicitYear = iso || parts.length === 3;
+  let year = explicitYear ? Number(parts[iso ? 0 : 2]) : now.getUTCFullYear();
+  // Без года берём ближайшую будущую дату, но сообщаем об этом как о допущении.
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (!explicitYear && Date.UTC(year, month - 1, day) < today) year++;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  )
+    throw new Error(`Дата начала «${match[1]}» некорректна. Уточните дату начала обучения.`);
+  return {
+    start: date.toISOString().slice(0, 10),
+    assumptions: explicitYear
+      ? []
+      : [`Год начала не указан: агент предложил ${year} год; подтвердите дату.`],
+  };
+}
+
+function requestWeekdays(request: string) {
+  const names = [
+    'воскресень(?:е|я|ям|ю|ем)|вс',
+    'понедельник(?:а|ам|и|у|ом)?|пн',
+    'вторник(?:а|ам|и|у|ом)?|вт',
+    'сред(?:а|ам|у|ы|е)|ср',
+    'четверг(?:а|ам|и|у|ом)?|чт',
+    'пятниц(?:а|ам|у|ы|е)|пт',
+    'суббот(?:а|ам|у|ы|е)|сб',
+  ];
+  const day = `(?<![а-яёa-z])(?:${names.join('|')})(?![а-яёa-z])`;
+  const span = `${day}(?:\\s*[-–—]\\s*${day})?`;
+  const list = `${span}(?:\\s*(?:,|и|/)\\s*(?:(?:по|в)\\s+)?${span})*`;
+  // Контекст занятий отделяет расписание от упоминаний дней в заданиях и сроках сдачи.
+  const match =
+    request.match(
+      new RegExp(
+        `(?:занятия\\s+(?:(?:проходят|проводятся)\\s+)?(?:(?:по|в)\\s+)?|по\\s+|(?:расписание|дни занятий)\\s*[:—-]?\\s*)(${list})`,
+        'iu',
+      ),
+    ) ?? request.match(new RegExp(`(${day}\\s*(?:,|и|/|[-–—])\\s*${list})`, 'iu'));
+  if (!match) return [];
+  const dayNumber = (name: string) =>
+    names.findIndex((pattern) => new RegExp(`^(?:${pattern})$`, 'iu').test(name));
+  const days: number[] = [];
+  for (const token of match[1].matchAll(new RegExp(`(${day})(?:\\s*[-–—]\\s*(${day}))?`, 'giu'))) {
+    const first = dayNumber(token[1]);
+    const last = token[2] ? dayNumber(token[2]) : first;
+    for (let day = first; ; day = (day + 1) % 7) {
+      days.push(day);
+      if (day === last) break;
+    }
+  }
+  return [...new Set(days)];
+}
 
 // Срок и расписание: из запроса, если они там есть, иначе агент предлагает срок сам
 // и возвращает это как допущение, которое методист видит в ответе.
@@ -102,33 +204,52 @@ export function calendarFromRequest(
   now: Date,
 ): { calendar: Requirements['calendar']; assumptions: string[] } {
   const total = Number(parameters.total_hours);
-  const start = nextMonday(now);
+  const { start, assumptions: startAssumptions } = requestStart(request, now);
   const base = { ...emptyRequirements.calendar, start };
-  const sessions = request.match(/(\d+|один|два|две|три|четыре|пять)\s+раз[а]?\s+в\s+неделю/i);
+  const weekdays = requestWeekdays(request);
+  const sessions = request.match(
+    /(\d+|один|два|две|три|четыре|пять|шесть|семь)\s+раз[а]?\s+в\s+неделю/i,
+  );
   const duration = request.match(
     /по\s+(\d+(?:[.,]\d+)?)\s*(?:академическ[а-яё]*\s+)?(?:час|ч\b)/i,
   )?.[1];
-  const perWeek = sessions ? (countWords[sessions[1].toLowerCase()] ?? Number(sessions[1])) : 0;
-  if (perWeek >= 1 && perWeek <= 5 && duration) {
-    const hours = Number(duration.replace(',', '.'));
+  const perWeek = sessions
+    ? (countWords[sessions[1].toLowerCase()] ?? Number(sessions[1]))
+    : weekdays.length;
+  if (weekdays.length && sessions && weekdays.length !== perWeek)
+    throw new Error(
+      `Указано ${perWeek} занятий в неделю, но дней занятий — ${weekdays.length}. Уточните расписание.`,
+    );
+  if (perWeek >= 1 && perWeek <= 7 && (duration || weekdays.length)) {
+    const hours = Number((duration || parameters.daily_limit || '4').replace(',', '.'));
+    if (!Number.isFinite(hours) || hours <= 0)
+      throw new Error('Длительность занятия должна быть больше нуля. Уточните расписание.');
+    const scheduleDays = weekdays.length ? weekdays : weekdayPatterns[perWeek];
     const weeks = parameters.weeks ?? Math.ceil(total / (perWeek * hours));
+    const assumptions = [...startAssumptions];
+    if (!weekdays.length)
+      assumptions.push(
+        `Дни занятий не указаны: агент предложил ${scheduleDays.map((d) => ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'][d]).join(' и ')}; подтвердите расписание.`,
+      );
+    if (!duration)
+      assumptions.push(
+        `Длительность занятия не указана: агент предложил ${hours} ч; подтвердите расписание.`,
+      );
     return {
       calendar: {
         ...base,
         schedule: {
-          weekdays: weekdayPatterns[perWeek],
+          weekdays: scheduleDays,
           sessions_per_week: perWeek,
           duration: String(hours),
-          confirmed: true,
+          confirmed: !!weekdays.length && !!duration,
         },
         calendar_days: weeks * 7,
         daily_limit: parameters.daily_limit || String(hours),
-        confirmed: true,
+        confirmed: !assumptions.length,
         description: `${Math.ceil(total / hours)} занятий по ${hours} ч, ${perWeek} раза в неделю, ${weeks} нед.`,
       },
-      assumptions: [
-        `Дни занятий не указаны: агент поставил ${weekdayPatterns[perWeek].map((d) => ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'][d]).join(' и ')} с ${start}.`,
-      ],
+      assumptions,
     };
   }
   const months = request.match(
@@ -158,7 +279,7 @@ export function calendarFromRequest(
         daily_limit: parameters.daily_limit,
         description: `${months[0]} по запросу: ${days} дней`,
       },
-      assumptions,
+      assumptions: [...assumptions, ...startAssumptions],
     };
   }
   if (parameters.weeks)
@@ -169,7 +290,7 @@ export function calendarFromRequest(
         daily_limit: parameters.daily_limit,
         description: `${parameters.weeks} нед. по запросу`,
       },
-      assumptions: [`Дата начала не указана: агент поставил ближайший понедельник ${start}.`],
+      assumptions: startAssumptions,
     };
   const limit = Number(parameters.daily_limit) || 4;
   const weeks = Math.max(1, Math.ceil(total / (limit * 5)));
@@ -182,6 +303,7 @@ export function calendarFromRequest(
     },
     assumptions: [
       `Срок обучения не указан: агент предложил ${weeks} нед. по будням до ${limit} ч в день с ${start}; срок подтверждает методист.`,
+      ...startAssumptions,
     ],
   };
 }
