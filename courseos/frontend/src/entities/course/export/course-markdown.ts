@@ -13,7 +13,6 @@ import {
 import { formatHours, hourKinds, hourLabels } from '../../../shared/lib/decimal';
 import {
   curriculumRows,
-  formatDates,
   moduleHeading,
   programTypeName,
   replacedSectionField,
@@ -57,7 +56,7 @@ const assessmentMaterialTypes: Material['type'][] = [
 // Угловые скобки экранируются, чтобы фрагменты кода в материалах
 // не превращались в HTML при просмотре.
 const text = (value: string) =>
-  formatDates(value.replace(/\r/g, '').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+  value.replace(/\r/g, '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const cell = (value: string) => text(value).replace(/\|/g, '&#124;').replace(/\n+/g, '<br>');
 const table = (header: string[], rows: string[][], align: ('l' | 'r')[] = []) =>
   [

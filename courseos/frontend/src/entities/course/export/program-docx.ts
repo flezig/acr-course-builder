@@ -173,7 +173,7 @@ export async function buildProgramDocx(snapshot: Snapshot): Promise<Blob> {
       spacing,
       indent: { firstLine: layout.body.firstLine },
       keepNext: options.keepNext,
-      children: typeof children === 'string' ? [new TextRun(formatDates(children))] : children,
+      children: typeof children === 'string' ? [new TextRun(children)] : children,
     });
   // Пункты списков в образцах начинаются с тире и заканчиваются «;», последний — «.».
   const listItems = (items: string[]) =>
@@ -186,11 +186,9 @@ export async function buildProgramDocx(snapshot: Snapshot): Promise<Blob> {
           numbering: { reference: dashList, level: 0 },
           children: [
             new TextRun(
-              formatDates(
-                /[?!]$/.test(item)
-                  ? item
-                  : `${item.replace(/[.;,]+$/, '')}${index === items.length - 1 ? '.' : ';'}`,
-              ),
+              /[?!]$/.test(item)
+                ? item
+                : `${item.replace(/[.;,]+$/, '')}${index === items.length - 1 ? '.' : ';'}`,
             ),
           ],
         }),
@@ -203,8 +201,32 @@ export async function buildProgramDocx(snapshot: Snapshot): Promise<Blob> {
   // Одна строка — обычный абзац, несколько — список с тире.
   // Тексты разделов отмечают пункты списка тире «– »; остальные строки — абзацы.
   // Многострочное значение без тире и без точек — перечень (литература, задачи), это список.
-  const paragraphs = (text: string) => {
+  const paragraphs = (text: string): Paragraph[] => {
     const lines = textLines(text);
+    const csvStart = lines.findIndex((line) => /^[A-Za-z_]\w*(?:,[A-Za-z_]\w*){2,}$/.test(line));
+    if (csvStart >= 0) {
+      const columns = lines[csvStart].split(',').length;
+      let csvEnd = csvStart + 1;
+      while (
+        csvEnd < lines.length &&
+        /^\S+,/.test(lines[csvEnd]) &&
+        lines[csvEnd].split(',').length === columns
+      )
+        csvEnd++;
+      // CSV — исходные данные задания: даты, запятые и окончания строк
+      // нельзя превращать в русские даты и пункты списка с точками с запятой.
+      return [
+        ...paragraphs(lines.slice(0, csvStart).join('\n')),
+        ...lines.slice(csvStart, csvEnd).map(
+          (line) =>
+            new Paragraph({
+              spacing: { after: 0, line: layout.body.line },
+              children: [new TextRun({ text: line, font: 'Courier New', size: 20 })],
+            }),
+        ),
+        ...paragraphs(lines.slice(csvEnd).join('\n')),
+      ];
+    }
     // Строки, которые все заканчиваются точкой или двоеточием, — абзацы связного текста.
     const prose = lines.every((line) => /[.:!?]$/.test(line));
     if (!lines.some((line) => line.startsWith('– ')))

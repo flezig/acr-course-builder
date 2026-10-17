@@ -775,3 +775,19 @@ it('сбой и устаревшая самопроверка не дают го
     'failed',
   );
 });
+
+it('DOCX и Markdown сохраняют исходные даты и строки CSV без пунктуации списка', async () => {
+  const snapshot = await fullPython();
+  vi.useRealTimers();
+  const csv =
+    'transaction_id,client_id,amount,date,status\n1,101,100.00,2026-01-03,completed\n2,102,,2026-01-15,';
+  snapshot.materials.find((m) => m.type === 'seminar')!.content =
+    `Сохраните учебные данные в UTF-8.\n${csv}\nРассчитайте сумму.`;
+  const { buildProgramDocx } = await import('../src/entities/course/export/program-docx');
+  const { courseMarkdown } = await import('../src/entities/course/export/course-markdown');
+  const docx = await JSZip.loadAsync(await (await buildProgramDocx(snapshot)).arrayBuffer());
+  const xml = await docx.file('word/document.xml')!.async('string');
+  expect(xml).toContain('1,101,100.00,2026-01-03,completed</w:t>');
+  expect(xml).toContain('2,102,,2026-01-15,</w:t>');
+  expect(courseMarkdown(snapshot).replace(/ +\n/g, '\n')).toContain(csv);
+});
