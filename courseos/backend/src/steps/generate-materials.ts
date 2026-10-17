@@ -448,9 +448,10 @@ ${commonRules}
     issues.push(`Проходной балл ${final.pass_threshold} заменён на 70.`);
     final.pass_threshold = 70;
   }
-  final.interview_questions = final.interview_questions.filter(
-    (block) => block.module <= input.modules.length,
-  );
+  // Собеседование с руководителем — текущий контроль только стажировки.
+  final.interview_questions = internship
+    ? final.interview_questions.filter((block) => block.module <= input.modules.length)
+    : [];
   if (internship)
     input.modules.forEach((module, index) => {
       if (!final.interview_questions.some((block) => block.module === index + 1))

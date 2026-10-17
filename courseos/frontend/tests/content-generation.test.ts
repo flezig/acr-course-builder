@@ -211,6 +211,7 @@ describe('генерация материалов по каркасу от мо�
     expect(test.questions[2].text).toBe('Исправленный 3');
     expect(test.questions[3].text).toBe('Вопрос 4');
     expect(generation.review?.issues[0].resolved).toBe(true);
+    expect(materials.some((m) => m.type === 'mentor_interview')).toBe(false);
     expect(generation.program_sections?.environment).toEqual(['Python 3.12', 'pandas 2.2']);
     expect(generation.failed).toEqual([]);
   });

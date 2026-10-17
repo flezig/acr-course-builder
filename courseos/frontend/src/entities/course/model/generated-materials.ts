@@ -313,7 +313,8 @@ export function applyGeneratedContent(
     }
     // Текущий контроль стажировки — собеседование с руководителем по каждому модулю.
     const template = result.find((m) => m.type === 'working_program');
-    if (template)
+    // Модель иногда присылает вопросы собеседования и для обычной программы.
+    if (template && isInternship(skeleton.requirements))
       for (const block of final.interview_questions) {
         const moduleId = modules[block.module - 1];
         const firstTopic = studyTopics(skeleton).find((t) => t.module_id === moduleId);
