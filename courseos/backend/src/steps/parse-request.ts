@@ -110,7 +110,8 @@ export function checkAgainstText(parameters: ParsedRequest, request: string) {
     result.total_hours = explicit;
   }
   // Форму обучения модель часто подставляет «по умолчанию» (очная), даже если её нет в тексте.
-  const deliveryStem = result.delivery.trim().toLowerCase().slice(0, 4);
+  // Сравниваем по корню из трёх букв: «очная» в ответе и «очно» в тексте — одна форма.
+  const deliveryStem = result.delivery.trim().toLowerCase().slice(0, 3);
   if (deliveryStem && !request.toLowerCase().includes(deliveryStem)) {
     corrections.push(
       `Модель предложила форму обучения «${result.delivery}», но в запросе её нет; поле оставлено пустым.`,

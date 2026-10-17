@@ -90,4 +90,9 @@ test('форма обучения, которой нет в тексте, не �
   assert.ok(invented.parameters.missing.length);
   const stated = checkAgainstText(parameters, 'Курс на 80 часов, очно-заочная форма');
   assert.equal(stated.parameters.delivery, 'очно-заочная');
+  const adverb = checkAgainstText(
+    { ...parameters, delivery: 'очная' },
+    'Интенсив на 80 часов, очно',
+  );
+  assert.equal(adverb.parameters.delivery, 'очная');
 });
