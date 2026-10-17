@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowUp, Loader2, ChevronDown, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowRight, ArrowUp, Check, Loader2, ChevronDown, Trash2 } from 'lucide-react';
 import {
   useApi,
   useCommand,
@@ -11,10 +11,12 @@ import {
 } from '../../entities/course/api/provider';
 import {
   inputSchema,
+  type ClarifyingQuestion,
   type ModelDesign,
   type Requirements,
 } from '../../entities/course/model/schema';
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
+import { missingQuestions } from '../../entities/course/model/factory';
 import { parameterDiscrepancies } from '../../entities/course/model/request-parameters';
 import { CreateReferences } from './create-references';
 import { useDictation } from '../../features/voice-input/use-dictation';
@@ -23,6 +25,7 @@ import {
   describeUsage,
   useModelAvailability,
   useRequestAnalysis,
+  useClarifyingQuestions,
   useSkeletonDraft,
   type RequestAnalysis,
 } from '../../features/model-steps/model-steps';
@@ -43,7 +46,14 @@ export function CreateCoursePage() {
   const [confirmationError, setConfirmationError] = useState('');
   const modelAvailable = useModelAvailability().data === true;
   const analysis = useRequestAnalysis();
+  const clarifyingQuestions = useClarifyingQuestions();
   const skeletonDraft = useSkeletonDraft();
+  const modelStep = clarifyingQuestions.isPending
+    ? 'GigaChat готовит уточняющие вопросы по содержанию запроса…'
+    : skeletonDraft.isPending
+      ? 'GigaChat проектирует каркас: цель, результаты обучения, модули и темы. Часы распределит программа. Обычно это занимает 10–20 секунд.'
+      : '';
+  const modelError = clarifyingQuestions.error ?? skeletonDraft.error;
   // После сбоя модели методист может осознанно построить каркас по шаблону.
   // Ref, а не состояние: повторная отправка идёт сразу, до следующего рендера.
   const withoutModel = useRef(false);
@@ -99,15 +109,18 @@ export function CreateCoursePage() {
     setConfirmed(false);
     withoutModel.current = false;
   }, [values.request]);
-  // Модель только предлагает значения сводки: методист сверяет их и подтверждает сам.
-  const analyzeRequest = async () => {
-    dictation.stop();
-    const request = form.getValues('request');
+  // Своё описание сначала разбирает модель: первое нажатие «Отправить» заполняет
+  // и раскрывает сводку, второе — подтверждает её. Модель только предлагает значения,
+  // методист сверяет их сам; после сбоя поля можно заполнить вручную и отправить снова.
+  const reviewWithModel = modelAvailable && api.mode === 'demo' && changedRequest;
+  const awaitingConfirmation = reviewWithModel && analysis.variables === values.request;
+  const fillSummary = async (request: string) => {
+    if (parametersRef.current) parametersRef.current.open = true;
     let result: RequestAnalysis;
     try {
       result = await analysis.mutateAsync(request);
     } catch {
-      return; /* Ошибка показывается под кнопкой, поля остаются как были. */
+      return; /* Ошибка показывается под полем запроса, поля остаются как были. */
     }
     if (form.getValues('request') !== request) return;
     const { parameters } = result;
@@ -128,37 +141,36 @@ export function CreateCoursePage() {
     if (parameters.weeks) form.setValue('calendar.calendar_days', Math.round(parameters.weeks * 7));
     form.setValue('calendar.confirmed', false);
     setConfirmationError('');
-    if (parametersRef.current) parametersRef.current.open = true;
   };
   const analyzedCurrentRequest = analysis.isSuccess && analysis.variables === values.request;
   const submit = form.handleSubmit(async (values) => {
     dictation.stop();
-    if (discrepancies.length || (api.mode === 'demo' && changedRequest && !confirmed)) {
+    if (reviewWithModel && analysis.variables !== values.request)
+      return fillSummary(values.request);
+    if (
+      discrepancies.length ||
+      (api.mode === 'demo' && changedRequest && !reviewWithModel && !confirmed)
+    ) {
       if (parametersRef.current) parametersRef.current.open = true;
       setConfirmationError(
         discrepancies.length
           ? 'Устраните расхождения текста и сводки.'
-          : modelAvailable
-            ? 'Сверьте и подтвердите параметры изменённого запроса.'
-            : 'Сверьте и подтвердите параметры. В демо изменённый запрос не анализируется моделью.',
+          : 'Сверьте и подтвердите параметры. В демо изменённый запрос не анализируется моделью.',
       );
       return;
     }
     const title = values.title.trim() || values.request.trim().split('\n')[0].slice(0, 80);
-    // Свой запрос модель проектирует, когда объём уже известен; примеры остаются
-    // детерминированными, а без объёма агент сначала задаст уточняющие вопросы.
-    const hours = Number(values.total_hours);
+    // Для своего запроса агент сначала задаёт вопросы по содержанию. Если вопросов нет
+    // и сводка полная, каркас проектируется сразу; иначе — после ответов на шаге уточнений.
+    // Примеры остаются детерминированными и модель не вызывают.
+    let modelQuestions: ClarifyingQuestion[] | undefined;
     let modelDesign: ModelDesign | undefined;
-    if (
-      modelAvailable &&
-      api.mode === 'demo' &&
-      changedRequest &&
-      !withoutModel.current &&
-      hours >= 16 &&
-      hours <= 500
-    ) {
+    if (modelAvailable && api.mode === 'demo' && changedRequest && !withoutModel.current) {
       try {
-        modelDesign = await skeletonDraft.mutateAsync({ ...values, title });
+        const summary = { ...values, title };
+        modelQuestions = await clarifyingQuestions.mutateAsync(summary);
+        if (!modelQuestions.length && !missingQuestions(summary).length)
+          modelDesign = await skeletonDraft.mutateAsync(summary);
       } catch {
         return; /* Ошибка и выбор «без модели» показываются под полем запроса. */
       }
@@ -194,6 +206,7 @@ export function CreateCoursePage() {
           ),
           parameters_confirmation: confirmation,
           model_design: modelDesign,
+          model_questions: modelQuestions,
           calendar: {
             ...values.calendar,
             description: `${values.calendar.calendar_days} календарных дней (${values.calendar.calendar_days / 7} нед.); ${values.calendar.daily_limit ? `до ${values.calendar.daily_limit} ч/день` : 'дневная нагрузка уточняется'}`,
@@ -212,6 +225,7 @@ export function CreateCoursePage() {
     setPresetId(id);
     setConfirmationError('');
     analysis.reset();
+    clarifyingQuestions.reset();
     skeletonDraft.reset();
     withoutModel.current = false;
     form.reset({
@@ -256,19 +270,27 @@ export function CreateCoursePage() {
                   <DictationButton dictation={dictation} />
                   <button
                     className={`send-request ${values.request.trim() ? 'ready' : ''}`}
-                    disabled={command.isPending || skeletonDraft.isPending}
+                    disabled={command.isPending || analysis.isPending || !!modelStep}
                     type="submit"
-                    aria-label="Отправить запрос"
+                    aria-label={
+                      awaitingConfirmation
+                        ? 'Подтвердить параметры и создать программу'
+                        : 'Отправить запрос'
+                    }
                     title={
-                      skeletonDraft.isPending
-                        ? 'GigaChat проектирует каркас…'
+                      analysis.isPending || modelStep
+                        ? 'GigaChat работает над запросом…'
                         : command.isPending
                           ? 'Запрос сохраняется…'
-                          : 'Отправить запрос'
+                          : awaitingConfirmation
+                            ? 'Подтвердить параметры и создать программу'
+                            : 'Отправить запрос'
                     }
                   >
-                    {command.isPending || skeletonDraft.isPending ? (
+                    {command.isPending || analysis.isPending || modelStep ? (
                       <Loader2 className="spin" size={18} />
+                    ) : awaitingConfirmation ? (
+                      <Check size={18} />
                     ) : (
                       <ArrowUp size={18} />
                     )}
@@ -278,20 +300,16 @@ export function CreateCoursePage() {
             />
           </Field>
           {dictation.error && <Notice tone="error">{dictation.error}</Notice>}
-          {skeletonDraft.isPending && (
-            <Notice>
-              GigaChat проектирует каркас: цель, результаты обучения, модули и темы. Часы
-              распределит программа. Обычно это занимает 10–20 секунд.
-            </Notice>
-          )}
-          {skeletonDraft.isError && (
+          {modelStep && <Notice>{modelStep}</Notice>}
+          {modelError && (
             <div className="request-analysis">
-              <ErrorMessage error={skeletonDraft.error} />
+              <ErrorMessage error={modelError} />
               <button
                 type="button"
                 className="secondary"
                 onClick={() => {
                   withoutModel.current = true;
+                  clarifyingQuestions.reset();
                   skeletonDraft.reset();
                   formRef.current?.requestSubmit();
                 }}
@@ -300,34 +318,32 @@ export function CreateCoursePage() {
               </button>
             </div>
           )}
-          {modelAvailable && (
+          {analysis.isPending && <Notice>GigaChat заполняет сводку параметров по запросу…</Notice>}
+          {analyzedCurrentRequest && analysis.data && !modelStep && (
             <div className="request-analysis">
-              <button
-                type="button"
-                className="secondary"
-                disabled={!values.request.trim() || analysis.isPending}
-                onClick={analyzeRequest}
-              >
-                {analysis.isPending ? (
-                  <Loader2 className="spin" size={16} />
-                ) : (
-                  <Sparkles size={16} />
+              <Notice tone="warning">
+                <p>
+                  <strong>Проверьте сводку параметров ниже.</strong> GigaChat заполнил её по запросу
+                  и мог ошибиться. Исправьте поля, если нужно, и нажмите кнопку ✓ справа в поле
+                  запроса — это подтвердит параметры и создаст программу.
+                </p>
+                {analysis.data.corrections.map((correction) => (
+                  <p key={correction}>{correction}</p>
+                ))}
+                {!!analysis.data.parameters.missing.length && (
+                  <p>
+                    Не хватает: {analysis.data.parameters.missing.join('; ')}. Заполните поля сейчас
+                    или ответьте на вопросы агента после отправки.
+                  </p>
                 )}
-                {analysis.isPending ? 'GigaChat разбирает запрос…' : 'Заполнить сводку по запросу'}
-              </button>
-              {analyzedCurrentRequest && analysis.data && (
-                <Notice>
-                  <p>Сводка заполнена моделью по тексту запроса. Сверьте поля перед отправкой.</p>
-                  {analysis.data.corrections.map((correction) => (
-                    <p key={correction}>{correction}</p>
-                  ))}
-                  {!!analysis.data.parameters.missing.length && (
-                    <p>Не хватает: {analysis.data.parameters.missing.join('; ')}.</p>
-                  )}
-                  <small>{describeUsage(analysis.data.usage)}</small>
-                </Notice>
-              )}
+                <small>{describeUsage(analysis.data.usage)}</small>
+              </Notice>
+            </div>
+          )}
+          {analysis.isError && analysis.variables === values.request && (
+            <div className="request-analysis">
               <ErrorMessage error={analysis.error} />
+              <Notice>Заполните сводку параметров ниже вручную и отправьте запрос ещё раз.</Notice>
             </div>
           )}
           <details className="parameter-summary" ref={parametersRef}>
@@ -343,8 +359,8 @@ export function CreateCoursePage() {
                 ? 'Проверьте параметры перед отправкой на сервер.'
                 : analyzedCurrentRequest
                   ? 'Поля заполнены GigaChat по тексту запроса. Модель могла ошибиться: сверьте каждое значение.'
-                  : modelAvailable
-                    ? 'Заполните поля по тексту запроса кнопкой выше или вручную, затем сверьте их.'
+                  : reviewWithModel
+                    ? 'После отправки GigaChat заполнит поля по тексту запроса. Их можно заполнить и вручную.'
                     : 'Значения примера можно изменить вручную. Демо не анализирует изменённый запрос; сверьте все поля с текстом.'}
             </p>
             <div className="form-grid">
@@ -421,7 +437,7 @@ export function CreateCoursePage() {
             {!!discrepancies.length && (
               <Notice tone="warning">{discrepancies.join(' ')} Исправьте текст или поля.</Notice>
             )}
-            {api.mode === 'demo' && changedRequest && (
+            {api.mode === 'demo' && changedRequest && !reviewWithModel && (
               <label className="checkbox">
                 <input
                   type="checkbox"
