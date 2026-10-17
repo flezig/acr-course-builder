@@ -9,6 +9,7 @@
     "lint": "prettier --check src tests",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
+    "start": "vite preview --host 0.0.0.0 --port 8000 --strictPort",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "report:rationale": "COURSEOS_WRITE_REPORTS=1 vitest run tests/rationale.test.ts"
