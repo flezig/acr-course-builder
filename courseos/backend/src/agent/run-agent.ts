@@ -507,7 +507,7 @@ type SnapshotLike = {
       title: string;
       template_id: string;
       total_hours: string;
-      model_design?: { module_titles: string[] };
+      model_design?: { module_titles: string[]; design_notes?: unknown };
     };
     outcomes: Array<{ id: string; kind: string; description: string; criteria?: string[] }>;
     topics: Array<{
@@ -536,6 +536,7 @@ function skeletonView(snapshot: SnapshotLike, issues: string[]) {
     total_hours: s.requirements.total_hours,
     goal: s.goal,
     tasks: s.tasks,
+    design_notes: s.requirements.model_design?.design_notes ?? null,
     outcomes: s.outcomes.map((o, i) => ({
       code: `РО ${i + 1}`,
       kind: o.kind,

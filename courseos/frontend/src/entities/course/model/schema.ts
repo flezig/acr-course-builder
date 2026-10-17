@@ -37,6 +37,16 @@ export const modelDesignSchema = z.object({
   goal: z.string(),
   tasks: z.array(z.string()),
   module_titles: z.array(z.string()),
+  // Обоснование модели: на что опирается программа и достижима ли цель за объём.
+  design_notes: z
+    .object({
+      entry_basis: z.string(),
+      added_basics: z.array(z.string()),
+      realism: z.enum(['achievable', 'partly', 'not_achievable']),
+      realism_reason: z.string(),
+      recommendation: z.string(),
+    })
+    .nullish(),
   outcomes: z.array(
     z.object({
       kind: z.enum(['knowledge', 'skill', 'proficiency']),

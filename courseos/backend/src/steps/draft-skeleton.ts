@@ -46,6 +46,17 @@ const modelAnswerSchema = z.object({
     )
     .min(2)
     .max(12),
+  // Обоснование для методиста: на что опирается программа и достижима ли цель за объём.
+  design_notes: z
+    .object({
+      entry_basis: z.string().default(''),
+      added_basics: z.array(z.string()).default([]),
+      realism: z.enum(['achievable', 'partly', 'not_achievable']).catch('partly'),
+      realism_reason: z.string().default(''),
+      recommendation: z.string().default(''),
+    })
+    .nullish()
+    .transform((value) => value ?? null),
   modules: z
     .array(
       z.object({
@@ -95,6 +106,13 @@ const skeletonJsonSchema = {
   schema: strictObject({
     goal: { type: 'string' },
     tasks: { type: 'array', items: { type: 'string' } },
+    design_notes: strictObject({
+      entry_basis: { type: 'string' },
+      added_basics: { type: 'array', items: { type: 'string' } },
+      realism: { type: 'string', enum: ['achievable', 'partly', 'not_achievable'] },
+      realism_reason: { type: 'string' },
+      recommendation: { type: 'string' },
+    }),
     outcomes: {
       type: 'array',
       items: strictObject({
@@ -144,7 +162,18 @@ export interface CourseDesign {
   module_titles: string[];
   outcomes: z.infer<typeof modelAnswerSchema>['outcomes'];
   topics: DesignTopic[];
+  design_notes: z.infer<typeof modelAnswerSchema>['design_notes'];
   generated_by: CallUsage;
+}
+
+// Сколько результатов реалистично сформировать за объём: на 16 ч — 3–4,
+// на 72 ч — 4–7, на 256 ч — 6–10. Знаний на больших программах нужно больше одного.
+export function outcomeRange(totalHours: number) {
+  if (totalHours <= 24) return { min: 3, max: 4, knowledge: 1 };
+  if (totalHours <= 48) return { min: 3, max: 6, knowledge: 1 };
+  if (totalHours <= 100) return { min: 4, max: 7, knowledge: 2 };
+  if (totalHours <= 200) return { min: 5, max: 9, knowledge: 2 };
+  return { min: 6, max: 10, knowledge: 3 };
 }
 
 // Тема не короче 2 ч (в образце интенсива АЦР на 24 ч темы по 2–3 ч) и не длиннее ~12 ч.
@@ -156,6 +185,7 @@ export function topicRange(totalHours: number) {
 
 function instructions(input: SkeletonInput) {
   const range = topicRange(input.total_hours);
+  const outcomes = outcomeRange(input.total_hours);
   const template =
     input.template_id === 'acr_professional'
       ? 'дополнительная профессиональная программа повышения квалификации (результаты связаны с профессиональными действиями слушателей)'
@@ -166,7 +196,13 @@ function instructions(input: SkeletonInput) {
 Тип: ${template}.
 
 Правила:
-- Результаты обучения (от 3 до 6) измеримы: начинаются с глагола действия («Применяет…», «Объясняет…», «Настраивает…»). kind: knowledge — знания, skill — умения, proficiency — навыки/владение. Для каждого результата дай 1–2 критерия, по которым преподаватель проверит его достижение.
+- Результаты обучения: от ${outcomes.min} до ${outcomes.max} — столько реально сформировать за ${input.total_hours} ч у слушателей с таким входным уровнем; не меньше ${outcomes.knowledge} результатов-знаний. Формулировки по образцам АЦР:
+  • knowledge — «Знает …»: конкретные понятия, методы, алгоритмы, инструменты, которые слушатель сможет перечислить и сравнить (например, «Знает алгоритмы обучения с учителем: линейную и логистическую регрессию, деревья решений, k-ближайших соседей; признаки переобучения»). Не пиши общих формулировок вроде «Описывает, что такое …».
+  • skill — «Умеет …»: измеримое действие с инструментом или методом на конкретной задаче.
+  • proficiency — «Владеет …»: целостный рабочий приём или опыт, который слушатель покажет в итоговой работе.
+  Для каждого результата дай 1–2 критерия, по которым преподаватель проверит его достижение.
+- Входной уровень: не учи тому, что слушатели уже знают, а опирайся на это; если для цели не хватает базы (например, математической статистики), добавь вводные темы. Глубина результатов должна быть достижима за объём программы.
+- design_notes — объяснение для методиста: entry_basis — на какие знания слушателей программа опирается и что поэтому не включено; added_basics — какие базовые темы добавлены из-за входного уровня (пустой список, если не нужны); realism — achievable, partly или not_achievable: достижима ли цель запроса за этот объём при этом входном уровне; realism_reason — почему, с цифрами часов; recommendation — если цель достижима не полностью: что предложить методисту (увеличить объём до N ч или сузить цель до …), иначе пустая строка.
 - Модули (от 2 до 6) объединяют темы по смыслу. Всего тем от ${range.min} до ${range.max}, итоговую аттестацию темой не добавляй — она будет отдельно.
 - Для темы: content — что изучают и что делают на занятии (до 200 символов); profile — intro (вводная, больше объяснения), tool (отработка инструмента, больше практики), project (проектная работа); weight — относительная трудоёмкость от 1 до 5 и weight_reason — короткое обоснование; outcomes — номера результатов (с 1), которые тема формирует; prerequisites — номера предыдущих тем (сквозная нумерация с 1), без которых тему не освоить; control — форма текущего контроля.
 - Каждый результат должен формироваться хотя бы одной темой.
@@ -175,7 +211,7 @@ function instructions(input: SkeletonInput) {
 - Не выдумывай нормативные документы, профстандарты, авторов и ссылки.
 
 Верни только JSON без пояснений и Markdown:
-{"goal": "...", "tasks": ["..."], "outcomes": [{"kind": "skill", "title": "...", "description": "...", "criteria": ["..."]}], "modules": [{"title": "...", "topics": [{"title": "...", "content": "...", "profile": "tool", "weight": 3, "weight_reason": "...", "outcomes": [1], "prerequisites": [], "control": "..."}]}]}`;
+{"goal": "...", "tasks": ["..."], "design_notes": {"entry_basis": "...", "added_basics": [], "realism": "achievable", "realism_reason": "...", "recommendation": ""}, "outcomes": [{"kind": "skill", "title": "...", "description": "...", "criteria": ["..."]}], "modules": [{"title": "...", "topics": [{"title": "...", "content": "...", "profile": "tool", "weight": 3, "weight_reason": "...", "outcomes": [1], "prerequisites": [], "control": "..."}]}]}`;
 }
 
 function brief(input: SkeletonInput) {
@@ -285,11 +321,22 @@ export function normalizeDesign(answer: z.infer<typeof modelAnswerSchema>, total
   });
   if (formed.length < 2)
     throw new LlmError('empty', 'Темы формируют меньше двух результатов. Попробуйте ещё раз.');
+  const expected = outcomeRange(totalHours);
+  if (formed.length < expected.min || formed.length > expected.max)
+    issues.push(
+      `Результатов обучения ${formed.length}, для ${totalHours} ч обычно ${expected.min}–${expected.max}: проверьте, не слишком ли ${formed.length < expected.min ? 'узко' : 'много'} для объёма.`,
+    );
+  const knowledge = formed.filter((n) => answer.outcomes[n - 1].kind === 'knowledge').length;
+  if (knowledge < expected.knowledge)
+    issues.push(
+      `Результатов-знаний ${knowledge}, для ${totalHours} ч нужно не меньше ${expected.knowledge}: добавьте, какие методы и понятия слушатель будет знать.`,
+    );
   const outcomeNumber = new Map(formed.map((number, index) => [number, index + 1]));
   return {
     design: {
       goal: answer.goal,
       tasks: answer.tasks,
+      design_notes: answer.design_notes,
       module_titles: keptModules.map((module) => module.title),
       outcomes: formed.map((number) => answer.outcomes[number - 1]),
       topics: topics.map((topic) => ({

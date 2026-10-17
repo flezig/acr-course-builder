@@ -4,3 +4,25 @@
 .model-provenance .notice small {
   color: var(--muted);
 }
+.model-notes {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 8px 0;
+}
+.model-notes dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+.model-notes dd {
+  margin: 0;
+}
+.model-recommendation {
+  display: block;
+  margin-top: 4px;
+}
+@media (max-width: 600px) {
+  .model-notes {
+    grid-template-columns: 1fr;
+  }
+}

@@ -5,7 +5,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LlmGateway } from '../src/llm/gateway.ts';
 import { normalizeQuestions } from '../src/steps/clarify-questions.ts';
-import { draftSkeleton, normalizeDesign, topicRange } from '../src/steps/draft-skeleton.ts';
+import {
+  draftSkeleton,
+  normalizeDesign,
+  outcomeRange,
+  topicRange,
+} from '../src/steps/draft-skeleton.ts';
 
 const topic = (title: string, outcomes: number[], prerequisites: number[] = []) => ({
   title,
@@ -30,6 +35,7 @@ test('итоговая аттестация от модели убирается
     {
       goal: 'Цель',
       tasks: ['Задача'],
+      design_notes: null,
       outcomes: [outcome('Применяет Python'), outcome('Строит графики')],
       modules: [
         { title: 'Основы', topics: [topic('Синтаксис', [1]), topic('Pandas', [1], [1])] },
@@ -65,6 +71,7 @@ test('ссылки на несуществующие результаты и б�
     {
       goal: 'Цель',
       tasks: ['Задача'],
+      design_notes: null,
       outcomes: [outcome('Первый'), outcome('Второй'), outcome('Третий')],
       modules: [{ title: 'Модуль', topics: [topic('А', [1, 7], [2]), topic('Б', [3])] }],
     },
@@ -225,4 +232,21 @@ test('пустой модуль итоговой аттестации от мо�
     answers: [],
   });
   assert.deepEqual(design.module_titles, ['Linux', 'CI/CD']);
+});
+
+test('код сообщает, если результатов или знаний мало для объёма', () => {
+  assert.deepEqual(outcomeRange(16), { min: 3, max: 4, knowledge: 1 });
+  assert.deepEqual(outcomeRange(256), { min: 6, max: 10, knowledge: 3 });
+  const { issues } = normalizeDesign(
+    {
+      goal: 'Цель',
+      tasks: ['Задача'],
+      design_notes: null,
+      outcomes: [outcome('Первый'), outcome('Второй')],
+      modules: [{ title: 'Модуль', topics: [topic('А', [1]), topic('Б', [2]), topic('В', [2])] }],
+    },
+    150,
+  );
+  assert.ok(issues.some((issue) => issue.includes('Результатов обучения 2, для 150 ч обычно 5–9')));
+  assert.ok(issues.some((issue) => issue.includes('Результатов-знаний 0')));
 });
