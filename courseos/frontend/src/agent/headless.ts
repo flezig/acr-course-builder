@@ -132,7 +132,7 @@ export function calendarFromRequest(
     };
   }
   const months = request.match(
-    /(?:(одного|полутора|двух|тр[её]х|четыр[её]х|\d+(?:[.,]\d+)?)\s+)?месяц/i,
+    /(?:(одного|полутора|двух|тр[её]х|четыр[её]х|\d+(?:[.,]\d+)?)\s+)?месяц[а-яё]*/i,
   );
   if (!parameters.weeks && months) {
     const count = months[1]

@@ -43,6 +43,7 @@ export function repairRequest(
   brief: Requests['test']['brief'],
   test: CourseTestResult,
   review: ReviewResult,
+  questionCount: number,
 ): RepairRequest {
   const replace = review.issues.flatMap((issue) => {
     const number = Number(issue.element.match(/Вопрос\s+(\d+)/i)?.[1]);
@@ -59,11 +60,20 @@ export function repairRequest(
       },
     ];
   });
-  const covered = new Set(test.questions.map((q) => q.outcome_code));
+  // Сначала результаты без вопросов, затем добор до нужного числа вопросов по результатам,
+  // у которых вопросов меньше всего: код отбрасывает вопросы с неверным ключом.
+  const counts = new Map(brief.outcomes.map((o) => [o.code, 0]));
+  for (const q of test.questions) counts.set(q.outcome_code, (counts.get(q.outcome_code) ?? 0) + 1);
+  const add: string[] = [];
+  while (test.questions.length + add.length < questionCount || [...counts.values()].includes(0)) {
+    const [code] = [...counts.entries()].sort((a, b) => a[1] - b[1])[0];
+    add.push(code);
+    counts.set(code, counts.get(code)! + 1);
+  }
   return {
     brief,
     replace: replace.filter((q, i) => replace.findIndex((r) => r.number === q.number) === i),
-    add: brief.outcomes.map((o) => o.code).filter((code) => !covered.has(code)),
+    add,
   };
 }
 
@@ -148,7 +158,10 @@ export async function generateContent(
   // Цикл агента замыкается: ошибки ключей и непокрытые результаты исправляет отдельный шаг,
   // а замечание помечается исправленным. Повторной самопроверки нет, чтобы не платить дважды.
   const test = content.test;
-  const repair = test && review ? repairRequest(requests.test.brief, test, review) : null;
+  const repair =
+    test && review
+      ? repairRequest(requests.test.brief, test, review, requests.test.question_count)
+      : null;
   if (test && repair && (repair.replace.length || repair.add.length))
     await attempt('Доработка теста', async () => {
       const result = await steps.repairTest(repair);

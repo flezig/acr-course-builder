@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   generateContent,
+  repairRequest,
   type ContentSteps,
 } from '../src/entities/course/model/content-generation';
 import { makeMaterials, makeSkeleton } from '../src/entities/course/model/factory';
@@ -231,5 +232,23 @@ describe('генерация материалов по каркасу от мо�
       'module-1',
       'module-2',
     ]);
+  });
+
+  it('доработка добирает вопросы до нужного числа и покрывает все результаты', () => {
+    const brief = generationRequests(makeSkeleton(requirements())).test.brief;
+    const question = (code: string) => ({
+      text: 'В',
+      options: ['а', 'б'],
+      correct_index: 0,
+      explanation: '',
+      outcome_code: code,
+    });
+    const repair = repairRequest(
+      brief,
+      { questions: Array.from({ length: 8 }, () => question('РО 1')), issues: [], usage },
+      { issues: [], summary: '', usage },
+      10,
+    );
+    expect(repair.add).toEqual(['РО 2', 'РО 2']);
   });
 });
