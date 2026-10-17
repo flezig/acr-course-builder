@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { AgentRunner } from '../src/agent/run-agent.ts';
+import { AgentRunner, summaryGaps } from '../src/agent/run-agent.ts';
 import { LlmGateway } from '../src/llm/gateway.ts';
 
 const bundle = resolve(import.meta.dirname, '../../frontend/dist-agent/headless.js');
@@ -223,4 +223,29 @@ test('без утверждения сборка останавливается 
   assert.equal(run.status, 'awaiting_approval');
   const approved = await agent.approve(run.run_id);
   assert.ok(['succeeded', 'needs_review'].includes(approved!.status), approved!.status);
+});
+
+test('агент спрашивает тип и объём всегда, а одно второстепенное поле берёт допущением', () => {
+  const base = {
+    title: 'DevOps',
+    template_id: 'acr_professional' as const,
+    audience: 'Специалисты',
+    entry_level: '',
+    goal: 'DevOps',
+    total_hours: '256',
+    delivery: 'Стажировка',
+    assessment: 'Защита отчёта',
+    constraints: '',
+    weeks: 8,
+    daily_limit: '4',
+    missing: [],
+  };
+  const one = summaryGaps(base);
+  assert.deepEqual(one.questions, []);
+  assert.match(one.assumed.entry_level!, /уточняет методист/);
+  assert.equal(summaryGaps({ ...base, delivery: '' }).questions.length, 2);
+  assert.deepEqual(summaryGaps({ ...base, total_hours: '' }).questions, [
+    'Какой объём программы в академических часах (16–500)?',
+    'Какой входной уровень подготовки у слушателей?',
+  ]);
 });

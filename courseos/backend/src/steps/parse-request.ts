@@ -140,5 +140,13 @@ export function checkAgainstText(parameters: ParsedRequest, request: string) {
     result.delivery = '';
     result.missing = [...result.missing, 'форма обучения'];
   }
+  // Стажировку движок узнаёт по форме обучения (все часы — самостоятельная работа),
+  // а модель часто описывает её словами «работа с наставником» без самого слова.
+  if (/стажировк/i.test(request) && !/стажиров/i.test(result.delivery)) {
+    const delivery = `Стажировка${result.delivery ? `: ${result.delivery}` : ''}`;
+    corrections.push(`Форма обучения дополнена: «${delivery}» — в запросе указана стажировка.`);
+    result.delivery = delivery;
+    result.missing = result.missing.filter((item) => !/форм/i.test(item));
+  }
   return { parameters: result, corrections };
 }

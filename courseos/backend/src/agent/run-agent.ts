@@ -82,18 +82,47 @@ const contentTypes: Record<string, string> = {
   'rationale.md': 'text/markdown; charset=utf-8',
 };
 
-// Поля сводки, без которых каркас не строится; спрашиваем их до вызова модели для каркаса.
-function missingSummary(parameters: ParsedRequest) {
+// Без типа программы и объёма каркас не построить — их агент спрашивает всегда. Остальные
+// поля сводки спрашиваются, если их не хватает двух и больше (запрос явно неполный);
+// одно недостающее поле агент помечает допущением и продолжает, сообщая об этом.
+const secondaryFields = {
+  audience: ['Кто слушатели программы?', 'Слушатели не указаны в запросе; уточняет методист'],
+  entry_level: [
+    'Какой входной уровень подготовки у слушателей?',
+    'Входной уровень не указан в запросе; уточняет методист',
+  ],
+  delivery: [
+    'В какой форме проходит обучение: очно, заочно, дистанционно?',
+    'Форма обучения не указана в запросе; уточняет методист',
+  ],
+  assessment: [
+    'Какая форма итоговой аттестации предусмотрена?',
+    'Защита итоговой работы (форма не указана в запросе; уточняет методист)',
+  ],
+} as const;
+
+export function summaryGaps(parameters: ParsedRequest): {
+  questions: string[];
+  assumed: Partial<Record<keyof typeof secondaryFields, string>>;
+} {
   const hours = Number(parameters.total_hours);
-  return [
+  const required = [
     parameters.template_id === 'unknown' &&
       'Какой тип программы нужен: повышение квалификации или общеразвивающая?',
     !(hours >= 16 && hours <= 500) && 'Какой объём программы в академических часах (16–500)?',
-    !parameters.audience && 'Кто слушатели программы?',
-    !parameters.entry_level && 'Какой входной уровень подготовки у слушателей?',
-    !parameters.delivery && 'В какой форме проходит обучение: очно, заочно, дистанционно?',
-    !parameters.assessment && 'Какая форма итоговой аттестации предусмотрена?',
   ].filter((question): question is string => Boolean(question));
+  const secondary = (Object.keys(secondaryFields) as Array<keyof typeof secondaryFields>).filter(
+    (field) => !parameters[field].trim(),
+  );
+  if (required.length || secondary.length >= 2)
+    return {
+      questions: [...required, ...secondary.map((field) => secondaryFields[field][0])],
+      assumed: {},
+    };
+  return {
+    questions: [],
+    assumed: Object.fromEntries(secondary.map((field) => [field, secondaryFields[field][1]])),
+  };
 }
 
 // Интерфейс бандла движка; типы самого движка живут во фронтенде.
@@ -121,7 +150,7 @@ interface Headless {
     questions: ClarifyingQuestion[];
     answers: Record<string, string>;
     actor: string;
-  }): unknown;
+  }): { requirements: unknown; assumptions: string[] };
   buildSkeleton(
     requirements: unknown,
     steps: unknown,
@@ -311,16 +340,18 @@ export class AgentRunner {
     this.event(run, 'parse_request', `Сводка параметров: ${describe(analysis.usage)}`);
     run.result.parameters = parameters;
     run.result.corrections = analysis.corrections;
-    const missing = missingSummary(parameters);
-    if (missing.length) {
+    const gaps = summaryGaps(parameters);
+    if (gaps.questions.length) {
       // Неполный запрос: агент не достраивает параметры сам, а спрашивает методиста.
       run.status = 'awaiting_clarification';
-      run.result.questions = missing;
+      run.result.questions = gaps.questions;
       run.result.next_action =
         'Повторите POST /api/v1/agent с тем же request и ответами в поле clarifications.';
-      this.event(run, 'clarification', `Нужны ответы методиста: ${missing.length}`);
+      this.event(run, 'clarification', `Нужны ответы методиста: ${gaps.questions.length}`);
       return;
     }
+    const assumptions = Object.values(gaps.assumed);
+    Object.assign(parameters, gaps.assumed);
     const summary = {
       request: fullRequest,
       title: parameters.title,
@@ -354,7 +385,7 @@ export class AgentRunner {
     run.calls.push({ ...draft.design.generated_by, label: 'Каркас программы' });
     this.event(run, 'draft_skeleton', `Структура каркаса: ${describe(draft.design.generated_by)}`);
     const engine = await this.engine();
-    const requirements = engine.makeRequirements({
+    const { requirements, assumptions: calendarAssumptions } = engine.makeRequirements({
       request: fullRequest,
       parameters,
       design: { ...draft.design, issues: draft.issues },
@@ -362,6 +393,13 @@ export class AgentRunner {
       answers: Object.fromEntries(answered.map((q) => [q.id, q.answer])),
       actor: 'api-client',
     });
+    run.result.assumptions = [
+      ...assumptions,
+      ...calendarAssumptions,
+      ...answered
+        .filter((q) => q.answered_by === 'agent_recommendation')
+        .map((q) => `${q.label} — выбран рекомендованный вариант «${q.answer}».`),
+    ];
     const built = await engine.buildSkeleton(requirements, this.contentSteps(run));
     if (!built.snapshot) throw new Error(`Каркас не построен: ${built.job.next_action}`);
     this.pending.set(run.run_id, { api: built.api, courseId: built.courseId });
