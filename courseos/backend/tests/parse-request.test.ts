@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   checkAgainstText,
+  normalize,
   extractJson,
   parseRequest,
   type ParsedRequest,
@@ -145,4 +146,11 @@ test('стажировка из текста запроса попадает в 
   assert.deepEqual(result.corrections, [
     'Форма обучения дополнена: «Стажировка: самостоятельная работа в ИТ-компании с наставником» — в запросе указана стажировка.',
   ]);
+});
+
+test('«unknown» в полях сводки становится пустым полем, а тип программы остаётся', () => {
+  assert.deepEqual(
+    normalize({ template_id: 'unknown', entry_level: 'unknown', assessment: 'Unknown' }),
+    { template_id: 'unknown', entry_level: '', assessment: '' },
+  );
 });

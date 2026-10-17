@@ -368,7 +368,7 @@ export type FinalInput = z.infer<typeof finalInputSchema>;
 const finalAnswerSchema = z.object({
   title: text,
   description: text,
-  requirements: list(2, 10),
+  requirements: list(1, 10),
   example_task: text,
   criteria: z
     .array(

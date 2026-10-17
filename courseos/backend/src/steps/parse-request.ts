@@ -69,7 +69,7 @@ export function extractJson(content: string): unknown {
 }
 
 // Модель может вернуть часы числом, а не строкой; в сводке часы хранятся строкой без единиц.
-function normalize(value: unknown) {
+export function normalize(value: unknown) {
   if (!value || typeof value !== 'object') return value;
   const record = { ...(value as Record<string, unknown>) };
   // Отсутствующее значение модель иногда передаёт как null вместо пустой строки или списка.
@@ -81,11 +81,13 @@ function normalize(value: unknown) {
   for (const key of ['total_hours', 'daily_limit'])
     if (typeof record[key] === 'string')
       record[key] = (record[key] as string).replace(',', '.').replace(/[^\d.]/g, '');
-  // Вместо пустой строки модель иногда пишет «неизвестно»; в сводке это должно остаться пустым полем.
+  // Вместо пустой строки модель иногда пишет «неизвестно» или «unknown»; в сводке это должно
+  // остаться пустым полем. У template_id «unknown» — допустимое значение схемы.
   for (const [key, field] of Object.entries(record))
     if (
+      key !== 'template_id' &&
       typeof field === 'string' &&
-      /^(неизвестно|не указан[оа]?|нет данных|—|-)$/i.test(field.trim())
+      /^(неизвестно|не указан[оа]?|нет данных|unknown|n\/a|none|null|—|-)$/i.test(field.trim())
     )
       record[key] = '';
   if (record.weeks === 0 || record.weeks === '') record.weeks = null;

@@ -219,7 +219,7 @@ test('неполный запрос возвращает вопросы мето
     wait: true,
   });
   const view = agent.view(run) as Record<string, any>;
-  assert.equal(view.status, 'awaiting_clarification');
+  assert.equal(view.status, 'awaiting_clarification', view.error);
   assert.ok(view.questions.length >= 4 && view.questions.length <= 5, view.questions.join('\n'));
   assert.equal(view.skeleton, undefined);
 });

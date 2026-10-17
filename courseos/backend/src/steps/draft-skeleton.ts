@@ -276,17 +276,26 @@ export function normalizeDesign(answer: z.infer<typeof modelAnswerSchema>, total
     issues.push(
       `Модель предложила ${topics.length} тем, для ${totalHours} ч ожидалось ${range.min}–${range.max}; объём тем проверьте.`,
     );
-  answer.outcomes.forEach((outcome, index) => {
-    if (!topics.some((topic) => topic.outcomes.includes(index + 1)))
-      issues.push(`Результат «${outcome.title}» не формирует ни одна тема.`);
+  // Результат, который не формирует ни одна тема, нельзя ни освоить, ни проверить:
+  // он убирается из каркаса, а номера результатов в темах пересчитываются.
+  const formed = answer.outcomes.flatMap((outcome, index) => {
+    if (topics.some((topic) => topic.outcomes.includes(index + 1))) return [index + 1];
+    issues.push(`Результат «${outcome.title}» не формирует ни одна тема — убран из каркаса.`);
+    return [];
   });
+  if (formed.length < 2)
+    throw new LlmError('empty', 'Темы формируют меньше двух результатов. Попробуйте ещё раз.');
+  const outcomeNumber = new Map(formed.map((number, index) => [number, index + 1]));
   return {
     design: {
       goal: answer.goal,
       tasks: answer.tasks,
       module_titles: keptModules.map((module) => module.title),
-      outcomes: answer.outcomes,
-      topics,
+      outcomes: formed.map((number) => answer.outcomes[number - 1]),
+      topics: topics.map((topic) => ({
+        ...topic,
+        outcomes: topic.outcomes.map((number) => outcomeNumber.get(number)!),
+      })),
     },
     issues,
   };

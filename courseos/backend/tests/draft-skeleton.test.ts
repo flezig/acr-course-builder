@@ -65,14 +65,20 @@ test('ссылки на несуществующие результаты и б�
     {
       goal: 'Цель',
       tasks: ['Задача'],
-      outcomes: [outcome('Первый'), outcome('Второй')],
-      modules: [{ title: 'Модуль', topics: [topic('А', [1, 7], [2]), topic('Б', [1])] }],
+      outcomes: [outcome('Первый'), outcome('Второй'), outcome('Третий')],
+      modules: [{ title: 'Модуль', topics: [topic('А', [1, 7], [2]), topic('Б', [3])] }],
     },
     16,
   );
   assert.deepEqual(design.topics[0].outcomes, [1]);
   assert.deepEqual(design.topics[0].prerequisites, []);
-  assert.ok(issues.some((issue) => issue.includes('«Второй» не формирует')));
+  // «Второй» убран, поэтому «Третий» становится вторым результатом.
+  assert.deepEqual(
+    design.outcomes.map((o) => o.title),
+    ['Первый', 'Третий'],
+  );
+  assert.deepEqual(design.topics[1].outcomes, [2]);
+  assert.ok(issues.some((issue) => issue.includes('«Второй» не формирует ни одна тема — убран')));
 });
 
 test('число тем подбирается под объём', () => {
