@@ -530,3 +530,26 @@
 .request-analysis .notice small {
   color: var(--muted);
 }
+/* Что мешает создать программу: каждая проблема с исправлением в один клик. */
+.summary-problems {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.summary-problems li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--error-bg);
+  color: var(--error-ink);
+  font-size: 14px;
+}
+.summary-problems li > span {
+  flex: 1 1 260px;
+}

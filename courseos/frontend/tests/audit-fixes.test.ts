@@ -14,7 +14,7 @@ import { sectionCompleteness } from '../src/entities/course/model/sections';
 import { proposedCalendar } from '../src/entities/course/model/findings';
 import {
   explicitRequestParameters,
-  parameterDiscrepancies,
+  summaryProblems,
 } from '../src/entities/course/model/request-parameters';
 import { scheduleCalculation, scheduleProblems } from '../src/entities/course/model/schedule';
 import { weeklyLoad } from '../src/entities/course/model/hours-plan';
@@ -184,13 +184,13 @@ it('48 ч / три недели: текст, план, календарь, ау�
   const r = preset('bank');
   r.request = r.request.replace('72 часа', '48 часов').replace('4 недели', 'три недели');
   expect(explicitRequestParameters(r.request)).toMatchObject({ hours: '48', weeks: 3 });
-  expect(parameterDiscrepancies(r)).toHaveLength(2);
+  expect(summaryProblems(r).map((p) => p.id)).toEqual(['hours-text', 'weeks-text']);
   r.total_hours = '48';
   r.calendar.calendar_days = 21;
   r.calendar.daily_limit = '4';
   r.calendar.confirmed = true;
   r.calendar.description = '48 часов за три недели';
-  expect(parameterDiscrepancies(r)).toEqual([]);
+  expect(summaryProblems(r)).toEqual([]);
   // Длительность занятия и дневная нагрузка не сравниваются с объёмом курса.
   expect(
     explicitRequestParameters('Интенсив ML за 2 недели, 3 раза в неделю по 3 часа').hours,
@@ -621,4 +621,22 @@ it('явно согласованный новый дневной лимит с�
   const updated = (await api.get(initial.course_id)).snapshot!;
   expect(updated.skeleton.requirements.calendar.daily_limit).toBe('5');
   expect(scheduleProblems(updated.skeleton)).toEqual([]);
+});
+it('проблемы сводки предлагают исправление в один клик', () => {
+  const r = preset('bank');
+  r.request = 'Интенсив ML за 2 недели, 3 раза в неделю по 2 часа';
+  r.total_hours = '12';
+  r.calendar.calendar_days = 14;
+  expect(summaryProblems(r)).toEqual([
+    expect.objectContaining({ id: 'hours-min', fix: { label: 'Сделать 16 ч', total_hours: '16' } }),
+  ]);
+  r.total_hours = '16.3';
+  expect(summaryProblems(r)[0]).toMatchObject({ id: 'hours-step', fix: { total_hours: '16.5' } });
+  r.request = 'Курс на 72 часа за 4 недели';
+  r.total_hours = '80';
+  r.calendar.calendar_days = 21;
+  expect(summaryProblems(r).map((p) => p.fix)).toEqual([
+    { label: 'Взять 72 ч из текста', total_hours: '72' },
+    { label: 'Взять 4 нед. из текста', calendar_days: 28 },
+  ]);
 });

@@ -17,7 +17,7 @@ import {
 } from '../../entities/course/model/schema';
 import { emptyRequirements, presets } from '../../entities/course/model/presets';
 import { missingQuestions } from '../../entities/course/model/factory';
-import { parameterDiscrepancies } from '../../entities/course/model/request-parameters';
+import { summaryProblems, type SummaryFix } from '../../entities/course/model/request-parameters';
 import { CreateReferences } from './create-references';
 import { useDictation } from '../../features/voice-input/use-dictation';
 import { DictationButton } from '../../features/voice-input/dictation-button';
@@ -92,7 +92,7 @@ export function CreateCoursePage() {
   const exampleRequest = presets.find((p) => p.id === (presetId || values.demo_example))
     ?.requirements.request;
   const changedRequest = values.request !== exampleRequest;
-  const discrepancies = parameterDiscrepancies(values);
+  const problems = summaryProblems(values);
   // Короткая выжимка в свёрнутом заголовке: методист видит главное, не раскрывая форму.
   const parameterPreview = [
     { acr_general: 'Общеразвивающая', acr_professional: 'Повышение квалификации' }[
@@ -143,17 +143,27 @@ export function CreateCoursePage() {
     setConfirmationError('');
   };
   const analyzedCurrentRequest = analysis.isSuccess && analysis.variables === values.request;
+  const showProblems =
+    !!problems.length && (analyzedCurrentRequest || form.formState.submitCount > 0);
+  const applyFix = (fix: SummaryFix) => {
+    const options = { shouldDirty: true, shouldValidate: true };
+    if (fix.total_hours) form.setValue('total_hours', fix.total_hours, options);
+    if (fix.calendar_days) {
+      form.setValue('calendar.calendar_days', fix.calendar_days, options);
+      form.setValue('calendar.confirmed', false);
+    }
+  };
   const submit = form.handleSubmit(async (values) => {
     dictation.stop();
-    if (
-      discrepancies.length ||
-      (api.mode === 'demo' && changedRequest && !reviewWithModel && !confirmed)
-    ) {
+    // Проблемы сводки с вариантами исправления показаны под полем запроса.
+    if (problems.length) {
+      if (parametersRef.current) parametersRef.current.open = true;
+      return;
+    }
+    if (api.mode === 'demo' && changedRequest && !reviewWithModel && !confirmed) {
       if (parametersRef.current) parametersRef.current.open = true;
       setConfirmationError(
-        discrepancies.length
-          ? 'Устраните расхождения текста и сводки.'
-          : 'Сверьте и подтвердите параметры. В демо изменённый запрос не анализируется моделью.',
+        'Сверьте и подтвердите параметры. В демо изменённый запрос не анализируется моделью.',
       );
       return;
     }
@@ -332,23 +342,48 @@ export function CreateCoursePage() {
           {analyzedCurrentRequest && analysis.data && !modelStep && (
             <div className="request-analysis">
               <Notice tone="warning">
-                <p>
-                  <strong>Проверьте сводку параметров ниже.</strong> GigaChat заполнил её по запросу
-                  и мог ошибиться. Исправьте поля, если нужно, и нажмите кнопку ✓ справа в поле
-                  запроса — это подтвердит параметры и создаст программу.
-                </p>
+                {problems.length ? (
+                  <p>
+                    <strong>Сводка заполнена, но программу пока нельзя создать.</strong> Исправьте
+                    пункты ниже, затем нажмите кнопку ✓ справа в поле запроса.
+                  </p>
+                ) : (
+                  <p>
+                    <strong>Проверьте сводку параметров ниже.</strong> GigaChat заполнил её по
+                    запросу и мог ошибиться. Если всё верно, нажмите кнопку ✓ справа в поле запроса
+                    — это подтвердит параметры и создаст программу.
+                  </p>
+                )}
                 {analysis.data.corrections.map((correction) => (
                   <p key={correction}>{correction}</p>
                 ))}
                 {!!analysis.data.parameters.missing.length && (
                   <p>
                     Не хватает: {analysis.data.parameters.missing.join('; ')}. Заполните поля сейчас
-                    или ответьте на вопросы агента после отправки.
+                    или ответьте на вопросы агента после создания.
                   </p>
                 )}
                 <small>{describeUsage(analysis.data.usage)}</small>
               </Notice>
             </div>
+          )}
+          {showProblems && (
+            <ul className="summary-problems" aria-label="Что исправить в сводке">
+              {problems.map((problem) => (
+                <li key={problem.id}>
+                  <span>{problem.message}</span>
+                  {problem.fix && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => applyFix(problem.fix!)}
+                    >
+                      {problem.fix.label}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
           {analysis.isError && analysis.variables === values.request && (
             <div className="request-analysis">
@@ -446,9 +481,6 @@ export function CreateCoursePage() {
                 )
               }
             />
-            {!!discrepancies.length && (
-              <Notice tone="warning">{discrepancies.join(' ')} Исправьте текст или поля.</Notice>
-            )}
             {api.mode === 'demo' && changedRequest && !reviewWithModel && (
               <label className="checkbox">
                 <input
