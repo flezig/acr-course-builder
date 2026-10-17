@@ -11,6 +11,8 @@ import {
   generateCourseTest,
   generateFinalAssessment,
   generateTopicMaterials,
+  repairInputSchema,
+  repairTest,
   testInputSchema,
   topicInputSchema,
 } from '../steps/generate-materials.ts';
@@ -190,6 +192,8 @@ export class AgentRunner {
           'Итоговая аттестация',
           await generateFinalAssessment(gateway, finalInputSchema.parse(input)),
         ),
+      repairTest: async (input: unknown) =>
+        track('Доработка теста', await repairTest(gateway, repairInputSchema.parse(input))),
       review: async (input: unknown) =>
         track('Самопроверка', await reviewCourse(gateway, reviewInputSchema.parse(input))),
     };

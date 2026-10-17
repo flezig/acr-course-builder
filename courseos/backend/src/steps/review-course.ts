@@ -92,11 +92,40 @@ function brief(input: ReviewInput) {
   ].join('\n');
 }
 
+const reviewJsonSchema = {
+  name: 'review_course',
+  schema: {
+    type: 'object',
+    properties: {
+      issues: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            severity: { type: 'string', enum: ['error', 'warning'] },
+            element: { type: 'string' },
+            message: { type: 'string' },
+            fix: { type: 'string' },
+          },
+          required: ['severity', 'element', 'message', 'fix'],
+          additionalProperties: false,
+        },
+      },
+      summary: { type: 'string' },
+    },
+    required: ['issues', 'summary'],
+    additionalProperties: false,
+  },
+};
+
 export async function reviewCourse(gateway: LlmGateway, input: ReviewInput) {
-  const { content, usage } = await gateway.chat('review_course', [
-    { role: 'system', content: instructions },
-    { role: 'user', content: brief(input) },
-  ]);
+  const messages = [
+    { role: 'system' as const, content: instructions },
+    { role: 'user' as const, content: brief(input) },
+  ];
+  const { content, usage } = await gateway.chat('review_course', messages, {
+    jsonSchema: reviewJsonSchema,
+  });
   const parsed = reviewAnswerSchema.safeParse(extractJson(content));
   if (!parsed.success)
     throw new LlmError('empty', 'Модель вернула самопроверку не по схеме. Повторите проверку.');

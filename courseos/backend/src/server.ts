@@ -12,6 +12,8 @@ import {
   generateCourseTest,
   generateFinalAssessment,
   generateTopicMaterials,
+  repairInputSchema,
+  repairTest,
   testInputSchema,
   topicInputSchema,
 } from './steps/generate-materials.ts';
@@ -163,6 +165,7 @@ async function handleApi(request: IncomingMessage, response: ServerResponse, pat
     '/api/llm/course-test': [testInputSchema, generateCourseTest],
     '/api/llm/final-assessment': [finalInputSchema, generateFinalAssessment],
     '/api/llm/review-course': [reviewInputSchema, reviewCourse],
+    '/api/llm/repair-test': [repairInputSchema, repairTest],
   } as const;
   if (request.method === 'POST' && path in contentSteps) {
     const [schema, step] = contentSteps[path as keyof typeof contentSteps];

@@ -29,14 +29,12 @@ export const routes = {
   // В тесте важны верные ключи, поэтому температура низкая.
   course_test: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.2, maxTokens: 4096 },
   final_assessment: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.3, maxTokens: 3000 },
-  // Самопроверка — единственный шаг, где точность важнее скорости: ключи тестов и
-  // реалистичность результатов проверяет рассуждающая модель. Рассуждение тратит
-  // токены ответа, поэтому max_tokens максимальный.
-  review_course: {
-    model: 'ai-sage/GigaChat3.5-432B-A28B-Reasoning',
-    temperature: 0,
-    maxTokens: 4096,
-  },
+  // Самопроверку сначала делала рассуждающая модель, но на полном комплекте 72 ч она дважды
+  // истратила все 4096 токенов на рассуждение (≈80 с, 1,5 ₽) и вернула пустой ответ, даже с
+  // reasoning_effort=low. GigaChat-3-Pro со схемой ответа находит те же ошибки ключей за 2–5 с.
+  review_course: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0, maxTokens: 3000 },
+  // Исправление вопросов по замечаниям самопроверки: точность ключей важнее разнообразия.
+  test_repair: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.2, maxTokens: 3000 },
 } satisfies Record<string, StepRoute>;
 
 export type StepId = keyof typeof routes;

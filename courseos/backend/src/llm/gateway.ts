@@ -73,9 +73,12 @@ export class LlmGateway {
     return join(this.options.dataDir, 'llm-calls.jsonl');
   }
 
+  // jsonSchema включает structured output шлюза (vLLM guided decoding): ответ гарантированно
+  // разбирается как JSON по схеме. GigaChat-3-Pro без неё иногда теряет скобку или ключ.
   async chat(
     step: StepId,
     messages: ChatMessage[],
+    options: { jsonSchema?: { name: string; schema: object } } = {},
   ): Promise<{ content: string; usage: CallUsage }> {
     if (!this.available)
       throw new LlmError(
@@ -87,6 +90,14 @@ export class LlmGateway {
       model: route.model,
       temperature: route.temperature,
       max_tokens: route.maxTokens,
+      ...(options.jsonSchema
+        ? {
+            response_format: {
+              type: 'json_schema',
+              json_schema: { ...options.jsonSchema, strict: true },
+            },
+          }
+        : {}),
       messages,
     };
     // Одинаковый запрос не оплачиваем повторно: ответ берётся из сохранённого результата.

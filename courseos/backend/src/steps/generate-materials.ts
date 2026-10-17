@@ -51,6 +51,77 @@ export const topicInputSchema = z.object({
 
 export type TopicInput = z.infer<typeof topicInputSchema>;
 
+// JSON-схемы для structured output шлюза. Они задают только форму ответа;
+// смысловые ограничения (число пунктов, ключи, баллы) проверяют zod-схемы и код ниже.
+const strings = { type: 'array', items: { type: 'string' } } as const;
+const object = (properties: Record<string, object>) => ({
+  type: 'object',
+  properties,
+  required: Object.keys(properties),
+  additionalProperties: false,
+});
+
+const topicJsonSchema = {
+  name: 'topic_materials',
+  schema: object({
+    lecture_points: strings,
+    practice: { anyOf: [object({ title: { type: 'string' }, points: strings }), { type: 'null' }] },
+    self_study_points: strings,
+    slides: {
+      type: 'array',
+      items: object({ title: { type: 'string' }, bullets: strings, notes: { type: 'string' } }),
+    },
+    seminar: object({
+      title: { type: 'string' },
+      task: { type: 'string' },
+      steps: strings,
+      expected: { type: 'string' },
+      criteria: strings,
+    }),
+    control_questions: strings,
+  }),
+};
+
+const testJsonSchema = {
+  name: 'course_test',
+  schema: object({
+    questions: {
+      type: 'array',
+      items: object({
+        text: { type: 'string' },
+        options: strings,
+        correct: { type: 'integer' },
+        explanation: { type: 'string' },
+        outcome: { type: 'string' },
+      }),
+    },
+  }),
+};
+
+const finalJsonSchema = {
+  name: 'final_assessment',
+  schema: object({
+    title: { type: 'string' },
+    description: { type: 'string' },
+    requirements: strings,
+    example_task: { type: 'string' },
+    criteria: {
+      type: 'array',
+      items: object({
+        name: { type: 'string' },
+        max_points: { type: 'integer' },
+        levels: { type: 'string' },
+      }),
+    },
+    pass_threshold: { type: 'integer' },
+    procedure: strings,
+    interview_questions: {
+      type: 'array',
+      items: object({ module: { type: 'integer' }, questions: strings }),
+    },
+  }),
+};
+
 const text = z.string().trim().min(1);
 const list = (min: number, max: number) =>
   z
@@ -154,10 +225,14 @@ function topicBrief(input: TopicInput) {
 }
 
 export async function generateTopicMaterials(gateway: LlmGateway, input: TopicInput) {
-  const { content, usage } = await gateway.chat('topic_materials', [
-    { role: 'system', content: topicInstructions(input) },
-    { role: 'user', content: topicBrief(input) },
-  ]);
+  const { content, usage } = await gateway.chat(
+    'topic_materials',
+    [
+      { role: 'system', content: topicInstructions(input) },
+      { role: 'user', content: topicBrief(input) },
+    ],
+    { jsonSchema: topicJsonSchema },
+  );
   const parsed = topicAnswerSchema.safeParse(extractJson(content));
   if (!parsed.success)
     throw new LlmError(
@@ -211,10 +286,12 @@ export interface TestQuestion {
 
 export async function generateCourseTest(gateway: LlmGateway, input: TestInput) {
   const codes = input.brief.outcomes.map((o) => o.code);
-  const { content, usage } = await gateway.chat('course_test', [
-    {
-      role: 'system',
-      content: `Ты методист Академии цифрового развития. Составь итоговый тест по программе: ровно ${input.question_count} вопросов с одним верным ответом.
+  const { content, usage } = await gateway.chat(
+    'course_test',
+    [
+      {
+        role: 'system',
+        content: `Ты методист Академии цифрового развития. Составь итоговый тест по программе: ровно ${input.question_count} вопросов с одним верным ответом.
 
 Правила:
 ${commonRules}
@@ -225,17 +302,19 @@ ${commonRules}
 
 Верни только JSON без пояснений и Markdown:
 {"questions": [{"text": "...", "options": ["...", "...", "...", "..."], "correct": 2, "explanation": "...", "outcome": "${codes[0]}"}]}`,
-    },
-    {
-      role: 'user',
-      content: [
-        briefText(input.brief),
-        '',
-        'Темы программы:',
-        ...input.topics.map((t) => `${t.number}. ${t.title}`),
-      ].join('\n'),
-    },
-  ]);
+      },
+      {
+        role: 'user',
+        content: [
+          briefText(input.brief),
+          '',
+          'Темы программы:',
+          ...input.topics.map((t) => `${t.number}. ${t.title}`),
+        ].join('\n'),
+      },
+    ],
+    { jsonSchema: testJsonSchema },
+  );
   const parsed = questionAnswerSchema.safeParse(extractJson(content));
   if (!parsed.success)
     throw new LlmError('empty', 'Модель вернула тест не по схеме. Повторите генерацию теста.');
@@ -313,10 +392,12 @@ export type FinalAssessment = z.infer<typeof finalAnswerSchema>;
 
 export async function generateFinalAssessment(gateway: LlmGateway, input: FinalInput) {
   const internship = input.brief.internship;
-  const { content, usage } = await gateway.chat('final_assessment', [
-    {
-      role: 'system',
-      content: `Ты методист Академии цифрового развития. Опиши оценочные материалы итоговой аттестации программы по образцу АЦР («Методические указания к подготовке итоговой аттестации»).
+  const { content, usage } = await gateway.chat(
+    'final_assessment',
+    [
+      {
+        role: 'system',
+        content: `Ты методист Академии цифрового развития. Опиши оценочные материалы итоговой аттестации программы по образцу АЦР («Методические указания к подготовке итоговой аттестации»).
 
 Форма итоговой аттестации задана методистом: ${input.brief.assessment || 'защита итогового проекта'}. Не меняй её.
 
@@ -336,17 +417,19 @@ ${commonRules}
 
 Верни только JSON без пояснений и Markdown:
 {"title": "...", "description": "...", "requirements": ["..."], "example_task": "...", "criteria": [{"name": "...", "max_points": 40, "levels": "..."}], "pass_threshold": 70, "procedure": ["..."], "interview_questions": [{"module": 1, "questions": ["..."]}]}`,
-    },
-    {
-      role: 'user',
-      content: [
-        briefText(input.brief),
-        '',
-        'Модули программы:',
-        ...input.modules.map((m, i) => `${i + 1}. ${m.title}: ${m.topics.join('; ')}`),
-      ].join('\n'),
-    },
-  ]);
+      },
+      {
+        role: 'user',
+        content: [
+          briefText(input.brief),
+          '',
+          'Модули программы:',
+          ...input.modules.map((m, i) => `${i + 1}. ${m.title}: ${m.topics.join('; ')}`),
+        ].join('\n'),
+      },
+    ],
+    { jsonSchema: finalJsonSchema },
+  );
   const parsed = finalAnswerSchema.safeParse(extractJson(content));
   if (!parsed.success)
     throw new LlmError(
@@ -381,4 +464,73 @@ ${commonRules}
         issues.push(`Для модуля «${module.title}» нет вопросов собеседования.`);
     });
   return { final, issues, usage };
+}
+
+export const repairInputSchema = z.object({
+  brief: courseBriefSchema,
+  // Вопросы, к которым самопроверка нашла ошибку: заменяются целиком.
+  replace: z
+    .array(
+      z.object({
+        number: z.number().int().min(1),
+        text: z.string(),
+        options: z.array(z.string()),
+        correct: z.string(),
+        outcome: z.string(),
+        problem: z.string(),
+      }),
+    )
+    .max(20),
+  // Результаты, которые тест не проверяет: для каждого нужен новый вопрос.
+  add: z.array(z.string()).max(20),
+});
+
+export type RepairInput = z.infer<typeof repairInputSchema>;
+
+// Доработка по итогам самопроверки: модель переписывает только отмеченные вопросы
+// и добавляет вопросы по непокрытым результатам; остальной тест не трогается.
+export async function repairTest(gateway: LlmGateway, input: RepairInput) {
+  const codes = input.brief.outcomes.map((o) => o.code);
+  const expected = input.replace.length + input.add.length;
+  const { content, usage } = await gateway.chat(
+    'test_repair',
+    [
+      {
+        role: 'system',
+        content: `Ты методист Академии цифрового развития. Исправь вопросы итогового теста по замечаниям проверки и добавь недостающие.
+
+Верни ровно ${expected} вопросов в таком порядке: сначала исправленные версии вопросов из списка «Исправить» (в том же порядке, с тем же результатом обучения), затем по одному новому вопросу на каждый результат из списка «Добавить».
+
+Правила:
+${commonRules}
+- 4 варианта ответа, ровно один верный; correct — номер верного варианта с 1.
+- outcome — код результата обучения (${codes.join(', ')}).
+- explanation — почему ответ верный.
+
+Верни только JSON без пояснений и Markdown:
+{"questions": [{"text": "...", "options": ["...", "...", "...", "..."], "correct": 1, "explanation": "...", "outcome": "${codes[0]}"}]}`,
+      },
+      {
+        role: 'user',
+        content: [
+          briefText(input.brief),
+          '',
+          'Исправить:',
+          ...(input.replace.length
+            ? input.replace.map(
+                (q) =>
+                  `Вопрос ${q.number} (${q.outcome}): ${q.text} Варианты: ${q.options.join('; ')}. Ключ: ${q.correct}. Замечание: ${q.problem}`,
+              )
+            : ['нет']),
+          'Добавить вопросы по результатам:',
+          input.add.length ? input.add.join(', ') : 'нет',
+        ].join('\n'),
+      },
+    ],
+    { jsonSchema: testJsonSchema },
+  );
+  const parsed = questionAnswerSchema.safeParse(extractJson(content));
+  if (!parsed.success) throw new LlmError('empty', 'Модель вернула исправленный тест не по схеме.');
+  const { questions } = normalizeQuestions(parsed.data.questions, codes, expected);
+  return { questions, usage };
 }
