@@ -10,9 +10,11 @@ import {
   finalInputSchema,
   generateCourseTest,
   generateFinalAssessment,
+  generateProgramSections,
   generateTopicMaterials,
   repairInputSchema,
   repairTest,
+  sectionsInputSchema,
   testInputSchema,
   topicInputSchema,
 } from '../steps/generate-materials.ts';
@@ -220,6 +222,11 @@ export class AgentRunner {
         track(
           'Итоговая аттестация',
           await generateFinalAssessment(gateway, finalInputSchema.parse(input)),
+        ),
+      sections: async (input: unknown) =>
+        track(
+          'Разделы программы',
+          await generateProgramSections(gateway, sectionsInputSchema.parse(input)),
         ),
       repairTest: async (input: unknown) =>
         track('Доработка теста', await repairTest(gateway, repairInputSchema.parse(input))),

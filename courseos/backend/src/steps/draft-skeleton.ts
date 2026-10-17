@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { CallUsage, LlmGateway } from '../llm/gateway.ts';
 import { LlmError } from '../llm/gateway.ts';
-import { extractJson } from './parse-request.ts';
+import { chatStructured } from './structured.ts';
 
 // На итоговую аттестацию каркас всегда отводит 2 ч (см. finalHours во фронтенде),
 // поэтому число тем подбирается под оставшиеся учебные часы.
@@ -73,11 +73,58 @@ const modelAnswerSchema = z.object({
               control: z.string().min(1),
             }),
           )
-          .min(1),
+          // Пустой модуль (модель так оформляет «Итоговую аттестацию») убирает normalizeDesign.
+          .min(0),
       }),
     )
     .min(1),
 });
+
+const strictObject = (properties: Record<string, object>) => ({
+  type: 'object',
+  properties,
+  required: Object.keys(properties),
+  additionalProperties: false,
+});
+const integers = { type: 'array', items: { type: 'integer' } };
+
+// Форма ответа для structured output шлюза; длинный каркас на 256 ч без неё мог
+// прийти с битым JSON. Смысловые ограничения проверяют zod и normalizeDesign.
+const skeletonJsonSchema = {
+  name: 'draft_skeleton',
+  schema: strictObject({
+    goal: { type: 'string' },
+    tasks: { type: 'array', items: { type: 'string' } },
+    outcomes: {
+      type: 'array',
+      items: strictObject({
+        kind: { type: 'string', enum: ['knowledge', 'skill', 'proficiency'] },
+        title: { type: 'string' },
+        description: { type: 'string' },
+        criteria: { type: 'array', items: { type: 'string' } },
+      }),
+    },
+    modules: {
+      type: 'array',
+      items: strictObject({
+        title: { type: 'string' },
+        topics: {
+          type: 'array',
+          items: strictObject({
+            title: { type: 'string' },
+            content: { type: 'string' },
+            profile: { type: 'string', enum: ['intro', 'tool', 'project'] },
+            weight: { type: 'integer' },
+            weight_reason: { type: 'string' },
+            outcomes: integers,
+            prerequisites: integers,
+            control: { type: 'string' },
+          }),
+        },
+      }),
+    },
+  }),
+};
 
 export interface DesignTopic {
   module: number;
@@ -152,14 +199,18 @@ function brief(input: SkeletonInput) {
 }
 
 export async function draftSkeleton(gateway: LlmGateway, input: SkeletonInput) {
-  const { content, usage } = await gateway.chat('draft_skeleton', [
-    { role: 'system', content: instructions(input) },
-    { role: 'user', content: brief(input) },
-  ]);
-  const parsed = modelAnswerSchema.safeParse(extractJson(content));
-  if (!parsed.success)
-    throw new LlmError('empty', 'Модель вернула каркас не по схеме. Попробуйте ещё раз.');
-  const { design, issues } = normalizeDesign(parsed.data, input.total_hours);
+  const { data, usage } = await chatStructured(
+    gateway,
+    'draft_skeleton',
+    [
+      { role: 'system', content: instructions(input) },
+      { role: 'user', content: brief(input) },
+    ],
+    skeletonJsonSchema,
+    modelAnswerSchema,
+    'Модель вернула каркас не по схеме. Попробуйте ещё раз.',
+  );
+  const { design, issues } = normalizeDesign(data, input.total_hours);
   const result: { design: CourseDesign; issues: string[] } = {
     design: { ...design, generated_by: usage },
     issues,

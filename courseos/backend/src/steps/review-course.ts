@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import type { LlmGateway } from '../llm/gateway.ts';
-import { LlmError } from '../llm/gateway.ts';
-import { extractJson } from './parse-request.ts';
+import { chatStructured } from './structured.ts';
 
 // Самопроверка — последний шаг агента. Арифметику часов, покрытие результатов и пустые поля
 // проверяет код правилами; модель ищет только смысловые проблемы, которые правилом
@@ -123,11 +122,13 @@ export async function reviewCourse(gateway: LlmGateway, input: ReviewInput) {
     { role: 'system' as const, content: instructions },
     { role: 'user' as const, content: brief(input) },
   ];
-  const { content, usage } = await gateway.chat('review_course', messages, {
-    jsonSchema: reviewJsonSchema,
-  });
-  const parsed = reviewAnswerSchema.safeParse(extractJson(content));
-  if (!parsed.success)
-    throw new LlmError('empty', 'Модель вернула самопроверку не по схеме. Повторите проверку.');
-  return { ...parsed.data, usage };
+  const { data, usage } = await chatStructured(
+    gateway,
+    'review_course',
+    messages,
+    reviewJsonSchema,
+    reviewAnswerSchema,
+    'Модель вернула самопроверку не по схеме. Повторите проверку.',
+  );
+  return { ...data, usage };
 }

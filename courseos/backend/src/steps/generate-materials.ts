@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import type { CallUsage, LlmGateway } from '../llm/gateway.ts';
-import { LlmError } from '../llm/gateway.ts';
-import { extractJson } from './parse-request.ts';
+import { chatStructured } from './structured.ts';
 
 // Материалы генерируются после утверждения каркаса по частям: тема за вызов, отдельно тест
 // и итоговая аттестация. Так ответ укладывается в max_tokens шлюза (4096), а ошибка одной
@@ -225,21 +224,18 @@ function topicBrief(input: TopicInput) {
 }
 
 export async function generateTopicMaterials(gateway: LlmGateway, input: TopicInput) {
-  const { content, usage } = await gateway.chat(
+  const { data, usage } = await chatStructured(
+    gateway,
     'topic_materials',
     [
       { role: 'system', content: topicInstructions(input) },
       { role: 'user', content: topicBrief(input) },
     ],
-    { jsonSchema: topicJsonSchema },
+    topicJsonSchema,
+    topicAnswerSchema,
+    `Модель вернула материалы темы «${input.topic.title}» не по схеме. Повторите генерацию темы.`,
   );
-  const parsed = topicAnswerSchema.safeParse(extractJson(content));
-  if (!parsed.success)
-    throw new LlmError(
-      'empty',
-      `Модель вернула материалы темы «${input.topic.title}» не по схеме. Повторите генерацию темы.`,
-    );
-  const materials = parsed.data;
+  const materials = data;
   // Слайды и пункты лекции без лекционных часов не нужны: их часы утверждены в каркасе.
   if (input.topic.hours.lecture === 0) materials.lecture_points = [];
   if (input.topic.hours.lecture === 0 && !input.brief.internship) materials.slides = [];
@@ -286,7 +282,8 @@ export interface TestQuestion {
 
 export async function generateCourseTest(gateway: LlmGateway, input: TestInput) {
   const codes = input.brief.outcomes.map((o) => o.code);
-  const { content, usage } = await gateway.chat(
+  const { data, usage } = await chatStructured(
+    gateway,
     'course_test',
     [
       {
@@ -313,12 +310,11 @@ ${commonRules}
         ].join('\n'),
       },
     ],
-    { jsonSchema: testJsonSchema },
+    testJsonSchema,
+    questionAnswerSchema,
+    'Модель вернула тест не по схеме. Повторите генерацию теста.',
   );
-  const parsed = questionAnswerSchema.safeParse(extractJson(content));
-  if (!parsed.success)
-    throw new LlmError('empty', 'Модель вернула тест не по схеме. Повторите генерацию теста.');
-  return { ...normalizeQuestions(parsed.data.questions, codes, input.question_count), usage };
+  return { ...normalizeQuestions(data.questions, codes, input.question_count), usage };
 }
 
 // Код не доверяет ключам модели: номер ответа должен существовать, варианты — различаться,
@@ -392,7 +388,8 @@ export type FinalAssessment = z.infer<typeof finalAnswerSchema>;
 
 export async function generateFinalAssessment(gateway: LlmGateway, input: FinalInput) {
   const internship = input.brief.internship;
-  const { content, usage } = await gateway.chat(
+  const { data, usage } = await chatStructured(
+    gateway,
     'final_assessment',
     [
       {
@@ -428,16 +425,12 @@ ${commonRules}
         ].join('\n'),
       },
     ],
-    { jsonSchema: finalJsonSchema },
+    finalJsonSchema,
+    finalAnswerSchema,
+    'Модель вернула итоговую аттестацию не по схеме. Повторите генерацию.',
   );
-  const parsed = finalAnswerSchema.safeParse(extractJson(content));
-  if (!parsed.success)
-    throw new LlmError(
-      'empty',
-      'Модель вернула итоговую аттестацию не по схеме. Повторите генерацию.',
-    );
   const issues: string[] = [];
-  const final = parsed.data;
+  const final = data;
   const total = final.criteria.reduce((sum, c) => sum + c.max_points, 0);
   // Баллы по критериям складывает код: при расхождении шкала приводится к 100 пропорционально.
   if (total !== 100) {
@@ -492,7 +485,8 @@ export type RepairInput = z.infer<typeof repairInputSchema>;
 export async function repairTest(gateway: LlmGateway, input: RepairInput) {
   const codes = input.brief.outcomes.map((o) => o.code);
   const expected = input.replace.length + input.add.length;
-  const { content, usage } = await gateway.chat(
+  const { data, usage } = await chatStructured(
+    gateway,
     'test_repair',
     [
       {
@@ -527,10 +521,88 @@ ${commonRules}
         ].join('\n'),
       },
     ],
-    { jsonSchema: testJsonSchema },
+    testJsonSchema,
+    questionAnswerSchema,
+    'Модель вернула исправленный тест не по схеме.',
   );
-  const parsed = questionAnswerSchema.safeParse(extractJson(content));
-  if (!parsed.success) throw new LlmError('empty', 'Модель вернула исправленный тест не по схеме.');
-  const { questions } = normalizeQuestions(parsed.data.questions, codes, expected);
+  const { questions } = normalizeQuestions(data.questions, codes, expected);
   return { questions, usage };
+}
+
+export const sectionsInputSchema = z.object({
+  brief: courseBriefSchema,
+  topics: z.array(z.string()).min(1).max(40),
+});
+
+export type SectionsInput = z.infer<typeof sectionsInputSchema>;
+
+const sectionsAnswerSchema = z.object({
+  relevance: text,
+  methodical: text,
+  organization: text,
+  environment: list(1, 12),
+  literature: z
+    .array(
+      z.object({
+        group: z.enum(['main', 'additional', 'internet']).catch('additional'),
+        citation: text,
+      }),
+    )
+    .transform((items) => items.slice(0, 12)),
+});
+
+export type ProgramSections = z.infer<typeof sectionsAnswerSchema>;
+
+const sectionsJsonSchema = {
+  name: 'program_sections',
+  schema: object({
+    relevance: { type: 'string' },
+    methodical: { type: 'string' },
+    organization: { type: 'string' },
+    environment: strings,
+    literature: {
+      type: 'array',
+      items: object({
+        group: { type: 'string', enum: ['main', 'additional', 'internet'] },
+        citation: { type: 'string' },
+      }),
+    },
+  }),
+};
+
+// Текстовые разделы программы по образцам АЦР. Литературу модель только предлагает:
+// в программе она идёт с пометкой «не подтверждён», пока методист не проверит издание.
+export async function generateProgramSections(gateway: LlmGateway, input: SectionsInput) {
+  const { data, usage } = await chatStructured(
+    gateway,
+    'program_sections',
+    [
+      {
+        role: 'system',
+        content: `Ты методист Академии цифрового развития. Напиши текстовые разделы программы по образцам АЦР.
+
+Поля ответа:
+- relevance — «Актуальность»: 3–5 предложений, почему программа нужна этим слушателям сейчас;
+- methodical — «Методические рекомендации»: как вести занятия (соотношение теории и практики, разбор примеров, обратная связь, работа с ошибками), 4–6 предложений;
+- organization — «Организация образовательного процесса»: формат занятий${input.brief.internship ? ', роль руководителя стажировки и наставника, отчётность' : ''}, использование ЭО и ДОТ, 3–5 предложений;
+- environment — программное обеспечение и сервисы для занятий с версиями, только существующие и доступные в России;
+- literature — 4–8 источников: group — main (основная литература), additional (дополнительная) или internet (интернет-ресурсы, официальная документация); citation — библиографическая запись. Предлагай только книги и документацию, в существовании которых уверен; источники проверит методист.
+
+Правила:
+${commonRules}
+
+Верни только JSON без пояснений и Markdown.`,
+      },
+      {
+        role: 'user',
+        content: [briefText(input.brief), '', 'Темы:', ...input.topics.map((t) => `- ${t}`)].join(
+          '\n',
+        ),
+      },
+    ],
+    sectionsJsonSchema,
+    sectionsAnswerSchema,
+    'Модель вернула разделы программы не по схеме. Повторите генерацию.',
+  );
+  return { sections: data, usage };
 }

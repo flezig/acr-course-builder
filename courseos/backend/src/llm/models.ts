@@ -28,6 +28,7 @@ export const routes = {
   topic_materials: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.5, maxTokens: 3500 },
   // В тесте важны верные ключи, поэтому температура низкая.
   course_test: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.2, maxTokens: 4096 },
+  program_sections: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.4, maxTokens: 3000 },
   final_assessment: { model: 'GigaChat/GigaChat-3-Pro', temperature: 0.3, maxTokens: 3000 },
   // Самопроверку сначала делала рассуждающая модель, но на полном комплекте 72 ч она дважды
   // истратила все 4096 токенов на рассуждение (≈80 с, 1,5 ₽) и вернула пустой ответ, даже с

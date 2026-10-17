@@ -121,6 +121,15 @@ function answer(system: string, user: string): object {
       procedure: ['Доклад'],
       interview_questions: [],
     };
+  if (system.includes('текстовые разделы программы'))
+    return {
+      relevance: 'Нужна',
+      methodical: 'Практика',
+      organization: 'Очно-заочно',
+      environment: ['Python 3.12'],
+      literature: [{ group: 'main', citation: 'Книга' }],
+    };
+  if (system.includes('Исправь вопросы итогового теста')) return { questions: [] };
   if (system.includes('эксперт-методист'))
     return {
       issues: [
@@ -193,6 +202,10 @@ test('один вызов проводит запрос через все шаг
     10,
   );
   assert.equal(course.generation.review.issues.length, 1);
+  const literature = course.sections.find(
+    (s: { title: string }) => s.title === '3.2.2 Основная литература',
+  );
+  assert.match(literature.content, /\[НЕ ПОДТВЕРЖДЁН\] Книга/);
   assert.ok(view.usage.cost_rub > 0);
 });
 

@@ -1,5 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { LlmGateway } from '../src/llm/gateway.ts';
 import { normalizeQuestions } from '../src/steps/clarify-questions.ts';
 import { draftSkeleton, normalizeDesign, topicRange } from '../src/steps/draft-skeleton.ts';
 
@@ -171,4 +175,48 @@ test('вопросы о полях сводки (аттестация, объё�
       ['model-2', 'Какие источники данных использовать на практике?'],
     ],
   );
+});
+
+test('пустой модуль итоговой аттестации от модели не отвергает каркас', async () => {
+  const gateway = new LlmGateway({
+    baseUrl: 'http://gateway.test',
+    apiKey: 'test',
+    dataDir: await mkdtemp(join(tmpdir(), 'courseos-')),
+    fetch: async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  goal: 'Цель',
+                  tasks: ['Задача'],
+                  outcomes: [outcome('Настраивает Linux'), outcome('Собирает CI/CD')],
+                  modules: [
+                    { title: 'Linux', topics: [topic('Права', [1]), topic('Сети', [1])] },
+                    { title: 'CI/CD', topics: [topic('Пайплайн', [2]), topic('Мониторинг', [2])] },
+                    { title: 'Итоговая аттестация', topics: [] },
+                  ],
+                }),
+              },
+            },
+          ],
+          usage: { prompt_tokens: 100, completion_tokens: 100 },
+        }),
+      ),
+  });
+  const { design } = await draftSkeleton(gateway, {
+    request: 'DevOps',
+    title: 'DevOps',
+    template_id: 'acr_professional',
+    audience: '',
+    entry_level: '',
+    goal: '',
+    total_hours: 24,
+    delivery: '',
+    assessment: '',
+    constraints: '',
+    answers: [],
+  });
+  assert.deepEqual(design.module_titles, ['Linux', 'CI/CD']);
 });

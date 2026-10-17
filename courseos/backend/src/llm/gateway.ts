@@ -78,7 +78,7 @@ export class LlmGateway {
   async chat(
     step: StepId,
     messages: ChatMessage[],
-    options: { jsonSchema?: { name: string; schema: object } } = {},
+    options: { jsonSchema?: { name: string; schema: object }; seed?: number } = {},
   ): Promise<{ content: string; usage: CallUsage }> {
     if (!this.available)
       throw new LlmError(
@@ -98,6 +98,7 @@ export class LlmGateway {
             },
           }
         : {}),
+      ...(options.seed ? { seed: options.seed } : {}),
       messages,
     };
     // Одинаковый запрос не оплачиваем повторно: ответ берётся из сохранённого результата.

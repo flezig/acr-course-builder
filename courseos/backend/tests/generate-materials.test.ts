@@ -142,3 +142,44 @@ test('аттестация: баллы критериев приводятся �
   assert.equal(final.pass_threshold, 70);
   assert.equal(issues.length, 2);
 });
+
+test('оборванный JSON повторяется один раз с другим seed, расход суммируется', async () => {
+  const seeds: unknown[] = [];
+  const gateway = new LlmGateway({
+    baseUrl: 'http://gateway.test',
+    apiKey: 'test',
+    dataDir: await mkdtemp(join(tmpdir(), 'courseos-')),
+    fetch: async (_url, init) => {
+      const body = JSON.parse(String(init!.body));
+      seeds.push(body.seed);
+      const content = body.seed
+        ? JSON.stringify({
+            title: 'Защита',
+            description: 'Отчёт',
+            requirements: ['Ноутбук', 'Записка'],
+            example_task: 'Отток',
+            criteria: [
+              { name: 'Данные', max_points: 50, levels: '…' },
+              { name: 'Выводы', max_points: 50, levels: '…' },
+            ],
+            pass_threshold: 70,
+            procedure: ['Доклад'],
+            interview_questions: [],
+          })
+        : '{"title": "Защита", "description": "Отчёт"' + ' '.repeat(50);
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content } }],
+          usage: { prompt_tokens: 1000, completion_tokens: 1000 },
+        }),
+      );
+    },
+  });
+  const { final, usage } = await generateFinalAssessment(gateway, {
+    brief,
+    modules: [{ title: 'Основы', topics: ['Очистка'] }],
+  });
+  assert.deepEqual(seeds, [undefined, 1]);
+  assert.equal(final.title, 'Защита');
+  assert.equal(usage.prompt_tokens, 2000);
+});
