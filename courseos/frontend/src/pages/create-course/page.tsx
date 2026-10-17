@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowUp, Loader2, ChevronDown, Trash2 } from 'lucide-react';
+import { ArrowRight, ArrowUp, Loader2, ChevronDown, Sparkles, Trash2 } from 'lucide-react';
 import {
   useApi,
   useCommand,
@@ -15,6 +15,12 @@ import { parameterDiscrepancies } from '../../entities/course/model/request-para
 import { CreateReferences } from './create-references';
 import { useDictation } from '../../features/voice-input/use-dictation';
 import { DictationButton } from '../../features/voice-input/dictation-button';
+import {
+  describeUsage,
+  useModelAvailability,
+  useRequestAnalysis,
+  type RequestAnalysis,
+} from '../../features/request-analysis/request-analysis';
 import { ProfessionalStandardFields } from '../../features/professional-standard/professional-standard-fields';
 import { isProfessionalStandardReference } from '../../entities/course/model/professional-standards';
 import { contentHash } from '../../shared/lib/decimal';
@@ -30,6 +36,8 @@ export function CreateCoursePage() {
   const [presetId, setPresetId] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [confirmationError, setConfirmationError] = useState('');
+  const modelAvailable = useModelAvailability().data === true;
+  const analysis = useRequestAnalysis();
   const formRef = useRef<HTMLFormElement>(null);
   const parametersRef = useRef<HTMLDetailsElement>(null);
   const form = useForm<Requirements>({
@@ -81,6 +89,38 @@ export function CreateCoursePage() {
   useEffect(() => {
     setConfirmed(false);
   }, [values.request]);
+  // Модель только предлагает значения сводки: методист сверяет их и подтверждает сам.
+  const analyzeRequest = async () => {
+    dictation.stop();
+    const request = form.getValues('request');
+    let result: RequestAnalysis;
+    try {
+      result = await analysis.mutateAsync(request);
+    } catch {
+      return; /* Ошибка показывается под кнопкой, поля остаются как были. */
+    }
+    if (form.getValues('request') !== request) return;
+    const { parameters } = result;
+    const options = { shouldDirty: true, shouldValidate: true };
+    for (const field of [
+      'title',
+      'template_id',
+      'audience',
+      'entry_level',
+      'goal',
+      'total_hours',
+      'delivery',
+      'assessment',
+      'constraints',
+    ] as const)
+      form.setValue(field, parameters[field], options);
+    form.setValue('calendar.daily_limit', parameters.daily_limit, options);
+    if (parameters.weeks) form.setValue('calendar.calendar_days', Math.round(parameters.weeks * 7));
+    form.setValue('calendar.confirmed', false);
+    setConfirmationError('');
+    if (parametersRef.current) parametersRef.current.open = true;
+  };
+  const analyzedCurrentRequest = analysis.isSuccess && analysis.variables === values.request;
   const submit = form.handleSubmit(async (values) => {
     dictation.stop();
     if (discrepancies.length || (api.mode === 'demo' && changedRequest && !confirmed)) {
@@ -88,7 +128,9 @@ export function CreateCoursePage() {
       setConfirmationError(
         discrepancies.length
           ? 'Устраните расхождения текста и сводки.'
-          : 'Сверьте и подтвердите параметры. В демо изменённый запрос не анализируется моделью.',
+          : modelAvailable
+            ? 'Сверьте и подтвердите параметры изменённого запроса.'
+            : 'Сверьте и подтвердите параметры. В демо изменённый запрос не анализируется моделью.',
       );
       return;
     }
@@ -140,6 +182,7 @@ export function CreateCoursePage() {
   const choose = (id: string) => {
     setPresetId(id);
     setConfirmationError('');
+    analysis.reset();
     form.reset({
       ...structuredClone(presets.find((p) => p.id === id)!.requirements),
       demo_example: id as Requirements['demo_example'],
@@ -198,6 +241,36 @@ export function CreateCoursePage() {
             />
           </Field>
           {dictation.error && <Notice tone="error">{dictation.error}</Notice>}
+          {modelAvailable && (
+            <div className="request-analysis">
+              <button
+                type="button"
+                className="secondary"
+                disabled={!values.request.trim() || analysis.isPending}
+                onClick={analyzeRequest}
+              >
+                {analysis.isPending ? (
+                  <Loader2 className="spin" size={16} />
+                ) : (
+                  <Sparkles size={16} />
+                )}
+                {analysis.isPending ? 'GigaChat разбирает запрос…' : 'Заполнить сводку по запросу'}
+              </button>
+              {analyzedCurrentRequest && analysis.data && (
+                <Notice>
+                  <p>Сводка заполнена моделью по тексту запроса. Сверьте поля перед отправкой.</p>
+                  {analysis.data.corrections.map((correction) => (
+                    <p key={correction}>{correction}</p>
+                  ))}
+                  {!!analysis.data.parameters.missing.length && (
+                    <p>Не хватает: {analysis.data.parameters.missing.join('; ')}.</p>
+                  )}
+                  <small>{describeUsage(analysis.data.usage)}</small>
+                </Notice>
+              )}
+              <ErrorMessage error={analysis.error} />
+            </div>
+          )}
           <details className="parameter-summary" ref={parametersRef}>
             <summary>
               <span className="parameter-summary-heading">
@@ -207,9 +280,13 @@ export function CreateCoursePage() {
               <ChevronDown size={18} aria-hidden="true" />
             </summary>
             <p>
-              {api.mode === 'demo'
-                ? 'Значения примера можно изменить вручную. Демо не анализирует изменённый запрос; сверьте все поля с текстом.'
-                : 'Проверьте параметры перед отправкой на сервер.'}
+              {api.mode !== 'demo'
+                ? 'Проверьте параметры перед отправкой на сервер.'
+                : analyzedCurrentRequest
+                  ? 'Поля заполнены GigaChat по тексту запроса. Модель могла ошибиться: сверьте каждое значение.'
+                  : modelAvailable
+                    ? 'Заполните поля по тексту запроса кнопкой выше или вручную, затем сверьте их.'
+                    : 'Значения примера можно изменить вручную. Демо не анализирует изменённый запрос; сверьте все поля с текстом.'}
             </p>
             <div className="form-grid">
               <Field label="Название программы">

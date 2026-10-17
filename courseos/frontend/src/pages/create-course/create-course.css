@@ -510,3 +510,23 @@
 .create-references > .notice {
   margin: 8px 0 0;
 }
+/* Разбор запроса моделью: кнопка под полем запроса и результат с расходом токенов. */
+.request-analysis {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.request-analysis > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.request-analysis .notice {
+  justify-self: stretch;
+}
+.request-analysis .notice p {
+  margin: 0 0 4px;
+}
+.request-analysis .notice small {
+  color: var(--muted);
+}
