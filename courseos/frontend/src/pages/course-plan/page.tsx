@@ -840,8 +840,10 @@ function Clarifications({ view }: { view: CourseView }) {
                 <legend>{question.label}</legend>
                 <p>{question.reason}</p>
                 <Field label="Вариант ответа">
+                  {/* Ошибка «Заполните поле» показывается у элемента с именем ответа:
+                      при своём варианте это поле ввода, а не уже сделанный выбор в списке. */}
                   <select
-                    name={field}
+                    name={custom ? undefined : field}
                     aria-label={question.label}
                     value={custom ? 'custom' : answer}
                     onChange={(event) => {
@@ -867,6 +869,7 @@ function Clarifications({ view }: { view: CourseView }) {
                 {custom && (
                   <Field label="Свой вариант">
                     <input
+                      name={field}
                       aria-label={`Свой вариант: ${question.label}`}
                       value={answer}
                       placeholder="Напишите свой ответ"
