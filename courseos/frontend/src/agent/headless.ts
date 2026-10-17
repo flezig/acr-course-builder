@@ -3,7 +3,7 @@
 // интерфейсе: каркас → утверждение → материалы → аудит. Хранилище — в памяти процесса.
 import { DemoCourseApi } from '../entities/course/api/demo-course-api';
 import type { ContentSteps } from '../entities/course/model/content-generation';
-import { skeletonSchema } from '../entities/course/model/schema';
+import { changeInputSchema, skeletonSchema } from '../entities/course/model/schema';
 import { userReference } from '../entities/course/model/user-reference';
 import { emptyRequirements } from '../entities/course/model/presets';
 import { professionalStandardReferences } from '../entities/course/model/professional-standards';
@@ -480,6 +480,7 @@ export interface SkeletonReview {
 }
 
 export type FindingDecision =
+  | { action: 'edit_material'; issue_id: string; change: unknown }
   | { action: 'save_skeleton'; issue_id: string; skeleton: unknown }
   | { action: 'recheck_materials'; issue_id: string }
   | { action: 'apply_finding'; issue_id: string }
@@ -505,6 +506,23 @@ export async function reviewFinding(
   decision: FindingDecision,
 ) {
   const snapshot = await reviewedSnapshot(api, courseId, review);
+  if (decision.action === 'edit_material') {
+    const preview = await api.command({
+      course_id: courseId,
+      expected_version: snapshot.course_version,
+      request_id: crypto.randomUUID(),
+      action: 'change_preview',
+      payload: changeInputSchema.parse(decision.change),
+    });
+    await api.command({
+      course_id: courseId,
+      expected_version: snapshot.course_version,
+      request_id: crypto.randomUUID(),
+      action: 'change_apply',
+      payload: { change_id: preview.change_plan!.id, overwrite_manual: true },
+    });
+    return (await api.get(courseId)).snapshot!;
+  }
   if (decision.action === 'save_skeleton') {
     await api.command({
       course_id: courseId,

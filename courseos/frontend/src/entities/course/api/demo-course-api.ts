@@ -1065,7 +1065,14 @@ export class DemoCourseApi implements CourseApi {
             break;
           }
           case 'change_preview': {
-            if (!base?.materials.length || !base.approval_applicable)
+            // Замечания к качеству блокируют выпуск, но не исправление материалов
+            // уже утверждённого каркаса.
+            const approvedSkeleton = base?.approvals.some(
+              (approval) =>
+                approval.skeleton_hash === base.skeleton_hash &&
+                approval.skeleton_version === base.skeleton_version,
+            );
+            if (!base?.materials.length || !approvedSkeleton)
               throw new ApiError(
                 409,
                 'Сначала утвердите структуру программы и подготовьте материалы.',

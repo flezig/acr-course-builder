@@ -61,6 +61,11 @@ export const skeletonReviewSchema = z.object({
 export const findingReviewSchema = skeletonReviewSchema.extend({
   decision: z.discriminatedUnion('action', [
     z.object({
+      action: z.literal('edit_material'),
+      issue_id: z.literal('material').default('material'),
+      change: z.unknown(),
+    }),
+    z.object({
       action: z.literal('save_skeleton'),
       issue_id: z.literal('skeleton').default('skeleton'),
       skeleton: z.unknown(),
@@ -177,6 +182,7 @@ export function summaryGaps(parameters: ParsedRequest): {
 
 // Интерфейс бандла движка; типы самого движка живут во фронтенде.
 interface EngineSnapshot extends Omit<SnapshotLike, 'audit'> {
+  approvals: Array<{ skeleton_hash: string; skeleton_version: number }>;
   materials: Array<{
     id: string;
     type: string;
@@ -379,6 +385,8 @@ export class AgentRunner {
     if (!current) return null;
     const { run } = current;
     const materialReview = !!run.result.generation;
+    let designChanged = false;
+    let awaitingApproval = !materialReview;
     const done = this.enqueue(run, async () => {
       const pending = await this.restore(run);
       try {
@@ -390,6 +398,12 @@ export class AgentRunner {
           pending.courseId,
           input,
           input.decision,
+        );
+        designChanged = snapshot.skeleton_hash !== before.hash;
+        awaitingApproval = !snapshot.approvals.some(
+          (approval) =>
+            approval.skeleton_hash === snapshot.skeleton_hash &&
+            approval.skeleton_version === snapshot.skeleton_version,
         );
         run.result.skeleton = skeletonView(
           snapshot,
@@ -408,13 +422,15 @@ export class AgentRunner {
             issue_id: input.decision.issue_id,
             issue: issue?.message,
             action:
-              input.decision.action === 'save_skeleton'
-                ? 'edited_skeleton'
-                : input.decision.action === 'recheck_materials'
-                  ? 'rechecked'
-                  : input.decision.action === 'apply_finding'
-                    ? 'applied'
-                    : 'accepted_as_is',
+              input.decision.action === 'edit_material'
+                ? 'edited_material'
+                : input.decision.action === 'save_skeleton'
+                  ? 'edited_skeleton'
+                  : input.decision.action === 'recheck_materials'
+                    ? 'rechecked'
+                    : input.decision.action === 'apply_finding'
+                      ? 'applied'
+                      : 'accepted_as_is',
             reason:
               input.decision.action === 'dismiss_finding'
                 ? input.decision.reason
@@ -422,7 +438,7 @@ export class AgentRunner {
             actor: 'methodist-api',
           },
         ];
-        if (input.decision.action === 'save_skeleton')
+        if (designChanged || input.decision.action === 'save_skeleton')
           run.result.approval = { mode: 'human', human_approved: false };
         if (materialReview) {
           const files = await engine.exportReviewed(pending.api, pending.courseId);
@@ -446,7 +462,10 @@ export class AgentRunner {
         throw new AgentReviewError(error instanceof Error ? error.message : String(error));
       } finally {
         run.status =
-          materialReview && input.decision.action !== 'save_skeleton'
+          materialReview &&
+          !awaitingApproval &&
+          !designChanged &&
+          input.decision.action !== 'save_skeleton'
             ? (run.result.audit as EngineSnapshot['audit'])?.technical_ready
               ? 'succeeded'
               : 'needs_review'

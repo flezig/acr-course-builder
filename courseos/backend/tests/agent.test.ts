@@ -588,3 +588,54 @@ test('методист редактирует полный каркас и ут�
   assert.equal(await agent.approve(run.run_id, reviewedVersion(before)), null);
   assert.equal(after.approval.human_approved, false);
 });
+
+test(
+  'правка вопроса обновляет выгрузки и требует повторной самопроверки без закрытия блокера',
+  { skip },
+  async () => {
+    const agent = await runner({ seriousReview: true });
+    let run = await agent.start(
+      agentRequestSchema.parse({ request: 'Программа на 72 часа, очно-заочно', approve: true }),
+    );
+    let view = agent.view(run) as any;
+    run = (await agent.review(run.run_id, {
+      ...reviewedVersion(view),
+      decision: {
+        action: 'edit_material',
+        issue_id: 'material',
+        change: {
+          type: 'question',
+          target_id: 'question-1',
+          request: 'Устранить противоречие ключа и объяснения',
+          replacement: 'Что выведет print(2 + 2)?',
+          options: ['3', '4', '5'],
+          correct_index: 1,
+          explanation: 'Сумма двух целых чисел 2 и 2 равна 4.',
+          manual: true,
+        },
+      },
+    }))!;
+    view = agent.view(run) as any;
+    const json = JSON.parse((await agent.file(run.run_id, 'course.json'))!.body.toString());
+    const question = json.materials.find((m: any) => m.type === 'test').questions[0];
+    assert.equal(question.correct_index, 1);
+    assert.equal(question.explanation, 'Сумма двух целых чисел 2 и 2 равна 4.');
+    assert.equal(
+      view.audit.checks.find((check: any) => check.id === 'content-review').status,
+      'failed',
+    );
+    run = (await agent.review(run.run_id, {
+      ...reviewedVersion(view),
+      decision: { action: 'recheck_materials', issue_id: 'quality' },
+    }))!;
+    view = agent.view(run) as any;
+    assert.equal(
+      view.audit.checks.find((check: any) => check.id === 'content-review').status,
+      'passed',
+    );
+    assert.equal(
+      view.audit.issues.find((issue: any) => issue.id === 'llm-review-1').blocking,
+      true,
+    );
+  },
+);
