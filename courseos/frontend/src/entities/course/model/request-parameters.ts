@@ -2,9 +2,16 @@ import type { Requirements } from './schema';
 
 // Это только поиск явных чисел для сверки, а не анализ свободного запроса моделью.
 export function explicitRequestParameters(request: string) {
-  const hours = request
-    .match(/(?:на\s+|объ[её]м\s*)?(\d+(?:[.,]\d+)?)\s*(?:час(?:а|ов)?|ч\b)/i)?.[1]
-    ?.replace(',', '.');
+  // Длительность занятия («по 3 часа») и нагрузка («4 часа в день») — не объём курса.
+  // Если в тексте несколько разных объёмов, сверять не с чем: расхождение не показываем.
+  const totals = new Set(
+    [
+      ...request.matchAll(
+        /(?<!по\s)(\d+(?:[.,]\d+)?)\s*(?:академических\s+)?(?:часов|часа|час|ч)(?![а-яё])(?!\s*(?:в|за|\/)\s*(?:день|сутки|недел|занят))/gi,
+      ),
+    ].map((match) => match[1].replace(',', '.')),
+  );
+  const hours = totals.size === 1 ? [...totals][0] : undefined;
   const weeksText = request
     .match(/(\d+|одн[ау]|дв[ае]|три|четыре|пять|шесть|восемь)\s+недел/i)?.[1]
     ?.toLowerCase();

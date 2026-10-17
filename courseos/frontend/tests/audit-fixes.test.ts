@@ -191,6 +191,11 @@ it('48 ч / три недели: текст, план, календарь, ау�
   r.calendar.confirmed = true;
   r.calendar.description = '48 часов за три недели';
   expect(parameterDiscrepancies(r)).toEqual([]);
+  // Длительность занятия и дневная нагрузка не сравниваются с объёмом курса.
+  expect(
+    explicitRequestParameters('Интенсив ML за 2 недели, 3 раза в неделю по 3 часа').hours,
+  ).toBeUndefined();
+  expect(explicitRequestParameters('Курс на 72 часа, не больше 4 часов в день').hours).toBe('72');
   const snapshot = await start(r);
   expect(sumHours(Object.values(hourTotals(snapshot.skeleton)))).toBe('48');
   expect(weeklyLoad(snapshot.skeleton)).toEqual([]);
