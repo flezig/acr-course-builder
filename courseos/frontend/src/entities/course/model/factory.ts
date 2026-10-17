@@ -1,4 +1,4 @@
-import { contentQuestions } from './demo-clarifications';
+import { demoContentQuestions } from './demo-clarifications';
 import { devopsInterviews } from './devops-interviews';
 import { demoQuestions } from './demo-questions';
 import { bankDatasets, bankSeminars } from './bank-materials';
@@ -82,7 +82,7 @@ export function makeSkeleton(requirements: Requirements, previous?: Skeleton): S
   };
   const kind = scenarioKind(requirements);
   const design = structuredClone(scenarioTopics(kind, requirements));
-  for (const question of contentQuestions(requirements)) {
+  for (const question of demoContentQuestions(requirements)) {
     const answer = requirements.clarification_answers?.[question.id]?.trim();
     if (!answer) continue;
     const topic = design[question.topic - 1];

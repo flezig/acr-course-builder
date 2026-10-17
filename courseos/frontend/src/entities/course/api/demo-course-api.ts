@@ -1,5 +1,5 @@
 import { scheduleCalculation } from '../model/schedule';
-import { unansweredContentQuestions } from '../model/demo-clarifications';
+import { contentQuestions, unansweredContentQuestions } from '../model/demo-clarifications';
 import { isProfessionalStandardReference } from '../model/professional-standards';
 import { isElementEdit, previewElementEdit } from '../model/material-edit';
 import { assessmentMaterial } from '../model/material-readiness';
@@ -681,8 +681,10 @@ export class DemoCourseApi implements CourseApi {
               new Decimal(course.requirements.total_hours).gt(500)
             )
               throw new ApiError(422, 'Объём — от 16 до 500 часов.');
-            if (course.requirements.demo_example)
+            if (contentQuestions(course.requirements).length)
               course.requirements.clarification_answers = clarified.clarification_answers;
+            // Каркас своего запроса модель проектирует уже с ответами на вопросы.
+            if (next.model_design) course.requirements.model_design = next.model_design;
             course.job = makeJob(id, 'clarify', envelope.request_id);
             break;
           }

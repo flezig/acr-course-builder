@@ -2,7 +2,9 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { ApiError } from '../../shared/api/http';
 import {
+  clarifyingQuestionSchema,
   modelDesignSchema,
+  type ClarifyingQuestion,
   type ModelDesign,
   type Requirements,
 } from '../../entities/course/model/schema';
@@ -70,22 +72,47 @@ const skeletonDraftSchema = z.object({
   issues: z.array(z.string()),
 });
 
+// Сводка, которую видят шаги модели: поля, подтверждённые методистом, без служебных данных курса.
+function summaryFields(requirements: Requirements) {
+  return {
+    request: requirements.request,
+    title: requirements.title,
+    template_id: requirements.template_id,
+    audience: requirements.audience,
+    entry_level: requirements.entry_level,
+    goal: requirements.goal,
+    total_hours: requirements.total_hours,
+    delivery: requirements.delivery,
+    assessment: requirements.assessment,
+    constraints: requirements.constraints,
+  };
+}
+
+export function useClarifyingQuestions() {
+  return useMutation({
+    mutationFn: async (requirements: Requirements): Promise<ClarifyingQuestion[]> =>
+      (
+        await postJson(
+          '/api/llm/clarify-questions',
+          summaryFields(requirements),
+          z.object({ questions: z.array(clarifyingQuestionSchema) }),
+        )
+      ).questions,
+    retry: false,
+  });
+}
+
 export function useSkeletonDraft() {
   return useMutation({
     mutationFn: async (requirements: Requirements): Promise<ModelDesign> => {
       const { design, issues } = await postJson(
         '/api/llm/draft-skeleton',
         {
-          request: requirements.request,
-          title: requirements.title,
-          template_id: requirements.template_id,
-          audience: requirements.audience,
-          entry_level: requirements.entry_level,
-          goal: requirements.goal,
-          total_hours: requirements.total_hours,
-          delivery: requirements.delivery,
-          assessment: requirements.assessment,
-          constraints: requirements.constraints,
+          ...summaryFields(requirements),
+          answers: (requirements.model_questions ?? []).flatMap((question) => {
+            const answer = requirements.clarification_answers?.[question.id]?.trim();
+            return answer ? [{ question: question.label, answer }] : [];
+          }),
         },
         skeletonDraftSchema,
       );

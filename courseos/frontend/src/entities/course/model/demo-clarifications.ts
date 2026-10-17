@@ -1,16 +1,13 @@
-import type { Requirements } from './schema';
+import type { ClarifyingQuestion, Requirements } from './schema';
 
-export type DemoClarification = {
-  id: string;
-  label: string;
-  options: string[];
-  recommended: string;
-  reason: string;
+// У заготовленных вопросов примеров ответ напрямую меняет конкретную тему,
+// а ответы на вопросы модели она сама учитывает при проектировании каркаса.
+export type DemoClarification = ClarifyingQuestion & {
   topic: number;
   practice: string;
 };
 
-// В боевом режиме вопросы будет формировать модель по запросу методиста.
+// Вопросы для пяти примеров; для своего запроса их формирует модель (model_questions).
 export const demoClarifications: Record<string, DemoClarification[]> = {
   python: [
     {
@@ -87,8 +84,14 @@ export const demoClarifications: Record<string, DemoClarification[]> = {
   ],
 };
 
-export function contentQuestions(requirements: Requirements) {
+export function demoContentQuestions(requirements: Requirements): DemoClarification[] {
   return demoClarifications[requirements.demo_example || ''] || [];
+}
+
+export function contentQuestions(requirements: Requirements): ClarifyingQuestion[] {
+  return requirements.demo_example
+    ? demoContentQuestions(requirements)
+    : (requirements.model_questions ?? []);
 }
 
 export function unansweredContentQuestions(requirements: Requirements) {
@@ -101,7 +104,7 @@ export function unansweredContentQuestions(requirements: Requirements) {
 }
 
 export function clarificationReason(requirements: Requirements, topic: number) {
-  return contentQuestions(requirements)
+  return demoContentQuestions(requirements)
     .filter((question) => question.topic === topic)
     .flatMap((question) => {
       const answer = requirements.clarification_answers?.[question.id]?.trim();

@@ -4,17 +4,18 @@ import {
   isProfessionalStandardReference,
   professionalStandardEvidence,
 } from '../../entities/course/model/professional-standards';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Pencil, ChevronDown, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { useCommand, useCourse } from '../../entities/course/api/provider';
+import { useApi, useCommand, useCourse } from '../../entities/course/api/provider';
 import { programVerdict, questionCount } from '../../entities/course/model/rules';
 import { kindLabels } from '../../entities/course/model/presets';
 import {
   inputSchema,
   type CourseView,
+  type ModelDesign,
   type Requirements,
 } from '../../entities/course/model/schema';
 import { JobPanel } from '../../entities/job/job-panel';
@@ -39,6 +40,7 @@ import { VerdictBanner } from './verdict-banner';
 import './decision.css';
 import './clarifications.css';
 import { ModelProvenance } from '../../features/model-steps/model-provenance';
+import { useModelAvailability, useSkeletonDraft } from '../../features/model-steps/model-steps';
 // Заготовка результата содержит хвост «и объясняет решение» — в таблицах он только удлиняет строку.
 function outcomeText(description: string) {
   return description.replace(/^(Выполняет учебную задачу «.+») и объясняет решение$/, '$1');
@@ -792,6 +794,32 @@ function Clarifications({ view }: { view: CourseView }) {
     defaultValues: view.requirements,
   });
   const command = useCommand();
+  const { api } = useApi();
+  const modelAvailable = useModelAvailability().data === true;
+  const skeletonDraft = useSkeletonDraft();
+  // Вопросы модели появляются только у своего запроса, созданного с моделью;
+  // каркас такого курса она проектирует уже с ответами методиста.
+  const withoutModel = useRef(false);
+  const draftWithModel =
+    modelAvailable &&
+    api.mode === 'demo' &&
+    !view.requirements.demo_example &&
+    view.requirements.model_questions !== undefined;
+  const submit = form.handleSubmit(async (values) => {
+    let modelDesign: ModelDesign | undefined;
+    if (draftWithModel && !withoutModel.current) {
+      try {
+        modelDesign = await skeletonDraft.mutateAsync(values);
+      } catch {
+        return; /* Ошибка и выбор «по шаблону» показываются над кнопкой. */
+      }
+    }
+    command.mutate({
+      action: 'clarify',
+      expected_version: view.latest_version,
+      payload: { ...values, model_design: modelDesign },
+    });
+  });
   return (
     <Panel
       title="Агент уточняет"
@@ -800,13 +828,7 @@ function Clarifications({ view }: { view: CourseView }) {
       <Form
         errors={form.formState.errors}
         submitCount={form.formState.submitCount}
-        onSubmit={form.handleSubmit((values) =>
-          command.mutate({
-            action: 'clarify',
-            expected_version: view.latest_version,
-            payload: values,
-          }),
-        )}
+        onSubmit={submit}
       >
         {view.questions.map((question) => {
           if (question.options) {
@@ -889,12 +911,35 @@ function Clarifications({ view }: { view: CourseView }) {
             гарантировать только объёмом часов.
           </Notice>
         )}
+        {skeletonDraft.isPending && (
+          <Notice>
+            GigaChat проектирует каркас с учётом ваших ответов: цель, результаты, модули и темы.
+            Часы распределит программа. Обычно это занимает 10–20 секунд.
+          </Notice>
+        )}
+        {skeletonDraft.isError && (
+          <>
+            <ErrorMessage error={skeletonDraft.error} />
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                withoutModel.current = true;
+                skeletonDraft.reset();
+                void submit();
+              }}
+            >
+              Построить каркас по шаблону без модели
+            </button>
+          </>
+        )}
         <ErrorMessage error={command.error} />
         <button
           className="primary"
           type="submit"
           disabled={
             command.isPending ||
+            skeletonDraft.isPending ||
             view.questions.some(
               (question) =>
                 question.options &&

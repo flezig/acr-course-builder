@@ -71,6 +71,15 @@ export const modelDesignSchema = z.object({
   }),
 });
 export type ModelDesign = z.infer<typeof modelDesignSchema>;
+// Уточняющие вопросы агента по содержанию своего запроса; ответы лежат в clarification_answers.
+export const clarifyingQuestionSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  reason: z.string(),
+  options: z.array(z.string()),
+  recommended: z.string(),
+});
+export type ClarifyingQuestion = z.infer<typeof clarifyingQuestionSchema>;
 export const requirementsSchema = z.object({
   demo_example: z.enum(['python', 'teachers', 'bank', 'security', 'devops']).optional(),
   clarification_answers: z.record(z.string(), z.string()).optional(),
@@ -95,6 +104,7 @@ export const requirementsSchema = z.object({
     .object({ request: z.string(), actor: z.string(), at: z.string() })
     .optional(),
   model_design: modelDesignSchema.optional(),
+  model_questions: z.array(clarifyingQuestionSchema).optional(),
   calendar: z.object({
     schedule: z
       .object({

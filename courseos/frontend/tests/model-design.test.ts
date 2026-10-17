@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DemoCourseApi } from '../src/entities/course/api/demo-course-api';
 import { makeSkeleton } from '../src/entities/course/model/factory';
 import { presets } from '../src/entities/course/model/presets';
 import { hourTotals } from '../src/entities/course/model/rules';
@@ -96,5 +97,78 @@ describe('каркас по структуре модели', () => {
     const skeleton = makeSkeleton(requirements('36'));
     expect(skeleton.topics).toHaveLength(4);
     expect(sumHours(skeleton.topics.map((t) => t.planned_total))).toBe('36');
+  });
+});
+
+class MemoryStorage {
+  private values = new Map<string, string>();
+  getItem(key: string) {
+    return this.values.get(key) ?? null;
+  }
+  setItem(key: string, value: string) {
+    this.values.set(key, value);
+  }
+  removeItem(key: string) {
+    this.values.delete(key);
+  }
+}
+
+describe('уточняющие вопросы модели', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-17T12:00:00Z'));
+    vi.stubGlobal('localStorage', new MemoryStorage());
+    vi.stubGlobal('navigator', {});
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('ждут ответа, а каркас строится из структуры, спроектированной с ответами', async () => {
+    const api = new DemoCourseApi();
+    const question = {
+      id: 'model-1',
+      label: 'Какой итоговый проект?',
+      reason: 'От ответа зависят темы второй половины курса.',
+      options: ['Скоринг', 'Отток клиентов'],
+      recommended: 'Скоринг',
+    };
+    const { model_design: _, ...withoutDesign } = requirements('72');
+    const started = await api.command({
+      action: 'start',
+      request_id: crypto.randomUUID(),
+      payload: { ...withoutDesign, model_questions: [question] },
+    });
+    vi.advanceTimersByTime(500);
+    const waiting = await api.get(started.course_id);
+    expect(waiting.job.status).toBe('awaiting_clarification');
+    expect(waiting.questions).toEqual([
+      expect.objectContaining({
+        field: 'clarification_answers.model-1',
+        label: question.label,
+        options: question.options,
+        recommended: 'Скоринг',
+      }),
+    ]);
+
+    await api.command({
+      action: 'clarify',
+      course_id: started.course_id,
+      expected_version: 0,
+      request_id: crypto.randomUUID(),
+      payload: {
+        ...waiting.requirements,
+        clarification_answers: { 'model-1': 'Отток клиентов' },
+        model_design: design,
+      },
+    });
+    vi.advanceTimersByTime(500);
+    const built = await api.get(started.course_id);
+    expect(built.questions).toEqual([]);
+    expect(built.snapshot!.skeleton.requirements.clarification_answers).toEqual({
+      'model-1': 'Отток клиентов',
+    });
+    expect(built.snapshot!.skeleton.topics.map((t) => t.title)).toContain('Pandas');
   });
 });
